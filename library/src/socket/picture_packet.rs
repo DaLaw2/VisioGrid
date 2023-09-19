@@ -36,12 +36,14 @@ impl Packet for PicturePacket {
     }
 
     fn get_info(&self) -> String {
-        let length_string = String::from_utf8_lossy(&*self.packet_length.clone());
-        let id_string = String::from_utf8_lossy(&*self.packet_id.clone());
+        let length_string = self.packet_length.clone();
+        let id_string = self.packet_id.clone();
+        let length_string = String::from_utf8_lossy(&*length_string);
+        let id_string = String::from_utf8_lossy(&*id_string);
         format!("{} | {} | Data Length: {}", length_string.to_string(), id_string.to_string(), self.packet_data.len())
     }
 
-    fn equal(&self, packet_type: &PacketType) -> bool {
+    fn equal(&self, packet_type: PacketType) -> bool {
         self.packet_type.eq(&packet_type)
     }
 }
