@@ -1,25 +1,24 @@
 use crate::socket::definition::{Packet, PacketType};
 
-pub struct InferenceTypePacket {
+pub struct StopInferenceReturnPacket {
     packet_length: Vec<u8>,
     packet_id: Vec<u8>,
     packet_data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl InferenceTypePacket {
-    // 記得改成傳入type enum
-    pub fn new(inference_type: usize) -> InferenceTypePacket {
-        InferenceTypePacket {
-            packet_length: Self::length_to_byte(8 + 2 + inference_type.to_string().len()),
-            packet_id: PacketType::InferenceTypePacket.get_id(),
-            packet_data: inference_type.to_string().as_bytes().to_vec(),
-            packet_type: PacketType::InferenceTypePacket
+impl StopInferenceReturnPacket {
+    pub fn new(amount: usize) -> StopInferenceReturnPacket {
+        StopInferenceReturnPacket {
+            packet_length: Self::length_to_byte(8 + 2),
+            packet_id: PacketType::StopInferenceReturnPacket.get_id(),
+            packet_data: Vec::new(),
+            packet_type: PacketType::StopInferenceReturnPacket
         }
     }
 }
 
-impl Packet for InferenceTypePacket {
+impl Packet for StopInferenceReturnPacket {
     fn get_length_byte(&self) -> Vec<u8> {
         self.packet_length.clone()
     }

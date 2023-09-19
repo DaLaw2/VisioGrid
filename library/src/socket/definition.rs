@@ -1,14 +1,19 @@
+pub struct BoundingBox {
+    pub x1: f64,
+    pub x2: f64,
+    pub y1: f64,
+    pub y2: f64,
+    pub confidence: f64,
+    pub name: String
+}
+
 pub trait Packet {
     fn get_length_byte(&self) -> Vec<u8>;
     fn get_id_byte(&self) -> Vec<u8>;
     fn get_data_byte(&self) -> Vec<u8>;
     fn get_data_string(&self) -> String;
     fn length_to_byte(length: usize) -> Vec<u8> {
-        let mut byte: Vec<u8> = Vec::new();
-        for digital in (0..8).rev() {
-            byte.push(((length >> (digital * 8)) & 0xFF) as u8);
-        }
-        byte
+        length.to_be_bytes().to_vec()
     }
     fn get_info(&self) -> String;
     fn equal(&self, packet_type: PacketType) -> bool;
@@ -17,11 +22,11 @@ pub trait Packet {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum PacketType {
     Empty,
-    PicturePacket,
+    BoundingBoxPacket,
+    BoundingBoxSizePacket,
     DataChannelPortPacket,
     InferenceTypePacket,
-    BoundingBoxSizePacket,
-    BoundingBoxPacket,
+    PicturePacket,
     StopInferencePacket,
     StopInferenceReturnPacket
 }
@@ -30,11 +35,11 @@ impl PacketType {
     pub fn get_id(&self) -> Vec<u8> {
         let id: usize = match self {
             PacketType::Empty => 0,
-            PacketType::PicturePacket => 1,
-            PacketType::DataChannelPortPacket => 2,
-            PacketType::InferenceTypePacket => 3,
-            PacketType::BoundingBoxSizePacket => 4,
-            PacketType::BoundingBoxPacket => 5,
+            PacketType::BoundingBoxPacket => 1,
+            PacketType::BoundingBoxSizePacket => 2,
+            PacketType::DataChannelPortPacket => 3,
+            PacketType::InferenceTypePacket => 4,
+            PacketType::PicturePacket => 5,
             PacketType::StopInferencePacket => 6,
             PacketType::StopInferenceReturnPacket => 7,
         };
@@ -47,11 +52,11 @@ impl PacketType {
             id = id * 10 + digit as usize;
         }
         match id {
-            1 => PacketType::PicturePacket,
-            2 => PacketType::DataChannelPortPacket,
-            3 => PacketType::InferenceTypePacket,
-            4 => PacketType::BoundingBoxSizePacket,
-            5 => PacketType::BoundingBoxPacket,
+            1 => PacketType::BoundingBoxPacket,
+            2 => PacketType::BoundingBoxSizePacket,
+            3 => PacketType::DataChannelPortPacket,
+            4 => PacketType::InferenceTypePacket,
+            5 => PacketType::PicturePacket,
             6 => PacketType::StopInferencePacket,
             7 => PacketType::StopInferenceReturnPacket,
             _ => PacketType::Empty
