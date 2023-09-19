@@ -1,8 +1,16 @@
 pub trait Packet {
-    fn get_length(&self) -> Vec<u8>;
-    fn get_id(&self) -> Vec<u8>;
-    fn get_data(&self) -> Vec<u8>;
-    fn
+    fn get_length_byte(&self) -> Vec<u8>;
+    fn get_id_byte(&self) -> Vec<u8>;
+    fn get_data_byte(&self) -> Vec<u8>;
+    fn get_data_string(&self) -> String;
+    fn length_to_byte(length: usize) -> Vec<u8> {
+        let mut byte: Vec<u8> = Vec::new();
+        for digital in (0..8).rev() {
+            byte.push(((length >> (digital * 8)) & 0xFF) as u8);
+        }
+        byte
+    }
+    fn get_info(&self) -> String;
     fn equal(&self, packet_type: PacketType) -> bool;
 }
 
@@ -30,16 +38,15 @@ impl PacketType {
             PacketType::StopInferencePacket => 6,
             PacketType::StopInferenceReturnPacket => 7,
         };
-        vec![(id / 10) as u8 + 48, (id % 10) as u8 + 48]
+        vec![id as u8]
     }
 
     pub fn get_type(byte: Vec<u8>) -> PacketType {
         let mut id = 0_usize;
         for &digit in byte.iter() {
-            id = id * 10 + (digit - 48) as usize;
+            id = id * 10 + digit as usize;
         }
         match id {
-            0 => PacketType::Empty,
             1 => PacketType::PicturePacket,
             2 => PacketType::DataChannelPortPacket,
             3 => PacketType::InferenceTypePacket,
