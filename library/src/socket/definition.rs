@@ -1,12 +1,3 @@
-pub struct BoundingBox {
-    pub x1: f64,
-    pub x2: f64,
-    pub y1: f64,
-    pub y2: f64,
-    pub confidence: f64,
-    pub name: String
-}
-
 pub trait Packet {
     fn get_length_byte(&self) -> Vec<u8>;
     fn get_id_byte(&self) -> Vec<u8>;
