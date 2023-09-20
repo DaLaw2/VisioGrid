@@ -1,4 +1,5 @@
-use crate::socket::definition::{Packet, PacketType};
+use crate::socket::packet::base_packet::BasePacket;
+use crate::socket::packet::definition::{Packet, PacketType};
 
 pub struct DataChannelPortPacket {
     packet_length: Vec<u8>,
@@ -10,9 +11,18 @@ pub struct DataChannelPortPacket {
 impl DataChannelPortPacket {
     pub fn new(port: usize) -> DataChannelPortPacket {
         DataChannelPortPacket {
-            packet_length: Self::length_to_byte(8 + 2 + port.to_string().len()),
+            packet_length: Self::length_to_byte(8 + 2 + port.to_string().as_bytes().to_vec().len()),
             packet_id: PacketType::DataChannelPortPacket.get_id(),
             packet_data: port.to_string().as_bytes().to_vec(),
+            packet_type: PacketType::DataChannelPortPacket
+        }
+    }
+
+    pub fn from_base_packet(base_packet: BasePacket) -> DataChannelPortPacket {
+        DataChannelPortPacket {
+            packet_length: base_packet.packet_length,
+            packet_id: base_packet.packet_id,
+            packet_data: base_packet.packet_data,
             packet_type: PacketType::DataChannelPortPacket
         }
     }
@@ -36,11 +46,11 @@ impl Packet for DataChannelPortPacket {
     }
 
     fn get_info(&self) -> String {
-        let length_string = self.packet_length.clone();
-        let id_string = self.packet_id.clone();
-        let length_string = String::from_utf8_lossy(&*length_string);
-        let id_string = String::from_utf8_lossy(&*id_string);
-        format!("{} | {} | Data Length: {}", length_string.to_string(), id_string.to_string(), self.packet_data.len())
+        let mut length_array = [0_u8; 8];
+        let mut id_array = [0_u8; 8];
+        length_array.copy_from_slice(&self.packet_length);
+        id_array.copy_from_slice(&self.packet_id);
+        format!("{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.packet_data.len())
     }
 
     fn equal(&self, packet_type: PacketType) -> bool {

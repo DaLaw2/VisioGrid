@@ -12,7 +12,7 @@ pub trait Packet {
 
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum PacketType {
-    Empty,
+    BasePacket,
     BoundingBoxPacket,
     BoundingBoxSizePacket,
     DataChannelPortPacket,
@@ -25,7 +25,7 @@ pub enum PacketType {
 impl PacketType {
     pub fn get_id(&self) -> Vec<u8> {
         let id: usize = match self {
-            PacketType::Empty => 0,
+            PacketType::BasePacket => 0,
             PacketType::BoundingBoxPacket => 1,
             PacketType::BoundingBoxSizePacket => 2,
             PacketType::DataChannelPortPacket => 3,
@@ -34,7 +34,7 @@ impl PacketType {
             PacketType::StopInferencePacket => 6,
             PacketType::StopInferenceReturnPacket => 7,
         };
-        vec![id as u8]
+        vec![(id / 10) as u8, (id % 10) as u8]
     }
 
     pub fn get_type(byte: Vec<u8>) -> PacketType {
@@ -50,7 +50,7 @@ impl PacketType {
             5 => PacketType::PicturePacket,
             6 => PacketType::StopInferencePacket,
             7 => PacketType::StopInferenceReturnPacket,
-            _ => PacketType::Empty
+            _ => PacketType::BasePacket
         }
     }
 }
