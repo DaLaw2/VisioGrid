@@ -1,8 +1,8 @@
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream, SocketAddr};
-use crate::socket::definition;
+use crate::connection::socket::definition;
 use crate::logger::logger::{Logger, LogLevel};
-use crate::socket::packet::base_packet::BasePacket;
+use crate::connection::packet::base_packet::BasePacket;
 
 struct Sender {
     id: usize,
@@ -43,6 +43,7 @@ impl definition::Sender for Sender {
         self.stream.write_all(&packet.length)?;
         self.stream.write_all(&packet.id)?;
         self.stream.write_all(&packet.data)?;
+        self.stream.flush()?;
         Ok(())
     }
 }
@@ -77,16 +78,16 @@ impl definition::Receiver for Receiver {
     }
 
     fn receive_raw_data(&self) -> io::Result<Vec<u8>> {
-        let mut buffer = [0_u8; 1024];
-        let mut result = Vec::new();
         if let Some(ref mut stream) = self.stream {
-            loop {
-                let size = stream.read(&mut buffer)?;
-                if size == 0 {
-                    break;
-                }
-                result.extend_from_slice(&buffer);
-            }
+            let mut length_byte = [0_u8; 8];
+            let mut id_byte = vec![0_u8; 2];
+            stream.read_exact(&mut length_byte)?;
+            stream.read_exact(&mut id_byte)?;
+            let length = usize::from_be_bytes(length_byte);
+            let mut data_byte = vec![0_u8; length];
+            stream.read_exact(&mut data_byte)?;
+            let mut result = length_byte.to_vec();
+            result.extend(id_byte).extend(data_byte);
             Ok(result)
         } else {
             let message = format!("Fail receive data from {:?}.", self.address);
@@ -97,13 +98,15 @@ impl definition::Receiver for Receiver {
 
     fn receive_packet(&self) -> io::Result<BasePacket> {
         if let Some(ref mut stream) = self.stream {
-            let mut length = vec![0_u8; 8];
-            let mut id = vec![0_u8; 2];
-            let mut data = Vec::new();
-            stream.read_exact(&mut length)?;
-            stream.read_exact(&mut id)?;
-            stream.read_to_end(&mut data)?;
-            Ok(BasePacket::new(length, id, data))
+            let mut length_byte = [0_u8; 8];
+            let mut id_byte = vec![0_u8; 2];
+            stream.read_exact(&mut length_byte)?;
+            stream.read_exact(&mut id_byte)?;
+            let length = usize::from_be_bytes(length_byte);
+            let mut data_byte = vec![0_u8; length];
+            stream.read_exact(&mut data_byte)?;
+            let mut length_byte = length_byte.to_vec();
+            Ok(BasePacket::new(length_byte, id_byte, data_byte))
         } else {
             let message = format!("Fail receive data from {:?}.", self.address);
             Logger::instance().append_system_log(LogLevel::ERROR, message);

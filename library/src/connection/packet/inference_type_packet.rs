@@ -1,34 +1,35 @@
-use crate::socket::packet::base_packet::BasePacket;
-use crate::socket::packet::definition::{Packet, PacketType};
+use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::definition::{Packet, PacketType};
 
-pub struct StopInferencePacket {
+pub struct InferenceTypePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl StopInferencePacket {
-    pub fn new() -> StopInferencePacket {
-        StopInferencePacket {
-            length: Self::length_to_byte(8 + 2),
-            id: PacketType::StopInferencePacket.get_id(),
-            data: Vec::new(),
-            packet_type: PacketType::StopInferencePacket
+impl InferenceTypePacket {
+    // 記得改成傳入type enum
+    pub fn new(inference_type: usize) -> InferenceTypePacket {
+        InferenceTypePacket {
+            length: Self::length_to_byte(8 + 2 + inference_type.to_string().as_bytes().to_vec().len()),
+            id: PacketType::InferenceTypePacket.get_id(),
+            data: inference_type.to_string().as_bytes().to_vec(),
+            packet_type: PacketType::InferenceTypePacket
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> StopInferencePacket {
-        StopInferencePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> InferenceTypePacket {
+        InferenceTypePacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::StopInferencePacket
+            packet_type: PacketType::InferenceTypePacket
         }
     }
 }
 
-impl Packet for StopInferencePacket {
+impl Packet for InferenceTypePacket {
     fn get_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }

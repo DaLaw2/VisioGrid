@@ -1,34 +1,34 @@
-use crate::socket::packet::base_packet::BasePacket;
-use crate::socket::packet::definition::{Packet, PacketType};
+use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::definition::{Packet, PacketType};
 
-pub struct StopInferenceReturnPacket {
+pub struct BoundingBoxSizePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl StopInferenceReturnPacket {
-    pub fn new() -> StopInferenceReturnPacket {
-        StopInferenceReturnPacket {
-            length: Self::length_to_byte(8 + 2),
-            id: PacketType::StopInferenceReturnPacket.get_id(),
-            data: Vec::new(),
-            packet_type: PacketType::StopInferenceReturnPacket
+impl BoundingBoxSizePacket {
+    pub fn new(amount: usize) -> BoundingBoxSizePacket {
+        BoundingBoxSizePacket {
+            length: Self::length_to_byte(8 + 2 + amount.to_string().len()),
+            id: PacketType::BoundingBoxSizePacket.get_id(),
+            data: amount.to_string().as_bytes().to_vec(),
+            packet_type: PacketType::BoundingBoxSizePacket
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> StopInferenceReturnPacket {
-        StopInferenceReturnPacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> BoundingBoxSizePacket {
+        BoundingBoxSizePacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::StopInferenceReturnPacket
+            packet_type: PacketType::BoundingBoxSizePacket
         }
     }
 }
 
-impl Packet for StopInferenceReturnPacket {
+impl Packet for BoundingBoxSizePacket {
     fn get_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }

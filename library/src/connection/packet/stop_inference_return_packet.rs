@@ -1,34 +1,34 @@
-use crate::socket::packet::base_packet::BasePacket;
-use crate::socket::packet::definition::{Packet, PacketType};
+use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::definition::{Packet, PacketType};
 
-pub struct DataChannelPortPacket {
+pub struct StopInferenceReturnPacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl DataChannelPortPacket {
-    pub fn new(port: usize) -> DataChannelPortPacket {
-        DataChannelPortPacket {
-            length: Self::length_to_byte(8 + 2 + port.to_string().as_bytes().to_vec().len()),
-            id: PacketType::DataChannelPortPacket.get_id(),
-            data: port.to_string().as_bytes().to_vec(),
-            packet_type: PacketType::DataChannelPortPacket
+impl StopInferenceReturnPacket {
+    pub fn new() -> StopInferenceReturnPacket {
+        StopInferenceReturnPacket {
+            length: Self::length_to_byte(8 + 2),
+            id: PacketType::StopInferenceReturnPacket.get_id(),
+            data: Vec::new(),
+            packet_type: PacketType::StopInferenceReturnPacket
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> DataChannelPortPacket {
-        DataChannelPortPacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> StopInferenceReturnPacket {
+        StopInferenceReturnPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::DataChannelPortPacket
+            packet_type: PacketType::StopInferenceReturnPacket
         }
     }
 }
 
-impl Packet for DataChannelPortPacket {
+impl Packet for StopInferenceReturnPacket {
     fn get_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }

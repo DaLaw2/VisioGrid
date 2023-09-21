@@ -1,34 +1,34 @@
-use crate::socket::packet::base_packet::BasePacket;
-use crate::socket::packet::definition::{Packet, PacketType};
+use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::definition::{Packet, PacketType};
 
-pub struct PicturePacket {
+pub struct DataChannelPortPacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl PicturePacket {
-    pub fn new(picture: Vec<u8>) -> PicturePacket {
-        PicturePacket {
-            length: Self::length_to_byte(8 + 1 + picture.len()),
-            id: PacketType::PicturePacket.get_id(),
-            data: picture,
-            packet_type: PacketType::PicturePacket
+impl DataChannelPortPacket {
+    pub fn new(port: usize) -> DataChannelPortPacket {
+        DataChannelPortPacket {
+            length: Self::length_to_byte(8 + 2 + port.to_string().as_bytes().to_vec().len()),
+            id: PacketType::DataChannelPortPacket.get_id(),
+            data: port.to_string().as_bytes().to_vec(),
+            packet_type: PacketType::DataChannelPortPacket
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> PicturePacket {
-        PicturePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> DataChannelPortPacket {
+        DataChannelPortPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::PicturePacket
+            packet_type: PacketType::DataChannelPortPacket
         }
     }
 }
 
-impl Packet for PicturePacket {
+impl Packet for DataChannelPortPacket {
     fn get_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }

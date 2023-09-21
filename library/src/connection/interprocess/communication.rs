@@ -1,6 +1,6 @@
+use std::fs;
 use std::thread;
 use std::time::Duration;
-use std::process::Command;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -137,7 +137,7 @@ impl Receiver {
             return Ok(());
         }
         self.stop_signal.store(true, Ordering::Relaxed);
-        Command::new("rm").arg(format!("/tmp/{}.sock", self.socket_name)).spawn().map_err(|_| Error::FailDestroyConnect)?;
+        fs::remove_file(format!("/tmp/{}.sock", self.socket_name)).map_err(|_| Error::FailDestroyConnect)?;
         self.is_connected = false;
         Ok(())
     }

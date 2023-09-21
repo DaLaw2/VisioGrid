@@ -1,35 +1,34 @@
-use crate::socket::packet::base_packet::BasePacket;
-use crate::socket::packet::definition::{Packet, PacketType};
+use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::definition::{Packet, PacketType};
 
-pub struct InferenceTypePacket {
+pub struct PicturePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl InferenceTypePacket {
-    // 記得改成傳入type enum
-    pub fn new(inference_type: usize) -> InferenceTypePacket {
-        InferenceTypePacket {
-            length: Self::length_to_byte(8 + 2 + inference_type.to_string().as_bytes().to_vec().len()),
-            id: PacketType::InferenceTypePacket.get_id(),
-            data: inference_type.to_string().as_bytes().to_vec(),
-            packet_type: PacketType::InferenceTypePacket
+impl PicturePacket {
+    pub fn new(picture: Vec<u8>) -> PicturePacket {
+        PicturePacket {
+            length: Self::length_to_byte(8 + 1 + picture.len()),
+            id: PacketType::PicturePacket.get_id(),
+            data: picture,
+            packet_type: PacketType::PicturePacket
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> InferenceTypePacket {
-        InferenceTypePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> PicturePacket {
+        PicturePacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::InferenceTypePacket
+            packet_type: PacketType::PicturePacket
         }
     }
 }
 
-impl Packet for InferenceTypePacket {
+impl Packet for PicturePacket {
     fn get_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }

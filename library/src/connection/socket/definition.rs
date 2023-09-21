@@ -1,5 +1,5 @@
 use std::io;
-use crate::socket::packet::base_packet::BasePacket;
+use crate::connection::packet::base_packet::BasePacket;
 
 pub trait Sender {
     fn get_ip(&self) -> String;

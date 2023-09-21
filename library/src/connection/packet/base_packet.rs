@@ -1,4 +1,4 @@
-use crate::socket::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{Packet, PacketType};
 
 pub struct BasePacket {
     pub length: Vec<u8>,
@@ -28,11 +28,11 @@ impl Packet for BasePacket {
     }
 
     fn get_data_byte(&self) -> Vec<u8> {
-        self.packet_data.clone()
+        self.data.clone()
     }
 
     fn get_data_string(&self) -> String {
-        String::from_utf8_lossy(&*self.packet_data.clone()).to_string()
+        String::from_utf8_lossy(&*self.data.clone()).to_string()
     }
 
     fn get_info(&self) -> String {
@@ -40,7 +40,7 @@ impl Packet for BasePacket {
         let mut id_array = [0_u8; 8];
         length_array.copy_from_slice(&self.length);
         id_array.copy_from_slice(&self.id);
-        format!("{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.packet_data.len())
+        format!("{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.data.len())
     }
 
     fn equal(&self, packet_type: PacketType) -> bool {
