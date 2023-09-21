@@ -6,6 +6,7 @@ use crate::manager::computing_node::ComputingNode;
 
 lazy_static! {
     static ref GLOBAL_LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
+
 }
 
 #[derive(Copy, Clone)]
