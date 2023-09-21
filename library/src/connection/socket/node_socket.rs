@@ -1,7 +1,6 @@
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream, SocketAddr};
 use crate::connection::socket::definition;
-use crate::logger::logger::{Logger, LogLevel};
 use crate::connection::packet::base_packet::BasePacket;
 
 struct Sender {
@@ -51,7 +50,6 @@ impl definition::Sender for Sender {
 struct Receiver {
     id: usize,
     address: SocketAddr,
-    listener: TcpListener,
     stream: TcpStream
 }
 
@@ -62,7 +60,6 @@ impl Receiver {
         Ok(Self {
             id,
             address,
-            listener,
             stream
         })
     }
@@ -77,40 +74,29 @@ impl definition::Receiver for Receiver {
         self.id
     }
 
-    fn receive_raw_data(&self) -> io::Result<Vec<u8>> {
-        if let Some(ref mut stream) = self.stream {
-            let mut length_byte = [0_u8; 8];
-            let mut id_byte = vec![0_u8; 2];
-            stream.read_exact(&mut length_byte)?;
-            stream.read_exact(&mut id_byte)?;
-            let length = usize::from_be_bytes(length_byte);
-            let mut data_byte = vec![0_u8; length];
-            stream.read_exact(&mut data_byte)?;
-            let mut result = length_byte.to_vec();
-            result.extend(id_byte).extend(data_byte);
-            Ok(result)
-        } else {
-            let message = format!("Fail receive data from {:?}.", self.address);
-            Logger::instance().append_system_log(LogLevel::ERROR, message);
-            Err(io::Error::new(io::ErrorKind::BrokenPipe, "No stream available."))
-        }
+    fn receive_raw_data(&mut self) -> io::Result<Vec<u8>> {
+        let mut length_byte = [0_u8; 8];
+        let mut id_byte = vec![0_u8; 2];
+        self.stream.read_exact(&mut length_byte)?;
+        self.stream.read_exact(&mut id_byte)?;
+        let length = usize::from_be_bytes(length_byte);
+        let mut data_byte = vec![0_u8; length - 10];
+        self.stream.read_exact(&mut data_byte)?;
+        let mut result = length_byte.to_vec();
+        result.extend(id_byte);
+        result.extend(data_byte);
+        Ok(result)
     }
 
-    fn receive_packet(&self) -> io::Result<BasePacket> {
-        if let Some(ref mut stream) = self.stream {
-            let mut length_byte = [0_u8; 8];
-            let mut id_byte = vec![0_u8; 2];
-            stream.read_exact(&mut length_byte)?;
-            stream.read_exact(&mut id_byte)?;
-            let length = usize::from_be_bytes(length_byte);
-            let mut data_byte = vec![0_u8; length];
-            stream.read_exact(&mut data_byte)?;
-            let mut length_byte = length_byte.to_vec();
-            Ok(BasePacket::new(length_byte, id_byte, data_byte))
-        } else {
-            let message = format!("Fail receive data from {:?}.", self.address);
-            Logger::instance().append_system_log(LogLevel::ERROR, message);
-            Err(io::Error::new(io::ErrorKind::BrokenPipe, "No stream available."))
-        }
+    fn receive_packet(&mut self) -> io::Result<BasePacket> {
+        let mut length_byte = [0_u8; 8];
+        let mut id_byte = vec![0_u8; 2];
+        self.stream.read_exact(&mut length_byte)?;
+        self.stream.read_exact(&mut id_byte)?;
+        let length = usize::from_be_bytes(length_byte);
+        let mut data_byte = vec![0_u8; length - 10];
+        self.stream.read_exact(&mut data_byte)?;
+        let length_byte = length_byte.to_vec();
+        Ok(BasePacket::new(length_byte, id_byte, data_byte))
     }
 }

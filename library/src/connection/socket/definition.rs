@@ -11,6 +11,6 @@ pub trait Sender {
 pub trait Receiver {
     fn get_ip(&self) -> String;
     fn get_socket_id(&self) -> usize;
-    fn receive_raw_data(&self) -> io::Result<Vec<u8>>;
-    fn receive_packet(&self) -> io::Result<BasePacket>;
+    fn receive_raw_data(&mut self) -> io::Result<Vec<u8>>;
+    fn receive_packet(&mut self) -> io::Result<BasePacket>;
 }

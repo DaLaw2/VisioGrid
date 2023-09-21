@@ -1,6 +1,5 @@
 use std::fs;
 use std::thread;
-use std::time::Duration;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -112,9 +111,7 @@ impl Receiver {
                 let mut buffer = [0; 1024];
                 match connection.read(&mut buffer) {
                     Ok(bytes_read) => {
-                        if bytes_read == 0 {
-                            thread::sleep(Duration::from_millis(10));
-                        } else {
+                        if bytes_read != 0 {
                             let message = String::from_utf8_lossy(&buffer[..bytes_read]);
                             let mut received_data = received_data.lock().map_err(|_| Error::FailLockSharedResource)?;
                             received_data.push_back(message.to_string());
