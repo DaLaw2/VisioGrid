@@ -2,7 +2,6 @@ use chrono::Local;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
-use crate::manager::computing_node::ComputingNode;
 
 lazy_static! {
     static ref GLOBAL_LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
@@ -59,10 +58,9 @@ impl Logger {
         self.global_log.push_str(&log_entry);
     }
 
-    pub fn append_node_log(&mut self, node: &ComputingNode, log_level: LogLevel, message: String) {
+    pub fn append_node_log(&mut self, node_id: usize, log_level: LogLevel, message: String) {
         let date = Local::now();
         let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
-        let node_id = node.get_node_id();
         if !self.node_log.contains_key(&node_id) {
             self.node_log.insert(node_id, String::new());
         }
@@ -83,8 +81,7 @@ impl Logger {
         &self.global_log
     }
 
-    pub fn get_node_log(&self, node: &ComputingNode) -> &String {
-        let node_id = node.get_node_id();
+    pub fn get_node_log(&self, node_id: usize) -> &String {
         let node_log = self.node_log.get(&node_id);
         match node_log {
             Some(str) => str,
