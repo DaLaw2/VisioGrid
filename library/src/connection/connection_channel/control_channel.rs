@@ -1,33 +1,37 @@
-use std::sync::Arc;
-use std::net::TcpStream;
-use std::thread::JoinHandle;
-use std::sync::atomic::AtomicBool;
+use tokio::sync::mpsc;
+use tokio::net::TcpStream;
+use crate::logger::logger::Logger;
+use crate::logger::logger::LogLevel;
 use crate::connection::packet::definition::Packet;
 use crate::connection::connection_channel::definition;
 
 struct ControlChannel {
     node_id: usize,
     socket: TcpStream,
-    sender_handle: JoinHandle<()>,
-    receiver_handle: JoinHandle<()>,
-    pub stop_signal: Arc<AtomicBool>,
+    sender: mpsc::UnboundedSender<Option<Box<dyn Packet + Send>>>,
+    receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>
 }
 
 impl ControlChannel {
     pub fn new(node_id: usize, socket: TcpStream) -> Self {
+        let (send_tx, send_rx) = mpsc::unbounded_channel();
+        let (recv_tx, recv_rx) = mpsc::unbounded_channel();
         Self {
             node_id,
             socket,
-            sender_handle: None,
-            receiver_handle: None,
-            stop_signal: Arc::new(AtomicBool::new(false))
+            sender: send_tx,
+            receiver: recv_rx
         }
+
     }
 }
 
 impl definition::ConnectChannel for ControlChannel {
     fn disconnect(&mut self) {
-        todo!()
+        match self.sender.send(None) {
+            Ok(_) => (),
+            Err(_) => Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail destroy Control Channel.".to_string())
+        }
     }
 
     fn process_send<T: Packet>(&mut self, packet: T) {
@@ -35,6 +39,6 @@ impl definition::ConnectChannel for ControlChannel {
     }
 
     fn process_receive<T: Packet>(&mut self, packet: T) {
-        todo!()
+       todo!()
     }
 }

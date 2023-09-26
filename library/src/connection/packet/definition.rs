@@ -1,4 +1,6 @@
+use std::any::Any;
 pub trait Packet {
+    fn as_any(&self) -> &dyn Any;
     fn get_length_byte(&self) -> Vec<u8>;
     fn get_id_byte(&self) -> Vec<u8>;
     fn get_data_byte(&self) -> Vec<u8>;
@@ -6,7 +8,6 @@ pub trait Packet {
     fn length_to_byte(length: usize) -> Vec<u8> {
         length.to_be_bytes().to_vec()
     }
-    fn get_info(&self) -> String;
     fn equal(&self, packet_type: PacketType) -> bool;
 }
 

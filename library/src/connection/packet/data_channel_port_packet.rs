@@ -1,3 +1,6 @@
+use std::fmt;
+use std::any::Any;
+use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType};
 
@@ -28,7 +31,21 @@ impl DataChannelPortPacket {
     }
 }
 
+impl fmt::Display for DataChannelPortPacket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut length_array = [0_u8; 8];
+        let mut id_array = [0_u8; 8];
+        length_array.copy_from_slice(&self.length);
+        id_array.copy_from_slice(&self.id);
+        write!(f, "{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.data.len())
+    }
+}
+
 impl Packet for DataChannelPortPacket {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn get_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }
@@ -43,14 +60,6 @@ impl Packet for DataChannelPortPacket {
 
     fn get_data_string(&self) -> String {
         String::from_utf8_lossy(&*self.data.clone()).to_string()
-    }
-
-    fn get_info(&self) -> String {
-        let mut length_array = [0_u8; 8];
-        let mut id_array = [0_u8; 8];
-        length_array.copy_from_slice(&self.length);
-        id_array.copy_from_slice(&self.id);
-        format!("{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.data.len())
     }
 
     fn equal(&self, packet_type: PacketType) -> bool {

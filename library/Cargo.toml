@@ -9,3 +9,4 @@ edition = "2021"
 chrono = "0.4.31"
 lazy_static = "1.4.0"
 interprocess = "1.2.1"
+tokio = { version = "1.32.0", features = ["full"] }
