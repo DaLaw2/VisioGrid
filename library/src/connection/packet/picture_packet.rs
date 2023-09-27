@@ -2,7 +2,7 @@ use std::fmt;
 use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
 pub struct PicturePacket {
     length: Vec<u8>,
@@ -14,7 +14,7 @@ pub struct PicturePacket {
 impl PicturePacket {
     pub fn new(picture: Vec<u8>) -> PicturePacket {
         PicturePacket {
-            length: Self::length_to_byte(8 + 1 + picture.len()),
+            length: length_to_byte(8 + 2 + picture.len()),
             id: PacketType::PicturePacket.get_id(),
             data: picture,
             packet_type: PacketType::PicturePacket

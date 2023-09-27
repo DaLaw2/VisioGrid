@@ -2,7 +2,7 @@ use std::fmt;
 use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
 pub struct InferenceTypePacket {
     length: Vec<u8>,
@@ -15,7 +15,7 @@ impl InferenceTypePacket {
     // 記得改成傳入type enum
     pub fn new(inference_type: usize) -> InferenceTypePacket {
         InferenceTypePacket {
-            length: Self::length_to_byte(8 + 2 + inference_type.to_string().as_bytes().to_vec().len()),
+            length: length_to_byte(8 + 2 + inference_type.to_string().as_bytes().to_vec().len()),
             id: PacketType::InferenceTypePacket.get_id(),
             data: inference_type.to_string().as_bytes().to_vec(),
             packet_type: PacketType::InferenceTypePacket

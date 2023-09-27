@@ -2,7 +2,7 @@ use std::fmt;
 use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
 pub struct StopInferencePacket {
     length: Vec<u8>,
@@ -14,7 +14,7 @@ pub struct StopInferencePacket {
 impl StopInferencePacket {
     pub fn new() -> StopInferencePacket {
         StopInferencePacket {
-            length: Self::length_to_byte(8 + 2),
+            length: length_to_byte(8 + 2),
             id: PacketType::StopInferencePacket.get_id(),
             data: Vec::new(),
             packet_type: PacketType::StopInferencePacket

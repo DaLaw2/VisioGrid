@@ -1,24 +1,21 @@
 use tokio::sync::mpsc;
+use crate::logger::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
 use crate::connection::socket::node_socket::NodeSocket;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::picture_packet::PicturePacket;
-use crate::connection::connection_channel::definition::ConnectChannel;
-use crate::connection::packet::inference_type_packet::InferenceTypePacket;
-use crate::connection::packet::stop_inference_packet::StopInferencePacket;
-use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 
-
-pub struct SendThread<T: ConnectChannel> {
+pub struct SendThread {
+    node_id: usize,
     socket: NodeSocket,
-    receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>,
+    receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>
 }
 
-impl<T: ConnectChannel> SendThread<T> {
-    pub fn new(socket: NodeSocket, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet>>>) -> Self {
+impl SendThread {
+    pub fn new(node_id: usize, socket: NodeSocket, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>) -> Self {
         Self {
+            node_id,
             socket,
-            receiver
+            receiver,
         }
     }
 
@@ -26,16 +23,20 @@ impl<T: ConnectChannel> SendThread<T> {
         while let Some(packet) = self.receiver.recv().await {
             match packet {
                 Some(packet) => {
-                    if let Ok(packet) = packet.as_any().downcast_ref::<BasePacket>() {
-                        self.socket.send_packet(packet)
-                    } else if let Ok(packet) = packet.as_any().downcast_ref::<DataChannelPortPacket>() {
-                        self.socket.send_packet(packet)
-                    } else if let Ok(packet) = packet.as_any().downcast_ref::<InferenceTypePacket>() {
-                        self.socket.send_packet(packet)
-                    } else if let Ok(packet) = packet.as_any().downcast_ref::<PicturePacket>() {
-                        self.socket.send_packet(packet)
-                    } else if let Ok(packet) = packet.as_any().downcast_ref::<StopInferencePacket>() {
-                        self.socket.send_packet(packet)
+                    match packet.as_any().downcast_ref::<BasePacket>() {
+                        Some(packet) => {
+                            match self.socket.send_packet(packet).await {
+                                Ok(_) => Logger::instance().append_node_log(self.node_id, LogLevel::INFO, format!("Packet sent.\n{}", packet.to_string())),
+                                Err(_) => {
+                                    Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet.".to_string());
+                                    Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail send paket.", self.node_id));
+                                }
+                            }
+                        },
+                        None => {
+                            Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail parse packet.".to_string());
+                            Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail parse packet.", self.node_id));
+                        }
                     }
                 },
                 None => break

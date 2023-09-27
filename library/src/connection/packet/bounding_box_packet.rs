@@ -2,7 +2,7 @@ use std::fmt;
 use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{length_to_byte, Packet, PacketType};
 
 pub struct BoundingBox {
     pub x1: f64,
@@ -27,7 +27,7 @@ impl BoundingBoxPacket {
                            , bounding_box.x2, bounding_box.y1
                            , bounding_box.y2, bounding_box.confidence);
         BoundingBoxPacket {
-            length: Self::length_to_byte(8 + 2 + data.len()),
+            length: length_to_byte(8 + 2 + data.len()),
             id: PacketType::BoundingBoxPacket.get_id(),
             data: data.as_bytes().to_vec(),
             packet_type: PacketType::BoundingBoxPacket

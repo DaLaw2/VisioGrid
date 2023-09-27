@@ -2,7 +2,7 @@ use std::fmt;
 use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{length_to_byte, Packet, PacketType};
 
 pub struct DataChannelPortPacket {
     length: Vec<u8>,
@@ -14,7 +14,7 @@ pub struct DataChannelPortPacket {
 impl DataChannelPortPacket {
     pub fn new(port: usize) -> DataChannelPortPacket {
         DataChannelPortPacket {
-            length: Self::length_to_byte(8 + 2 + port.to_string().as_bytes().to_vec().len()),
+            length: length_to_byte(8 + 2 + port.to_string().as_bytes().to_vec().len()),
             id: PacketType::DataChannelPortPacket.get_id(),
             data: port.to_string().as_bytes().to_vec(),
             packet_type: PacketType::DataChannelPortPacket

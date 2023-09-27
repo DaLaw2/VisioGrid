@@ -2,7 +2,7 @@ use std::fmt;
 use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
 pub struct BoundingBoxSizePacket {
     length: Vec<u8>,
@@ -14,7 +14,7 @@ pub struct BoundingBoxSizePacket {
 impl BoundingBoxSizePacket {
     pub fn new(amount: usize) -> BoundingBoxSizePacket {
         BoundingBoxSizePacket {
-            length: Self::length_to_byte(8 + 2 + amount.to_string().len()),
+            length: length_to_byte(8 + 2 + amount.to_string().len()),
             id: PacketType::BoundingBoxSizePacket.get_id(),
             data: amount.to_string().as_bytes().to_vec(),
             packet_type: PacketType::BoundingBoxSizePacket
