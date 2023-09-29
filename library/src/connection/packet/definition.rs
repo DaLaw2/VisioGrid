@@ -1,11 +1,14 @@
-use std::any::Any;
+use std::fmt;
 
-pub trait Packet {
-    fn as_any(&self) -> &dyn Any;
-    fn get_length_byte(&self) -> Vec<u8>;
-    fn get_id_byte(&self) -> Vec<u8>;
-    fn get_data_byte(&self) -> Vec<u8>;
-    fn get_data_string(&self) -> String;
+pub trait Packet: fmt::Display {
+    fn as_length_byte(&self) -> &[u8];
+    fn as_id_byte(&self) -> &[u8];
+    fn as_data_byte(&self) -> &[u8];
+    fn clone_length_byte(&self) -> Vec<u8>;
+    fn clone_id_byte(&self) -> Vec<u8>;
+    fn clone_data_byte(&self) -> Vec<u8>;
+    fn data_to_string(&self) -> String;
+    fn get_packet_type(&self) -> PacketType;
     fn equal(&self, packet_type: PacketType) -> bool;
 }
 
@@ -22,7 +25,7 @@ pub enum PacketType {
 }
 
 impl PacketType {
-    pub fn get_id(&self) -> Vec<u8> {
+    pub fn as_id_byte(&self) -> Vec<u8> {
         let id: usize = match self {
             PacketType::BasePacket => 0,
             PacketType::BoundingBoxPacket => 1,
@@ -36,7 +39,7 @@ impl PacketType {
         vec![(id / 10) as u8, (id % 10) as u8]
     }
 
-    pub fn get_type(byte: Vec<u8>) -> PacketType {
+    pub fn get_packet_type(byte: &Vec<u8>) -> PacketType {
         let mut id = 0_usize;
         for &digit in byte.iter() {
             id = id * 10 + digit as usize;

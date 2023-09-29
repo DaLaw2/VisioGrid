@@ -1,13 +1,11 @@
 use tokio::sync::mpsc;
-use tokio::net::TcpStream;
-use tokio::sync::mpsc::error::SendError;
 use crate::logger::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
 use crate::connection::connection_channel::definition;
-use crate::connection::connection_channel::receive_thread::ReceiveThread;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::node_socket::NodeSocket;
 use crate::connection::connection_channel::send_thread::SendThread;
+use crate::connection::connection_channel::receive_thread::ReceiveThread;
 
 struct ControlChannel {
     node_id: usize,
@@ -34,6 +32,10 @@ impl ControlChannel {
             sender: send_tx,
             receiver: Some(recv_rx)
         }
+    }
+
+    pub fn run() {
+
     }
 }
 

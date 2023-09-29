@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::definition::Packet;
 
-#[derive(Clone)]
 pub struct NodeSocket {
     id: usize,
     address: SocketAddr,
@@ -38,10 +38,10 @@ impl NodeSocket {
         Ok(())
     }
 
-    pub async fn send_packet(&mut self, packet: &BasePacket) -> io::Result<()> {
-        self.socket.write_all(&packet.length).await?;
-        self.socket.write_all(&packet.id).await?;
-        self.socket.write_all(&packet.data).await?;
+    pub async fn send_packet(&mut self, packet: &dyn Packet) -> io::Result<()> {
+        self.socket.write_all(&packet.as_length_byte()).await?;
+        self.socket.write_all(&packet.as_id_byte()).await?;
+        self.socket.write_all(&packet.as_data_byte()).await?;
         self.socket.flush().await?;
         Ok(())
     }

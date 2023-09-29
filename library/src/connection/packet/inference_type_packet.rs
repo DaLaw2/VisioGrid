@@ -1,5 +1,4 @@
 use std::fmt;
-use std::any::Any;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
@@ -16,7 +15,7 @@ impl InferenceTypePacket {
     pub fn new(inference_type: usize) -> InferenceTypePacket {
         InferenceTypePacket {
             length: length_to_byte(8 + 2 + inference_type.to_string().as_bytes().to_vec().len()),
-            id: PacketType::InferenceTypePacket.get_id(),
+            id: PacketType::InferenceTypePacket.as_id_byte(),
             data: inference_type.to_string().as_bytes().to_vec(),
             packet_type: PacketType::InferenceTypePacket
         }
@@ -43,24 +42,36 @@ impl fmt::Display for InferenceTypePacket {
 }
 
 impl Packet for InferenceTypePacket {
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn as_length_byte(&self) -> &[u8] {
+        &self.length
     }
 
-    fn get_length_byte(&self) -> Vec<u8> {
+    fn as_id_byte(&self) -> &[u8] {
+        &self.id
+    }
+
+    fn as_data_byte(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn clone_length_byte(&self) -> Vec<u8> {
         self.length.clone()
     }
 
-    fn get_id_byte(&self) -> Vec<u8> {
+    fn clone_id_byte(&self) -> Vec<u8> {
         self.id.clone()
     }
 
-    fn get_data_byte(&self) -> Vec<u8> {
+    fn clone_data_byte(&self) -> Vec<u8> {
         self.data.clone()
     }
 
-    fn get_data_string(&self) -> String {
+    fn data_to_string(&self) -> String {
         String::from_utf8_lossy(&*self.data.clone()).to_string()
+    }
+
+    fn get_packet_type(&self) -> PacketType {
+        self.packet_type
     }
 
     fn equal(&self, packet_type: PacketType) -> bool {
