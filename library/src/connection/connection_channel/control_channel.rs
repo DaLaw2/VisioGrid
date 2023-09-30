@@ -33,8 +33,7 @@ impl ControlChannel {
         }
     }
 
-    pub fn run() {
-
+    pub fn run(&mut self) {
     }
 }
 
@@ -43,7 +42,6 @@ impl definition::ConnectChannel for ControlChannel {
         match self.sender.send(None) {
             Ok(_) => {
                 Logger::instance().append_node_log(self.node_id, LogLevel::INFO, "Control channel destroyed.".to_string());
-                Logger::instance().append_system_log(LogLevel::INFO, format!("Node {}: Control channel destroyed.", self.node_id));
             },
             Err(_) => {
                 Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail destroy control channel.".to_string());
@@ -53,11 +51,19 @@ impl definition::ConnectChannel for ControlChannel {
         self.receiver = None;
     }
 
-    fn process_send(&mut self, packet: &(dyn Packet + Send)) {
-        todo!()
+    fn process_send<T: Packet>(&mut self, packet: T) {
+        let packet: Box<dyn Packet + Send> = Box::new(packet);
+        match self.sender.send(Some(packet)) {
+            Ok(_) => {
+                Logger::instance().append_node_log(self.node_id, LogLevel::INFO, "Add packet to queue.".to_string());
+            },
+            Err(_) => {
+                Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet to client.".to_string())
+                Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail send packet to client.", self.node_id));
+            }
+        }
     }
 
     fn process_receive(&mut self, packet: BasePacket) {
-       todo!()
     }
 }

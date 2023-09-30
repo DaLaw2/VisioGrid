@@ -66,6 +66,7 @@ impl WriteHalf {
             write_half: sender
         }
     }
+
     pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
         self.write_half.write_all(&data).await?;
         self.write_half.flush().await?;
@@ -96,6 +97,7 @@ impl ReadHalf {
             read_half: receiver
         }
     }
+
     pub async fn receive_raw_data(&mut self) -> io::Result<Vec<u8>> {
         let mut length_byte = [0_u8; 8];
         let mut id_byte = vec![0_u8; 2];
