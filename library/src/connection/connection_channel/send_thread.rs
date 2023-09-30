@@ -1,16 +1,16 @@
 use tokio::sync::mpsc;
 use crate::logger::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
-use crate::connection::socket::node_socket::NodeSocket;
+use crate::connection::socket::node_socket::WriteHalf;
 
 pub struct SendThread {
     node_id: usize,
-    socket: NodeSocket,
+    socket: WriteHalf,
     receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>
 }
 
 impl SendThread {
-    pub fn new(node_id: usize, socket: NodeSocket, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>) -> Self {
+    pub fn new(node_id: usize, socket: WriteHalf, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>) -> Self {
         Self {
             node_id,
             socket,
@@ -22,8 +22,9 @@ impl SendThread {
         while let Some(packet) = self.receiver.recv().await {
             match packet {
                 Some(packet) => {
-                    match self.socket.send_packet(&*packet).await {
-                        Ok(_) => Logger::instance().append_node_log(self.node_id, LogLevel::INFO, format!("Packet sent: {}", packet.to_string())),
+                    let packet_info = packet.to_string();
+                    match self.socket.send_packet(packet).await {
+                        Ok(_) => Logger::instance().append_node_log(self.node_id, LogLevel::INFO, format!("Packet sent: {}", packet_info)),
                         Err(_) => {
                             Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet.".to_string());
                             Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail send paket.", self.node_id));

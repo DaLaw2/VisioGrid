@@ -13,7 +13,7 @@ impl BasePacket {
     pub fn new(length: Vec<u8>, id: Vec<u8>, data: Vec<u8>) -> BasePacket {
         BasePacket {
             length,
-            id,
+            id: id.clone(),
             data,
             packet_type: PacketType::get_packet_type(&id)
         }

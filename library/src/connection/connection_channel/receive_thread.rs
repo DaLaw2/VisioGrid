@@ -1,16 +1,16 @@
 use tokio::sync::mpsc;
 use crate::logger::logger::{Logger, LogLevel};
-use crate::connection::socket::node_socket::NodeSocket;
+use crate::connection::socket::node_socket::ReadHalf;
 use crate::connection::packet::base_packet::BasePacket;
 
 pub struct ReceiveThread {
     node_id: usize,
-    socket: NodeSocket,
+    socket: ReadHalf,
     sender: mpsc::UnboundedSender<BasePacket>,
 }
 
 impl ReceiveThread {
-    pub fn new(node_id: usize, socket: NodeSocket, sender: mpsc::UnboundedSender<BasePacket>) -> Self {
+    pub fn new(node_id: usize, socket: ReadHalf, sender: mpsc::UnboundedSender<BasePacket>) -> Self {
         Self {
             node_id,
             socket,
