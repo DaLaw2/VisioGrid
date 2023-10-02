@@ -172,10 +172,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_socket"
-version = "0.1.0"
-
-[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -335,8 +331,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
-name = "management"
+name = "manager"
 version = "0.1.0"
+dependencies = [
+ "library",
+]
 
 [[package]]
 name = "memchr"
@@ -659,13 +658,6 @@ name = "wasm-bindgen-shared"
 version = "0.2.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
-
-[[package]]
-name = "web_server"
-version = "0.1.0"
-dependencies = [
- "library",
-]
 
 [[package]]
 name = "winapi"

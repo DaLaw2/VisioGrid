@@ -34,7 +34,7 @@ impl DataChannel {
     }
 
     pub fn run() {
-
+        unimplemented!()
     }
 }
 
@@ -52,20 +52,20 @@ impl definition::ConnectChannel for DataChannel {
         self.receiver = None;
     }
 
-    fn process_send<T: Packet>(&mut self, packet: T) {
-        let packet: Box<dyn Packet + Send> = Box::new(packet);
+    fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
+        let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         match self.sender.send(Some(packet)) {
             Ok(_) => {
                 Logger::instance().append_node_log(self.node_id, LogLevel::INFO, "Add packet to queue.".to_string());
             },
             Err(_) => {
-                Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet to client.".to_string())
+                Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet to client.".to_string());
                 Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail send packet to client.", self.node_id));
             }
         }
     }
 
-    fn process_receive(&mut self, packet: BasePacket) {
-        todo!()
+    fn receive(&mut self, packet: BasePacket) {
+        unimplemented!()
     }
 }

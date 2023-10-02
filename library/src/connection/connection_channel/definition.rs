@@ -3,6 +3,6 @@ use crate::connection::packet::base_packet::BasePacket;
 
 pub trait ConnectChannel {
     fn disconnect(&mut self);
-    fn process_send<T: Packet>(&mut self, packet: T);
-    fn process_receive(&mut self, packet: BasePacket);
+    fn send<T: Packet + Send + 'static>(&mut self, packet: T);
+    fn receive(&mut self, packet: BasePacket);
 }

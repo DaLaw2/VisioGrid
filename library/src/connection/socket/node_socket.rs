@@ -14,14 +14,14 @@ pub struct NodeSocket {
 }
 
 impl NodeSocket {
-    pub fn new(id: usize, mut socket: TcpStream) -> Self {
+    pub fn new(id: usize, socket: TcpStream) -> Self {
         let address = socket.peer_addr().expect(format!("Connection refuse. Socket ID: {}", id).as_str());
         let (read_half, write_half) = socket.into_split();
         Self {
             id,
             address,
-            write_half: WriteHalf::new(id, write_half),
-            read_half: ReadHalf::new(id, read_half)
+            write_half: WriteHalf::new(write_half),
+            read_half: ReadHalf::new(read_half)
         }
     }
 
@@ -55,15 +55,13 @@ impl NodeSocket {
 }
 
 pub struct WriteHalf {
-    id: usize,
     write_half: OwnedWriteHalf
 }
 
 impl WriteHalf {
-    pub fn new(id: usize, sender: OwnedWriteHalf) -> Self {
+    pub fn new(write_half: OwnedWriteHalf) -> Self {
         WriteHalf {
-            id,
-            write_half: sender
+            write_half
         }
     }
 
@@ -86,15 +84,13 @@ impl WriteHalf {
 }
 
 pub struct ReadHalf {
-    id: usize,
     read_half: OwnedReadHalf
 }
 
 impl ReadHalf {
-    pub fn new(id: usize, receiver: OwnedReadHalf) -> Self {
+    pub fn new(read_half: OwnedReadHalf) -> Self {
         ReadHalf {
-            id,
-            read_half: receiver
+            read_half
         }
     }
 

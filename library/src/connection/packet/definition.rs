@@ -1,6 +1,6 @@
 use std::fmt;
 
-pub trait Packet: fmt::Display {
+pub trait Packet: fmt::Display + Send {
     fn as_length_byte(&self) -> &[u8];
     fn as_id_byte(&self) -> &[u8];
     fn as_data_byte(&self) -> &[u8];
