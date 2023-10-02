@@ -4,12 +4,18 @@ use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{length_to_byte, Packet, PacketType};
 
 pub struct BoundingBox {
-    pub x1: f64,
-    pub x2: f64,
-    pub y1: f64,
-    pub y2: f64,
-    pub confidence: f64,
-    pub name: String
+    name: String,
+    x1: f64,
+    x2: f64,
+    y1: f64,
+    y2: f64,
+    confidence: f64
+}
+
+impl fmt::Display for BoundingBox {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Name:{},X1:{},X2:{},Y1:{},Y2:{},Confidence:{}", self.name, self.x1, self.x2, self.y1, self.y2, self.confidence)
+    }
 }
 
 pub struct BoundingBoxPacket {
@@ -21,10 +27,7 @@ pub struct BoundingBoxPacket {
 
 impl BoundingBoxPacket {
     pub fn new(bounding_box: &BoundingBox) -> BoundingBoxPacket {
-        let data = format!("Name: {}, X1: {}, X2: {}, Y1: {}, Y2: {}, Confidence: {}"
-                           , bounding_box.name, bounding_box.x1
-                           , bounding_box.x2, bounding_box.y1
-                           , bounding_box.y2, bounding_box.confidence);
+        let data = bounding_box.to_string();
         BoundingBoxPacket {
             length: length_to_byte(8 + 2 + data.len()),
             id: PacketType::BoundingBoxPacket.as_id_byte(),

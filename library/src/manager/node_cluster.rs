@@ -2,7 +2,6 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 use crate::manager::node::Node;
-use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {
     static ref GLOBAL_CLUSTER: Mutex<NodeCluster> = Mutex::new(NodeCluster::new());
