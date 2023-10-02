@@ -1,9 +1,8 @@
 use tokio::sync::mpsc;
-use crate::logger::logger::{Logger, LogLevel};
+use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
-use crate::connection::connection_channel::definition;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::socket::node_socket::NodeSocket;
+use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::send_thread::SendThread;
 use crate::connection::connection_channel::receive_thread::ReceiveThread;
 
@@ -14,7 +13,7 @@ struct DataChannel {
 }
 
 impl DataChannel {
-    pub fn new(node_id: usize, socket: NodeSocket) -> Self {
+    pub fn new(node_id: usize, socket: SocketStream) -> Self {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
         let (receiver_tx, receiver_rx) = mpsc::unbounded_channel();
         let (socket_sender, socket_receiver) = socket.into_split();
@@ -36,9 +35,7 @@ impl DataChannel {
     pub fn run() {
         unimplemented!()
     }
-}
 
-impl definition::ConnectChannel for DataChannel {
     fn disconnect(&mut self) {
         match self.sender.send(None) {
             Ok(_) => {

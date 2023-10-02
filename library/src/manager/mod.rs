@@ -1,2 +1,2 @@
-pub mod computing_node;
-pub mod computing_cluster;
+pub mod node;
+pub mod node_cluster;

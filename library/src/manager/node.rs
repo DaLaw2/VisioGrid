@@ -1,10 +1,10 @@
-pub struct ComputingNode {
+pub struct Node {
     node_id: usize,
 }
 
-impl ComputingNode {
-    pub fn new(node_id: usize) -> ComputingNode {
-        ComputingNode {
+impl Node {
+    pub fn new(node_id: usize) -> Node {
+        Node {
             node_id,
         }
     }

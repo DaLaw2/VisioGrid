@@ -1,6 +1,6 @@
 use tokio::sync::mpsc;
-use crate::logger::logger::{Logger, LogLevel};
-use crate::connection::socket::node_socket::ReadHalf;
+use crate::utils::logger::{Logger, LogLevel};
+use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::packet::base_packet::BasePacket;
 
 pub struct ReceiveThread {

@@ -1,122 +1,73 @@
-use std::io;
-use std::net::SocketAddr;
-use tokio::net::TcpStream;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use crate::connection::packet::definition::Packet;
-use crate::connection::packet::base_packet::BasePacket;
+use tokio::net::TcpListener;
+use std::collections::BTreeSet;
+use std::time::Duration;
+use crate::utils::logger::{Logger, LogLevel};
+use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct NodeSocket {
-    id: usize,
-    address: SocketAddr,
-    write_half: WriteHalf,
-    read_half: ReadHalf
+    listener: TcpListener,
+    id_generator: SocketIDGenerator
 }
 
 impl NodeSocket {
-    pub fn new(id: usize, socket: TcpStream) -> Self {
-        let address = socket.peer_addr().expect(format!("Connection refuse. Socket ID: {}", id).as_str());
-        let (read_half, write_half) = socket.into_split();
+    pub async fn new(port: usize) -> Self {
+        let listener = loop {
+            match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
+                Ok(listener) => {
+                    Logger::instance().append_system_log(LogLevel::INFO, format!("Port bind successful.\nOn port {}.", port));
+                    break listener;
+                },
+                Err(_) => {
+                    Logger::instance().append_system_log(LogLevel::ERROR, "Port bind failed.\nTry after 30s.".to_string());
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                }
+            }
+        };
         Self {
-            id,
-            address,
-            write_half: WriteHalf::new(write_half),
-            read_half: ReadHalf::new(read_half)
+            listener,
+            id_generator: SocketIDGenerator::new()
         }
     }
 
-    pub fn into_split(self) -> (WriteHalf, ReadHalf) {
-        (self.write_half, self.read_half)
-    }
-
-    pub fn get_ip(&self) -> String {
-        self.address.to_string()
-    }
-
-    pub fn get_socket_id(&self) -> usize {
-        self.id
-    }
-
-    pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
-        self.write_half.send_raw_data(data).await
-    }
-
-    pub async fn send_packet(&mut self, packet: Box<dyn Packet + Send>) -> io::Result<()> {
-        self.write_half.send_packet(packet).await
-    }
-
-    pub async fn receive_raw_data(&mut self) -> io::Result<Vec<u8>> {
-        self.read_half.receive_raw_data().await
-    }
-
-    pub async fn receive_packet(&mut self) -> io::Result<BasePacket> {
-        self.read_half.receive_packet().await
+    pub async fn get_connection(&mut self) -> SocketStream {
+        let (stream, _) = loop {
+            if let Ok(connection) = self.listener.accept().await {
+                break connection;
+            }
+        };
+        SocketStream::new(self.id_generator.allocate_id(), stream)
     }
 }
 
-pub struct WriteHalf {
-    write_half: OwnedWriteHalf
+struct SocketIDGenerator {
+    available: BTreeSet<usize>,
+    next: usize,
 }
 
-impl WriteHalf {
-    pub fn new(write_half: OwnedWriteHalf) -> Self {
-        WriteHalf {
-            write_half
+impl SocketIDGenerator {
+    fn new() -> Self {
+        SocketIDGenerator {
+            available: BTreeSet::new(),
+            next: 0,
         }
     }
 
-    pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
-        self.write_half.write_all(&data).await?;
-        self.write_half.flush().await?;
-        Ok(())
-    }
-
-    pub async fn send_packet(&mut self, packet: Box<dyn Packet + Send>) -> io::Result<()> {
-        let length = packet.as_length_byte();
-        let id = packet.as_id_byte();
-        let data = packet.as_data_byte();
-        self.write_half.write_all(length).await?;
-        self.write_half.write_all(id).await?;
-        self.write_half.write_all(data).await?;
-        self.write_half.flush().await?;
-        Ok(())
-    }
-}
-
-pub struct ReadHalf {
-    read_half: OwnedReadHalf
-}
-
-impl ReadHalf {
-    pub fn new(read_half: OwnedReadHalf) -> Self {
-        ReadHalf {
-            read_half
+    fn allocate_id(&mut self) -> usize {
+        if let Some(&first) = self.available.iter().next() {
+            self.available.remove(&first);
+            first
+        } else {
+            let current = self.next;
+            self.next += 1;
+            current
         }
     }
 
-    pub async fn receive_raw_data(&mut self) -> io::Result<Vec<u8>> {
-        let mut length_byte = [0_u8; 8];
-        let mut id_byte = vec![0_u8; 2];
-        self.read_half.read_exact(&mut length_byte).await?;
-        self.read_half.read_exact(&mut id_byte).await?;
-        let length = usize::from_be_bytes(length_byte);
-        let mut data_byte = vec![0_u8; length - 10];
-        self.read_half.read_exact(&mut data_byte).await?;
-        let mut result = length_byte.to_vec();
-        result.extend(id_byte);
-        result.extend(data_byte);
-        Ok(result)
-    }
-
-    pub async fn receive_packet(&mut self) -> io::Result<BasePacket> {
-        let mut length_byte = [0_u8; 8];
-        let mut id_byte = vec![0_u8; 2];
-        self.read_half.read_exact(&mut length_byte).await?;
-        self.read_half.read_exact(&mut id_byte).await?;
-        let length = usize::from_be_bytes(length_byte);
-        let mut data_byte = vec![0_u8; length - 10];
-        self.read_half.read_exact(&mut data_byte).await?;
-        let length_byte = length_byte.to_vec();
-        Ok(BasePacket::new(length_byte, id_byte, data_byte))
+    fn free_id(&mut self, port: usize) {
+        if port == self.next - 1 {
+            self.next -= 1;
+        } else {
+            self.available.insert(port);
+        }
     }
 }

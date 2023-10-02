@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
-use crate::logger::logger::{Logger, LogLevel};
+use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
-use crate::connection::socket::node_socket::WriteHalf;
+use crate::connection::socket::socket_stream::WriteHalf;
 
 pub struct SendThread {
     node_id: usize,

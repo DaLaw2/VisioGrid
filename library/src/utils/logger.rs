@@ -23,12 +23,14 @@ pub struct Logger {
 
 impl Logger {
     fn new() -> Logger {
-        Logger {
+        let mut logger = Logger {
             empty_log: String::new(),
             system_log: String::new(),
             global_log: String::new(),
             node_log: HashMap::new()
-        }
+        };
+        logger.append_system_log(LogLevel::INFO, "Logger enable.".to_string());
+        logger
     }
 
     pub fn instance() -> MutexGuard<'static, Logger> {
