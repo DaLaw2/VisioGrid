@@ -1,12 +1,12 @@
-use tokio::net::TcpListener;
-use std::collections::BTreeSet;
 use std::time::Duration;
+use tokio::net::TcpListener;
+use crate::utils::id_generator::IDGenerator;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct NodeSocket {
-    listener: TcpListener,
-    id_generator: SocketIDGenerator
+    pub id: IDGenerator,
+    listener: TcpListener
 }
 
 impl NodeSocket {
@@ -24,8 +24,8 @@ impl NodeSocket {
             }
         };
         Self {
-            listener,
-            id_generator: SocketIDGenerator::new()
+            id: IDGenerator::new(),
+            listener
         }
     }
 
@@ -35,39 +35,6 @@ impl NodeSocket {
                 break connection;
             }
         };
-        SocketStream::new(self.id_generator.allocate_id(), stream)
-    }
-}
-
-struct SocketIDGenerator {
-    available: BTreeSet<usize>,
-    next: usize,
-}
-
-impl SocketIDGenerator {
-    fn new() -> Self {
-        SocketIDGenerator {
-            available: BTreeSet::new(),
-            next: 0,
-        }
-    }
-
-    fn allocate_id(&mut self) -> usize {
-        if let Some(&first) = self.available.iter().next() {
-            self.available.remove(&first);
-            first
-        } else {
-            let current = self.next;
-            self.next += 1;
-            current
-        }
-    }
-
-    fn free_id(&mut self, port: usize) {
-        if port == self.next - 1 {
-            self.next -= 1;
-        } else {
-            self.available.insert(port);
-        }
+        SocketStream::new(self.id.allocate_id(), stream)
     }
 }
