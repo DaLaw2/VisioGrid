@@ -15,20 +15,26 @@ pub struct ImageResource {
 }
 
 impl ImageResource {
+    /// File Name Format: `inferenceType_sourceIp_originalFilesName`
     pub fn new(image_id: usize, file_name: String, file_path: String) -> Self {
-
+        let parts: Vec<String> = file_name.split('_').collect();
+        /// Should never occur error here
+        let inference_type = parts.get(0).unwrap().clone().parse::<usize>().unwrap();
+        let source_ip = parts.get(1).unwrap().clone();
         Self {
-            source_ip: "".to_string(),
+            source_ip,
             file_name,
             file_path,
             image_size: 0,
             image_id,
-            inference_type: 0,
+            inference_type,
             allocate: false,
             finished: false,
             fail_times: 0,
             cost_time: 0.0,
-            bounding_boxes: vec![],
+            bounding_boxes: Vec::new(),
         }
     }
+
+
 }

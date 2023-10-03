@@ -32,6 +32,7 @@ impl DataChannel {
         }
     }
 
+    /// Not yet complete.
     pub fn run() {
         unimplemented!()
     }
@@ -62,6 +63,7 @@ impl DataChannel {
         }
     }
 
+    /// Not yet complete.
     fn receive(&mut self, packet: BasePacket) {
         unimplemented!()
     }

@@ -32,6 +32,7 @@ impl ControlChannel {
         }
     }
 
+    /// Source code is empty in this. Will complete next time.
     pub fn run(&mut self) {
     }
 
@@ -61,6 +62,7 @@ impl ControlChannel {
         }
     }
 
+    /// Source code is empty in this. Will complete next time.
     fn receive(&mut self, packet: BasePacket) {
     }
 }

@@ -5,7 +5,7 @@ use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct NodeSocket {
-    pub id: IDGenerator,
+    id: IDGenerator,
     listener: TcpListener
 }
 
