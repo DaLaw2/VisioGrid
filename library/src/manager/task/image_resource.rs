@@ -15,5 +15,20 @@ pub struct ImageResource {
 }
 
 impl ImageResource {
+    pub fn new(image_id: usize, file_name: String, file_path: String) -> Self {
 
+        Self {
+            source_ip: "".to_string(),
+            file_name,
+            file_path,
+            image_size: 0,
+            image_id,
+            inference_type: 0,
+            allocate: false,
+            finished: false,
+            fail_times: 0,
+            cost_time: 0.0,
+            bounding_boxes: vec![],
+        }
+    }
 }
