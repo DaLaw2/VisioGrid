@@ -1,6 +1,6 @@
 use std::time::Duration;
-use library::connection::connection_channel::data_channel::DataChannel;
 use library::connection::socket::node_socket::NodeSocket;
+use library::connection::connection_channel::data_channel::DataChannel;
 
 #[tokio::main]
 async fn main() {

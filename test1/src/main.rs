@@ -1,6 +1,6 @@
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
-use library::connection::packet::definition::{length_to_byte, PacketType};
+use library::connection::packet::definition::{PacketType, length_to_byte};
 
 #[tokio::main]
 async fn main() {
