@@ -96,11 +96,11 @@ impl ReadHalf {
 
     pub async fn receive_raw_data(&mut self) -> io::Result<Vec<u8>> {
         let mut length_byte = [0_u8; 8];
-        let mut id_byte = vec![0_u8; 2];
+        let mut id_byte = vec![0_u8; 8];
         self.read_half.read_exact(&mut length_byte).await?;
         self.read_half.read_exact(&mut id_byte).await?;
         let length = usize::from_be_bytes(length_byte);
-        let mut data_byte = vec![0_u8; length - 10];
+        let mut data_byte = vec![0_u8; length - 16];
         self.read_half.read_exact(&mut data_byte).await?;
         let mut result = length_byte.to_vec();
         result.extend(id_byte);
@@ -110,11 +110,11 @@ impl ReadHalf {
 
     pub async fn receive_packet(&mut self) -> io::Result<BasePacket> {
         let mut length_byte = [0_u8; 8];
-        let mut id_byte = vec![0_u8; 2];
+        let mut id_byte = vec![0_u8; 8];
         self.read_half.read_exact(&mut length_byte).await?;
         self.read_half.read_exact(&mut id_byte).await?;
         let length = usize::from_be_bytes(length_byte);
-        let mut data_byte = vec![0_u8; length - 10];
+        let mut data_byte = vec![0_u8; length - 16];
         self.read_half.read_exact(&mut data_byte).await?;
         let length_byte = length_byte.to_vec();
         Ok(BasePacket::new(length_byte, id_byte, data_byte))

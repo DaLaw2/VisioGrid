@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 library = { path = "../library" }
-tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.32.0", features = ["full"] }

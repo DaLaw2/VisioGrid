@@ -37,6 +37,4 @@ impl ImageResource {
             bounding_boxes: Vec::new(),
         }
     }
-
-
 }

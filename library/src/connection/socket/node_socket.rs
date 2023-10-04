@@ -1,11 +1,11 @@
 use std::time::Duration;
 use tokio::net::TcpListener;
-use crate::utils::id_generator::IDGenerator;
+use crate::utils::id_manager::IDManager;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct NodeSocket {
-    id: IDGenerator,
+    id: IDManager,
     listener: TcpListener
 }
 
@@ -24,7 +24,7 @@ impl NodeSocket {
             }
         };
         Self {
-            id: IDGenerator::new(),
+            id: IDManager::new(),
             listener
         }
     }
