@@ -1,5 +1,5 @@
 [package]
-name = "manager"
+name = "test1"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 library = { path = "../library" }
+tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }

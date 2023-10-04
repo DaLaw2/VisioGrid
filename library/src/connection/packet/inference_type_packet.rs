@@ -14,7 +14,7 @@ impl InferenceTypePacket {
     // 記得改成傳入type enum
     pub fn new(inference_type: usize) -> InferenceTypePacket {
         InferenceTypePacket {
-            length: length_to_byte(8 + 2 + inference_type.to_string().as_bytes().to_vec().len()),
+            length: length_to_byte(16 + inference_type.to_string().as_bytes().to_vec().len()),
             id: PacketType::InferenceTypePacket.as_id_byte(),
             data: inference_type.to_string().as_bytes().to_vec(),
             packet_type: PacketType::InferenceTypePacket

@@ -1,36 +1,31 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::BTreeSet;
 
 pub struct PortPool {
-    queue: VecDeque<usize>,
-    set: HashSet<usize>
+    start: usize,
+    end: usize,
+    available_port: BTreeSet<usize>,
 }
 
 impl PortPool {
     pub fn new(start: usize, end: usize) -> Self {
-        let mut queue: VecDeque<usize> = VecDeque::new();
-        let mut set: HashSet<usize> = HashSet::new();
-        for port in start..end {
-            queue.push_back(port);
-            set.insert(port);
-        }
-        Self {
-            queue,
-            set
+        let available_port = (start..end).collect::<BTreeSet<usize>>();
+        PortPool {
+            start,
+            end,
+            available_port
         }
     }
 
     pub fn allocate_port(&mut self) -> Option<usize> {
-        if let Some(port) = self.queue.pop_front() {
-            self.set.remove(&port);
-            Some(port)
-        } else {
-            None
-        }
+        self.available_port.iter().next().cloned().map(|port| {
+            self.available_port.remove(&port);
+            port
+        })
     }
 
     pub fn free_port(&mut self, port: usize) {
-        if self.set.insert(port) {
-            self.queue.push_back(port)
+        if port >= self.start && port < self.end {
+            self.available_ports.insert(port);
         }
     }
 }

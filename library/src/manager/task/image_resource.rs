@@ -1,3 +1,4 @@
+use std::fs;
 use crate::manager::task::bounding_box::BoundingBox;
 
 pub struct ImageResource {
@@ -15,12 +16,13 @@ pub struct ImageResource {
 }
 
 impl ImageResource {
-    /// File Name Format: `inferenceType_sourceIp_originalFilesName`
+    // File Name Format: `inferenceType_sourceIp_originalFilesName`
     pub fn new(image_id: usize, file_name: String, file_path: String) -> Self {
-        let parts: Vec<String> = file_name.split('_').collect();
-        /// Should never occur error here
-        let inference_type = parts.get(0).unwrap().clone().parse::<usize>().unwrap();
-        let source_ip = parts.get(1).unwrap().clone();
+        let parts: Vec<&str> = file_name.split('_').collect();
+        // Should never occur error here
+        let inference_type = parts.get(0).unwrap().parse::<usize>().unwrap();
+        let source_ip = parts.get(1).unwrap().to_string();
+
         Self {
             source_ip,
             file_name,

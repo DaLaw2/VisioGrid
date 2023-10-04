@@ -331,13 +331,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
-name = "manager"
-version = "0.1.0"
-dependencies = [
- "library",
-]
-
-[[package]]
 name = "memchr"
 version = "2.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -529,6 +522,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "test"
+version = "0.1.0"
+dependencies = [
+ "library",
+ "tokio",
+]
+
+[[package]]
+name = "test1"
+version = "0.1.0"
+dependencies = [
+ "library",
+ "tokio",
 ]
 
 [[package]]

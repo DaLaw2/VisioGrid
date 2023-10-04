@@ -13,7 +13,7 @@ pub struct StopInferenceReturnPacket {
 impl StopInferenceReturnPacket {
     pub fn new() -> StopInferenceReturnPacket {
         StopInferenceReturnPacket {
-            length: length_to_byte(8 + 2),
+            length: length_to_byte(16),
             id: PacketType::StopInferenceReturnPacket.as_id_byte(),
             data: Vec::new(),
             packet_type: PacketType::StopInferenceReturnPacket

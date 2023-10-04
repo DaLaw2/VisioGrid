@@ -6,7 +6,7 @@ use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::send_thread::SendThread;
 use crate::connection::connection_channel::receive_thread::ReceiveThread;
 
-struct ControlChannel {
+pub struct ControlChannel {
     node_id: usize,
     sender: mpsc::UnboundedSender<Option<Box<dyn Packet + Send>>>,
     receiver: Option<mpsc::UnboundedReceiver<BasePacket>>
@@ -32,11 +32,13 @@ impl ControlChannel {
         }
     }
 
-    /// Source code is empty in this. Will complete next time.
-    pub fn run(&mut self) {
+    pub async fn run(&mut self) {
+        while let Some(packet) = self.receiver.as_mut().expect("Control Channel has been closed.").recv().await {
+            self.receive(packet);
+        }
     }
 
-    fn disconnect(&mut self) {
+    pub fn disconnect(&mut self) {
         match self.sender.send(None) {
             Ok(_) => {
                 Logger::instance().append_node_log(self.node_id, LogLevel::INFO, "Control channel destroyed.".to_string());
@@ -49,7 +51,7 @@ impl ControlChannel {
         self.receiver = None;
     }
 
-    fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
+    pub fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         match self.sender.send(Some(packet)) {
             Ok(_) => {
@@ -62,7 +64,7 @@ impl ControlChannel {
         }
     }
 
-    /// Source code is empty in this. Will complete next time.
+    // Source code is empty in this. Will complete next time.
     fn receive(&mut self, packet: BasePacket) {
     }
 }

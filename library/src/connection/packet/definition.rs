@@ -36,14 +36,13 @@ impl PacketType {
             PacketType::StopInferencePacket => 6,
             PacketType::StopInferenceReturnPacket => 7,
         };
-        vec![(id / 10) as u8, (id % 10) as u8]
+        id.to_be_bytes().to_vec()
     }
 
     pub fn get_packet_type(byte: &Vec<u8>) -> PacketType {
-        let mut id = 0_usize;
-        for &digit in byte.iter() {
-            id = id * 10 + digit as usize;
-        }
+        let mut byte_array = [0_u8; 8];
+        byte_array.copy_from_slice(&byte);
+        let id = usize::from_be_bytes(byte_array);
         match id {
             1 => PacketType::BoundingBoxPacket,
             2 => PacketType::BoundingBoxSizePacket,

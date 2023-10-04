@@ -1,21 +1,21 @@
 use std::collections::BTreeSet;
 
 pub struct IDGenerator {
-    available: BTreeSet<usize>,
     next: usize,
+    available_id: BTreeSet<usize>
 }
 
 impl IDGenerator {
     pub fn new() -> Self {
         IDGenerator {
-            available: BTreeSet::new(),
             next: 0,
+            available_id: BTreeSet::new()
         }
     }
 
     pub fn allocate_id(&mut self) -> usize {
-        if let Some(&first) = self.available.iter().next() {
-            self.available.remove(&first);
+        if let Some(&first) = self.available_id.iter().next() {
+            self.available_id.remove(&first);
             first
         } else {
             let current = self.next;
@@ -28,7 +28,7 @@ impl IDGenerator {
         if port == self.next - 1 {
             self.next -= 1;
         } else {
-            self.available.insert(port);
+            self.available_id.insert(port);
         }
     }
 }

@@ -15,7 +15,7 @@ impl BoundingBoxPacket {
     pub fn new(bounding_box: &BoundingBox) -> BoundingBoxPacket {
         let data = bounding_box.to_string();
         BoundingBoxPacket {
-            length: length_to_byte(8 + 2 + data.len()),
+            length: length_to_byte(16 + data.len()),
             id: PacketType::BoundingBoxPacket.as_id_byte(),
             data: data.as_bytes().to_vec(),
             packet_type: PacketType::BoundingBoxPacket
