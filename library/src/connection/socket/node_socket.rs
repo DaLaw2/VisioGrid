@@ -14,11 +14,11 @@ impl NodeSocket {
         let listener = loop {
             match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
                 Ok(listener) => {
-                    Logger::instance().append_system_log(LogLevel::INFO, format!("Port bind successful.\nOn port {}.", port));
+                    Logger::instance().await.append_system_log(LogLevel::INFO, format!("Port bind successful.\nOn port {}.", port));
                     break listener;
                 },
                 Err(_) => {
-                    Logger::instance().append_system_log(LogLevel::ERROR, "Port bind failed.\nTry after 30s.".to_string());
+                    Logger::instance().await.append_system_log(LogLevel::ERROR, "Port bind failed.\nTry after 30s.".to_string());
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             }

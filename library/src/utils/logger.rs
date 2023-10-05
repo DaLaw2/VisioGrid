@@ -1,7 +1,7 @@
 use chrono::Local;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use tokio::sync::{Mutex, MutexGuard};
 
 lazy_static! {
     static ref GLOBAL_LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
@@ -33,8 +33,8 @@ impl Logger {
         logger
     }
 
-    pub fn instance() -> MutexGuard<'static, Logger> {
-        GLOBAL_LOGGER.lock().unwrap()
+    pub async fn instance() -> MutexGuard<'static, Logger> {
+        GLOBAL_LOGGER.lock().await
     }
 
     pub fn append_system_log(&mut self, log_level: LogLevel, message: String) {

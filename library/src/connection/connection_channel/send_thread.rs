@@ -24,10 +24,10 @@ impl SendThread {
                 Some(packet) => {
                     let packet_info = packet.to_string();
                     match self.socket.send_packet(packet).await {
-                        Ok(_) => Logger::instance().append_node_log(self.node_id, LogLevel::INFO, format!("Packet sent: {}", packet_info)),
+                        Ok(_) => Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, format!("Packet sent: {}", packet_info)),
                         Err(_) => {
-                            Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet.".to_string());
-                            Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail send paket.", self.node_id));
+                            Logger::instance().await.append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet.".to_string());
+                            Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Node {}: Fail send paket.", self.node_id));
                         }
                     }
                 },

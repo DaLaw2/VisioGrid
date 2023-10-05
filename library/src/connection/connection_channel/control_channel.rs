@@ -45,28 +45,28 @@ impl ControlChannel {
         });
     }
 
-    pub fn disconnect(&mut self) {
+    pub async fn disconnect(&mut self) {
         match self.sender.send(None) {
             Ok(_) => {
-                Logger::instance().append_node_log(self.node_id, LogLevel::INFO, "Control channel destroyed.".to_string());
+                Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, "Control channel destroyed.".to_string());
             },
             Err(_) => {
-                Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail destroy control channel.".to_string());
-                Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail destroy control channel.", self.node_id));
+                Logger::instance().await.append_node_log(self.node_id, LogLevel::ERROR, "Fail destroy control channel.".to_string());
+                Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Node {}: Fail destroy control channel.", self.node_id));
             }
         }
         let _ = self.stop_signal.take().expect("Control channel has been closed.").send(());
     }
 
-    pub fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
+    pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         match self.sender.send(Some(packet)) {
             Ok(_) => {
-                Logger::instance().append_node_log(self.node_id, LogLevel::INFO, "Add packet to queue.".to_string());
+                Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, "Add packet to queue.".to_string());
             },
             Err(_) => {
-                Logger::instance().append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet to client.".to_string());
-                Logger::instance().append_system_log(LogLevel::ERROR, format!("Node {}: Fail send packet to client.", self.node_id));
+                Logger::instance().await.append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet to client.".to_string());
+                Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Node {}: Fail send packet to client.", self.node_id));
             }
         }
     }

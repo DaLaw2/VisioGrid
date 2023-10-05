@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use tokio::sync::{Mutex, MutexGuard};
 use crate::manager::node::Node;
 
 lazy_static! {
@@ -18,8 +18,8 @@ impl NodeCluster {
         }
     }
 
-    pub fn instance() -> MutexGuard<'static, NodeCluster> {
-        GLOBAL_CLUSTER.lock().unwrap()
+    pub async fn instance() -> MutexGuard<'static, NodeCluster> {
+        GLOBAL_CLUSTER.lock().await
     }
 
     pub fn add_node(&mut self, node: Node) {
