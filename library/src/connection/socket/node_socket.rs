@@ -3,6 +3,7 @@ use tokio::net::TcpListener;
 use crate::utils::id_manager::IDManager;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::SocketStream;
+use crate::utils::config::Config;
 
 pub struct NodeSocket {
     id: IDManager,
@@ -11,6 +12,7 @@ pub struct NodeSocket {
 
 impl NodeSocket {
     pub async fn new(port: usize) -> Self {
+        let bind_retry_duration = Config::instance().await.bind_retry_duration;
         let listener = loop {
             match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
                 Ok(listener) => {
@@ -18,8 +20,8 @@ impl NodeSocket {
                     break listener;
                 },
                 Err(_) => {
-                    Logger::instance().await.append_system_log(LogLevel::ERROR, "Port bind failed.\nTry after 30s.".to_string());
-                    tokio::time::sleep(Duration::from_secs(30)).await;
+                    Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Port bind failed.\nTry after {}s.", bind_retry_duration));
+                    tokio::time::sleep(Duration::from_secs(bind_retry_duration as u64)).await;
                 }
             }
         };

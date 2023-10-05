@@ -2,4 +2,4 @@ use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "static"]
-pub struct StaticEmbed;
+pub struct StaticFiles;

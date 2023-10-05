@@ -7,7 +7,7 @@ lazy_static! {
     static ref GLOBAL_CONFIG: RwLock<Config> = RwLock::new(Config::new());
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct ConfigTable {
     #[serde(rename = "Config")]
     config: Config
@@ -15,14 +15,15 @@ struct ConfigTable {
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
-    http_server_bind_port: usize,
-    node_listen_port: usize,
-    bind_retry_duration: usize,
-    dedicated_port_range: (usize, usize),
+    pub(crate) http_server_bind_port: usize,
+    pub(crate) node_listen_port: usize,
+    pub(crate) bind_retry_duration: usize,
+    pub(crate) dedicated_port_range: (usize, usize),
 }
 
 impl Config {
     fn new() -> Self {
+        //Impossible error
         let toml_string = fs::read_to_string("./Config.toml").expect("No configuration found.");
         let config_table: ConfigTable = toml::from_str(&toml_string).expect("Fail parse configuration.");
         config_table.config

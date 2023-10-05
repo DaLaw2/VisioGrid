@@ -7,7 +7,7 @@
     <script type="text/javascript">
         async function loadCurrentConfig() {
             try {
-                let response = await fetch('/get_config');
+                let response = await fetch('/setting/get_config');
                 if(response.ok) {
                     let config = await response.json();
                     document.getElementById('http_server_bind_port').value = config.http_server_bind_port;
@@ -35,7 +35,7 @@
             };
 
             try {
-                let response = await fetch('/update_config', {
+                let response = await fetch('/setting/update_config', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -44,10 +44,10 @@
                 });
                 let data = await response.text();
                 if (response.ok) {
-                    alert('Configuration updated successfully: ' + data);
+                    alert(data);
                     await loadCurrentConfig();  // Reload current config after updating
                 } else {
-                    alert('Failed to update config: ' + data);
+                    alert(data);
                 }
             } catch (error) {
                 alert('Error: ' + error);
