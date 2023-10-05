@@ -1,4 +1,3 @@
-use std::fs;
 use crate::manager::task::bounding_box::BoundingBox;
 
 pub struct ImageResource {

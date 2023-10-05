@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{length_to_byte, Packet, PacketType};
+use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
 pub struct DataChannelPortPacket {
     length: Vec<u8>,

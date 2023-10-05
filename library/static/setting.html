@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setting</title>
+    <script type="text/javascript">
+        async function loadCurrentConfig() {
+            try {
+                let response = await fetch('/get_config');
+                if(response.ok) {
+                    let config = await response.json();
+                    document.getElementById('http_server_bind_port').value = config.http_server_bind_port;
+                    document.getElementById('node_listen_port').value = config.node_listen_port;
+                    document.getElementById('bind_retry_duration').value = config.bind_retry_duration;
+                    document.getElementById('dedicated_port_range_start').value = config.dedicated_port_range[0];
+                    document.getElementById('dedicated_port_range_end').value = config.dedicated_port_range[1];
+                } else {
+                    console.error('Failed to fetch current config:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function submitForm() {
+            let config = {
+                http_server_bind_port: parseInt(document.getElementById('http_server_bind_port').value),
+                node_listen_port: parseInt(document.getElementById('node_listen_port').value),
+                bind_retry_duration: parseInt(document.getElementById('bind_retry_duration').value),
+                dedicated_port_range: [
+                    parseInt(document.getElementById('dedicated_port_range_start').value),
+                    parseInt(document.getElementById('dedicated_port_range_end').value)
+                ]
+            };
+
+            try {
+                let response = await fetch('/update_config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                let data = await response.text();
+                if (response.ok) {
+                    alert('Configuration updated successfully: ' + data);
+                    await loadCurrentConfig();  // Reload current config after updating
+                } else {
+                    alert('Failed to update config: ' + data);
+                }
+            } catch (error) {
+                alert('Error: ' + error);
+            }
+        }
+
+        window.onload = loadCurrentConfig;
+    </script>
+</head>
+<body>
+
+<h2>Update Config</h2>
+<form id="config-form">
+    <label for="http_server_bind_port">HTTP Server Bind Port:</label>
+    <input type="number" id="http_server_bind_port" name="http_server_bind_port" required><br><br>
+
+    <label for="node_listen_port">Node Listen Port:</label>
+    <input type="number" id="node_listen_port" name="node_listen_port" required><br><br>
+
+    <label for="bind_retry_duration">Bind Retry Duration:</label>
+    <input type="number" id="bind_retry_duration" name="bind_retry_duration" required><br><br>
+
+    <label for="dedicated_port_range_start">Dedicated Port Range Start:</label>
+    <input type="number" id="dedicated_port_range_start" name="dedicated_port_range_start" required><br><br>
+
+    <label for="dedicated_port_range_end">Dedicated Port Range End:</label>
+    <input type="number" id="dedicated_port_range_end" name="dedicated_port_range_end" required><br><br>
+
+    <input type="button" value="Submit" onclick="submitForm()">
+</form>
+
+</body>
+</html>

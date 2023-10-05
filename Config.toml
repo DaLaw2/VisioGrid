@@ -1,0 +1,5 @@
+[Config]
+http_server_bind_port = 8080
+node_listen_port = 9090
+bind_retry_duration = 30
+dedicated_port_range = [60000, 65535]
