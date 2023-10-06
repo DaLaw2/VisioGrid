@@ -74,15 +74,15 @@ impl Logger {
         self.node_log.get_mut(&node_id).unwrap().push_str(&log_entry);
     }
 
-    pub fn get_system_log(&self) -> &String {
+    pub fn get_system_log(&self) -> &str {
         &self.system_log
     }
 
-    pub fn get_global_log(&self) -> &String {
+    pub fn get_global_log(&self) -> &str {
         &self.global_log
     }
 
-    pub fn get_node_log(&self, node_id: usize) -> &String {
+    pub fn get_node_log(&self, node_id: usize) -> &str {
         let node_log = self.node_log.get(&node_id);
         match node_log {
             Some(str) => str,

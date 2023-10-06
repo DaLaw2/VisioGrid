@@ -38,7 +38,7 @@ impl ControlChannel {
     pub async fn run(&mut self) {
         let mut receiver = self.receiver.take().expect("Control channel has been closed.");
         tokio::spawn(async move {
-            while let Some(packet) = receiver.recv().await {
+            while let Some(_packet) = receiver.recv().await {
                 //Process receive not yet complete
                 unimplemented!()
             }

@@ -1,6 +1,6 @@
-use actix_web::{get, post, web, Responder, HttpResponse, Scope};
 use crate::utils::config::Config;
 use crate::utils::static_files::StaticFiles;
+use actix_web::{get, post, web, Responder, HttpResponse, Scope};
 
 pub fn initialize() -> Scope {
     web::scope("/setting")
@@ -18,13 +18,11 @@ async fn setting() -> impl Responder {
 
 #[get("/get_config")]
 async fn get_config() -> impl Responder {
-    let config = Config::instance().await;
-    web::Json(config)
+    web::Json(Config::instance().await)
 }
 
 #[post("/update_config")]
 async fn update_config(config: web::Json<Config>) -> impl Responder {
-    let config = config.into_inner();
-    Config::update(config).await;
+    Config::update(config.into_inner()).await;
     HttpResponse::Ok().body("Configuration updated successfully.")
 }

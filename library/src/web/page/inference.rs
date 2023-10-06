@@ -1,9 +1,10 @@
+use tokio::fs::File;
 use std::path::PathBuf;
-use actix_web::{post, web, Error, HttpResponse, Result, get, Scope, Responder};
+use tokio::io::AsyncWriteExt;
 use actix_multipart::Multipart;
-use futures::{StreamExt, TryStreamExt};
 use sanitize_filename::sanitize;
-use std::io::{self, Write};
+use futures::{self, StreamExt, TryStreamExt};
+use actix_web::{post, web, Error, HttpResponse, Result, get, Scope, Responder};
 
 pub fn initialize() -> Scope {
     web::scope("/inference")
@@ -15,6 +16,7 @@ pub fn initialize() -> Scope {
 pub async fn inference() -> impl Responder {
     web::Json("test")
 }
+
 #[post("/upload")]
 async fn upload(mut payload: Multipart) -> Result<HttpResponse, Error> {
     while let Ok(Some(mut field)) = payload.try_next().await {
@@ -23,23 +25,16 @@ async fn upload(mut payload: Multipart) -> Result<HttpResponse, Error> {
             None => continue
         };
         let file_name = sanitize(file_name);
+        if file_name.is_empty() {
+            return Err(actix_web::error::ErrorBadRequest("Invalid filename"));
+        }
         let mut file_path = PathBuf::from("./WebSave");
         file_path.push(file_name);
-        let mut f = web::block(|| std::fs::File::create(&file_path)).await?;
+        let mut f = File::create(&file_path).await?;
         while let Some(chunk) = field.next().await {
-            let data = chunk?;
-            let result = web::block(move || {
-                match f {
-                    Ok(ref mut file) => match file.write_all(&data) {
-                        Ok(_) => Ok(f),
-                        Err(e) => Err(e),
-                    },
-                    Err(e) => Err(e),
-                }
-            }).await;
-            match result {
-                Ok(file) => f = file,
-                Err(err) => return Err(err.into()),
+            match chunk {
+                Ok(data) => f.write_all(&data).await?,
+                Err(e) => return Err(actix_web::error::ErrorInternalServerError(e)),
             }
         }
     }
