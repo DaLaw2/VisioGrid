@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+
+<body>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <form action="/inference/save_file" method="post" enctype="multipart/form-data">
+                <!-- Radio buttons -->
+                <div class="form-group">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="modelType" id="tensorflowRadio" onclick="showUploadOptions('tensorflow')">
+                        <label class="form-check-label" for="tensorflowRadio">TensorFlow</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="modelType" id="pytorchRadio" onclick="showUploadOptions('pytorch')">
+                        <label class="form-check-label" for="pytorchRadio">PyTorch</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="modelType" id="yoloRadio" onclick="showUploadOptions('yolo')">
+                        <label class="form-check-label" for="yoloRadio">YOLO (Darknet)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="modelType" id="onnxRadio" onclick="showUploadOptions('onnx')">
+                        <label class="form-check-label" for="onnxRadio">ONNX (Open Neural Network Exchange)</label>
+                    </div>
+                </div>
+
+                <!-- Upload options -->
+                <div id="tensorflow" class="upload-option">
+                    <div class="form-group">
+                        <label for="h5File">HDF5 格式 (.h5)</label>
+                        <input type="file" class="form-control-file" name="h5File" accept=".h5" id="h5File">
+                    </div>
+                </div>
+
+                <div id="pytorch" class="upload-option">
+                    <div class="form-group">
+                        <label for="ptFile">PyTorch 格式 (.pt, .pth)</label>
+                        <input type="file" class="form-control-file" name="ptFile" accept=".pt,.pth" id="ptFile">
+                    </div>
+                </div>
+
+                <div id="yolo" class="upload-option">
+                    <div class="form-group">
+                        <label for="cfgFile">YOLO .cfg</label>
+                        <input type="file" class="form-control-file" name="cfgFile" accept=".cfg" id="cfgFile">
+                    </div>
+                    <div class="form-group">
+                        <label for="weightsFile">YOLO .weights</label>
+                        <input type="file" class="form-control-file" name="weightsFile" accept=".weights" id="weightsFile">
+                    </div>
+                    <div class="form-group">
+                        <label for="namesFile">YOLO .names (optional)</label>
+                        <input type="file" class="form-control-file" name="namesFile" accept=".names" id="namesFile">
+                    </div>
+                </div>
+
+                <div id="onnx" class="upload-option">
+                    <div class="form-group">
+                        <label for="onnxFile">ONNX 格式 (.onnx)</label>
+                        <input type="file" class="form-control-file" name="onnxFile" accept=".onnx" id="onnxFile">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showUploadOptions(option) {
+        const options = ['tensorflow', 'pytorch', 'yolo', 'onnx'];
+        for (const opt of options) {
+            document.getElementById(opt).style.display = (opt === option) ? 'block' : 'none';
+        }
+    }
+</script>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</body>
+
+</html>

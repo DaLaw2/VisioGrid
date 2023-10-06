@@ -1,38 +1,40 @@
 use tokio::fs;
+use lazy_static::lazy_static;
+use tokio::sync::{Mutex, MutexGuard};
 use crate::utils::logger::{Logger, LogLevel};
-use tokio::sync::{OnceCell, Mutex, MutexGuard};
 
-static GLOBAL_FILE_MANAGER: OnceCell<Mutex<FileManager>> = OnceCell::const_new();
+lazy_static! {
+    static ref GLOBAL_FILE_MANAGER: Mutex<FileManager> = Mutex::new(FileManager::new());
+}
 
-struct FileManager;
+pub struct FileManager;
 
 impl FileManager {
-    async fn new() -> FileManager {
-        match fs::create_dir("WebSave").await {
-            Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, "Create WebSave folder success.".to_string()),
-            Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, "Fail create WebSave folder.".to_string())
-        }
-        match fs::create_dir("Unzip").await {
-            Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, "Create web Unzip folder success.".to_string()),
-            Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, "Fail create Unzip folder.".to_string())
-        }
+    pub fn new() -> Self {
         FileManager
     }
 
+    pub async fn initialize() {
+        match fs::create_dir("SavedModel").await {
+            Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, "Create WebSave folder success.".to_string()),
+            Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, "Fail create WebSave folder.".to_string())
+        }
+        match fs::create_dir("SavedFile").await {
+            Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, "Create web Unzip folder success.".to_string()),
+            Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, "Fail create Unzip folder.".to_string())
+        }
+    }
+
     pub async fn instance() -> MutexGuard<'static, FileManager> {
-        let mutex = GLOBAL_FILE_MANAGER.get_or_init(|| async {
-            let fm = FileManager::new().await;
-            Mutex::new(fm)
-        }).await;
-        mutex.lock().await
+        GLOBAL_FILE_MANAGER.lock().await
     }
 
     pub async fn clean() {
-        match fs::remove_dir_all("WebSave").await {
+        match fs::remove_dir_all("SavedModel").await {
             Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, "Destroy WebSave folder success.".to_string()),
             Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, "Fail destroy WebSave folder.".to_string())
         }
-        match fs::remove_dir_all("Unzip").await {
+        match fs::remove_dir_all("SavedFile").await {
             Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, "Destroy Unzip folder success.".to_string()),
             Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, "Fail destroy Unzip folder.".to_string())
         }
