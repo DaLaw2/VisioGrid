@@ -22,28 +22,28 @@
             <form id="uploadForm">
                 <div class="form-group">
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" value="yolo" id="yoloRadio" onclick="showUploadOptions('yolo')">
+                        <input class="form-check-input" type="radio" name="modelType" value="YOLO" id="yoloRadio" onclick="showUploadOptions('YOLO')">
                         <label class="form-check-label" for="yoloRadio">YOLO</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" value="pytorch" id="pytorchRadio" onclick="showUploadOptions('pytorch')">
+                        <input class="form-check-input" type="radio" name="modelType" value="PyTorch" id="pytorchRadio" onclick="showUploadOptions('PyTorch')">
                         <label class="form-check-label" for="pytorchRadio">PyTorch</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" value="tensorflow" id="tensorflowRadio" onclick="showUploadOptions('tensorflow')">
+                        <input class="form-check-input" type="radio" name="modelType" value="TensorFlow" id="tensorflowRadio" onclick="showUploadOptions('TensorFlow')">
                         <label class="form-check-label" for="tensorflowRadio">TensorFlow</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" value="onnx" id="onnxRadio" onclick="showUploadOptions('onnx')">
+                        <input class="form-check-input" type="radio" name="modelType" value="ONNX" id="onnxRadio" onclick="showUploadOptions('ONNX')">
                         <label class="form-check-label" for="onnxRadio">ONNX</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" value="default" id="defaultRadio" onclick="showUploadOptions('default')">
+                        <input class="form-check-input" type="radio" name="modelType" value="Default" id="defaultRadio" onclick="showUploadOptions('Default')">
                         <label class="form-check-label" for="defaultRadio">Default Model</label>
                     </div>
                 </div>
 
-                <div id="yolo" class="upload-option">
+                <div id="YOLO" class="upload-option">
                     <div class="form-group">
                         <label for="cfgFile">YOLO .cfg</label>
                         <input type="file" class="form-control-file" name="cfgFile" accept=".cfg" id="cfgFile" required>
@@ -62,7 +62,7 @@
                     </div>
                 </div>
 
-                <div id="pytorch" class="upload-option">
+                <div id="PyTorch" class="upload-option">
                     <div class="form-group">
                         <label for="ptFile">PyTorch type (.pt, .pth)</label>
                         <input type="file" class="form-control-file" name="ptFile" accept=".pt,.pth" id="ptFile" required>
@@ -73,7 +73,7 @@
                     </div>
                 </div>
 
-                <div id="tensorflow" class="upload-option">
+                <div id="TensorFlow" class="upload-option">
                     <div class="form-group">
                         <label for="h5File">HDF5 type (.h5)</label>
                         <input type="file" class="form-control-file" name="h5File" accept=".h5" id="h5File" required>
@@ -84,7 +84,7 @@
                     </div>
                 </div>
 
-                <div id="onnx" class="upload-option">
+                <div id="ONNX" class="upload-option">
                     <div class="form-group">
                         <label for="onnxFile">ONNX type (.onnx)</label>
                         <input type="file" class="form-control-file" name="onnxFile" accept=".onnx" id="onnxFile" required>
@@ -95,7 +95,7 @@
                     </div>
                 </div>
 
-                <div id="default" class="upload-option">
+                <div id="Default" class="upload-option">
                     <div class="form-group">
                         <label for="defaultInferenceFile">Inference files</label>
                         <input type="file" class="form-control-file" name="defaultInferenceFile" id="defaultInferenceFile" required>
@@ -109,15 +109,15 @@
 
 <script>
     const originalContent = {
-        'tensorflow': document.getElementById('tensorflow').innerHTML,
-        'pytorch': document.getElementById('pytorch').innerHTML,
-        'yolo': document.getElementById('yolo').innerHTML,
-        'onnx': document.getElementById('onnx').innerHTML,
-        'default': document.getElementById('default').innerHTML
+        'YOLO': document.getElementById('Yolo').innerHTML,
+        'PyTorch': document.getElementById('Pytorch').innerHTML,
+        'TensorFlow': document.getElementById('Tensorflow').innerHTML,
+        'ONNX': document.getElementById('Onnx').innerHTML,
+        'Default': document.getElementById('Default').innerHTML
     };
 
     function showUploadOptions(option) {
-        const options = ['tensorflow', 'pytorch', 'yolo', 'onnx', 'default'];
+        const options = ['YOLO', 'PyTorch', 'TensorFlow', 'ONNX', 'Default'];
         for (const opt of options) {
             const container = document.getElementById(opt);
             if (opt === option) {
@@ -135,7 +135,8 @@
     function submitForm() {
         const originalFormData = new FormData(document.getElementById('uploadForm'));
         const filteredFormData = new FormData();
-
+        const modelTypeValue = document.querySelector('input[name="modelType"]:checked').value;
+        filteredFormData.append('modelType', modelTypeValue);
         for (let [key, value] of originalFormData.entries()) {
             if (value && value.name) {
                 filteredFormData.append(key, value, value.name);
