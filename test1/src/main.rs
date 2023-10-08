@@ -1,17 +1,17 @@
 use tokio::net::TcpStream;
-use tokio::io::AsyncWriteExt;
+use library::connection::packet::base_packet::BasePacket;
+use library::connection::socket::socket_stream::SocketStream;
+use library::connection::connection_channel::data_channel::DataChannel;
 use library::connection::packet::definition::{PacketType, length_to_byte};
 
 #[tokio::main]
 async fn main() {
-    let mut socket_stream = TcpStream::connect("127.0.0.1:16384").await.unwrap();
-    let packet_type = PacketType::BasePacket.as_id_byte();
+    let socket_stream = TcpStream::connect("127.0.0.1:16384").await.unwrap();
+    let socket_stream = SocketStream::new(0, socket_stream);
+    let mut data_channel = DataChannel::new(0, socket_stream);
+    let id = PacketType::BasePacket.as_id_byte();
     let data = "Hello world.".to_string().into_bytes();
     let length = length_to_byte(data.len() + 16);
-    loop {
-        socket_stream.write_all(&length).await.expect("Fail send packet.");
-        socket_stream.write_all(&packet_type).await.expect("Fail send packet.");
-        socket_stream.write_all(&data).await.expect("Fail send packet.");
-        socket_stream.flush().await.expect("Fail send packet");
-    }
+    let base_packet = BasePacket::new(length, id, data);
+    data_channel.send(base_packet).await
 }

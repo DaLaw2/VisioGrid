@@ -4,85 +4,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload</title>
+    <title>Inference</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 
 <body>
 
+<style>
+    .upload-option {
+        display: none;
+    }
+</style>
+
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            <form action="/inference/save_file" method="post" enctype="multipart/form-data">
-                <!-- Radio buttons -->
+            <form id="uploadForm">
                 <div class="form-group">
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" id="tensorflowRadio" onclick="showUploadOptions('tensorflow')">
-                        <label class="form-check-label" for="tensorflowRadio">TensorFlow</label>
+                        <input class="form-check-input" type="radio" name="modelType" value="yolo" id="yoloRadio" onclick="showUploadOptions('yolo')">
+                        <label class="form-check-label" for="yoloRadio">YOLO</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" id="pytorchRadio" onclick="showUploadOptions('pytorch')">
+                        <input class="form-check-input" type="radio" name="modelType" value="pytorch" id="pytorchRadio" onclick="showUploadOptions('pytorch')">
                         <label class="form-check-label" for="pytorchRadio">PyTorch</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" id="yoloRadio" onclick="showUploadOptions('yolo')">
-                        <label class="form-check-label" for="yoloRadio">YOLO (Darknet)</label>
+                        <input class="form-check-input" type="radio" name="modelType" value="tensorflow" id="tensorflowRadio" onclick="showUploadOptions('tensorflow')">
+                        <label class="form-check-label" for="tensorflowRadio">TensorFlow</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" id="onnxRadio" onclick="showUploadOptions('onnx')">
-                        <label class="form-check-label" for="onnxRadio">ONNX (Open Neural Network Exchange)</label>
+                        <input class="form-check-input" type="radio" name="modelType" value="onnx" id="onnxRadio" onclick="showUploadOptions('onnx')">
+                        <label class="form-check-label" for="onnxRadio">ONNX</label>
                     </div>
-                </div>
-
-                <!-- Upload options -->
-                <div id="tensorflow" class="upload-option">
-                    <div class="form-group">
-                        <label for="h5File">HDF5 格式 (.h5)</label>
-                        <input type="file" class="form-control-file" name="h5File" accept=".h5" id="h5File">
-                    </div>
-                </div>
-
-                <div id="pytorch" class="upload-option">
-                    <div class="form-group">
-                        <label for="ptFile">PyTorch 格式 (.pt, .pth)</label>
-                        <input type="file" class="form-control-file" name="ptFile" accept=".pt,.pth" id="ptFile">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="modelType" value="default" id="defaultRadio" onclick="showUploadOptions('default')">
+                        <label class="form-check-label" for="defaultRadio">Default Model</label>
                     </div>
                 </div>
 
                 <div id="yolo" class="upload-option">
                     <div class="form-group">
                         <label for="cfgFile">YOLO .cfg</label>
-                        <input type="file" class="form-control-file" name="cfgFile" accept=".cfg" id="cfgFile">
+                        <input type="file" class="form-control-file" name="cfgFile" accept=".cfg" id="cfgFile" required>
                     </div>
                     <div class="form-group">
                         <label for="weightsFile">YOLO .weights</label>
-                        <input type="file" class="form-control-file" name="weightsFile" accept=".weights" id="weightsFile">
+                        <input type="file" class="form-control-file" name="weightsFile" accept=".weights" id="weightsFile" required>
                     </div>
                     <div class="form-group">
                         <label for="namesFile">YOLO .names (optional)</label>
                         <input type="file" class="form-control-file" name="namesFile" accept=".names" id="namesFile">
                     </div>
+                    <div class="form-group">
+                        <label for="yoloInferenceFile">Inference files</label>
+                        <input type="file" class="form-control-file" name="yoloInferenceFile" id="yoloInferenceFile" required>
+                    </div>
+                </div>
+
+                <div id="pytorch" class="upload-option">
+                    <div class="form-group">
+                        <label for="ptFile">PyTorch type (.pt, .pth)</label>
+                        <input type="file" class="form-control-file" name="ptFile" accept=".pt,.pth" id="ptFile" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="pytorchInferenceFile">Inference files</label>
+                        <input type="file" class="form-control-file" name="pytorchInferenceFile" id="pytorchInferenceFile" required>
+                    </div>
+                </div>
+
+                <div id="tensorflow" class="upload-option">
+                    <div class="form-group">
+                        <label for="h5File">HDF5 type (.h5)</label>
+                        <input type="file" class="form-control-file" name="h5File" accept=".h5" id="h5File" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tensorflowInferenceFile">Inference files</label>
+                        <input type="file" class="form-control-file" name="tensorflowInferenceFile" id="tensorflowInferenceFile" required>
+                    </div>
                 </div>
 
                 <div id="onnx" class="upload-option">
                     <div class="form-group">
-                        <label for="onnxFile">ONNX 格式 (.onnx)</label>
-                        <input type="file" class="form-control-file" name="onnxFile" accept=".onnx" id="onnxFile">
+                        <label for="onnxFile">ONNX type (.onnx)</label>
+                        <input type="file" class="form-control-file" name="onnxFile" accept=".onnx" id="onnxFile" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="onnxInferenceFile">Inference files</label>
+                        <input type="file" class="form-control-file" name="onnxInferenceFile" id="onnxInferenceFile" required>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Upload</button>
+                <div id="default" class="upload-option">
+                    <div class="form-group">
+                        <label for="defaultInferenceFile">Inference files</label>
+                        <input type="file" class="form-control-file" name="defaultInferenceFile" id="defaultInferenceFile" required>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="submitForm()">Upload</button>
             </form>
         </div>
     </div>
 </div>
 
 <script>
+    const originalContent = {
+        'tensorflow': document.getElementById('tensorflow').innerHTML,
+        'pytorch': document.getElementById('pytorch').innerHTML,
+        'yolo': document.getElementById('yolo').innerHTML,
+        'onnx': document.getElementById('onnx').innerHTML,
+        'default': document.getElementById('default').innerHTML
+    };
+
     function showUploadOptions(option) {
-        const options = ['tensorflow', 'pytorch', 'yolo', 'onnx'];
+        const options = ['tensorflow', 'pytorch', 'yolo', 'onnx', 'default'];
         for (const opt of options) {
-            document.getElementById(opt).style.display = (opt === option) ? 'block' : 'none';
+            const container = document.getElementById(opt);
+            if (opt === option) {
+                container.style.display = 'block';
+                if (!container.innerHTML) {
+                    container.innerHTML = originalContent[opt];
+                }
+            } else {
+                container.style.display = 'none';
+                container.innerHTML = '';
+            }
         }
+    }
+
+    function submitForm() {
+        const originalFormData = new FormData(document.getElementById('uploadForm'));
+        const filteredFormData = new FormData();
+
+        for (let [key, value] of originalFormData.entries()) {
+            if (value && value.name) {
+                filteredFormData.append(key, value, value.name);
+            }
+        }
+        fetch('/inference/save_file', {
+            method: 'POST',
+            body: filteredFormData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('File uploaded successfully!');
+                } else {
+                    alert('Upload failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('An error occurred: ' + error.message);
+            });
     }
 </script>
 
