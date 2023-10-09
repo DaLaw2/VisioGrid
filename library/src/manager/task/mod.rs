@@ -1,5 +1,3 @@
-pub mod bounding_box;
-pub mod task;
-pub mod image_resource;
-pub mod inference_type;
-pub mod register;
+pub mod definition;
+pub mod file_manager;
+pub mod task_manager;

@@ -1,4 +1,4 @@
-use crate::manager::task::bounding_box::BoundingBox;
+use crate::manager::utils::bounding_box::BoundingBox;
 
 pub struct ImageResource {
     source_ip: String,

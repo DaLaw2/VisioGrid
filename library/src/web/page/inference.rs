@@ -7,6 +7,8 @@ use futures::{self, StreamExt, TryStreamExt};
 use actix_web::{get, post, web, Scope, Result, Error, HttpRequest, HttpResponse, Responder};
 use crate::utils::static_files::StaticFiles;
 use crate::web::utils::response::OperationStatus;
+use crate::manager::task::file_manager::FileManager;
+use crate::manager::task::definition::{InferenceType, Task};
 
 pub fn initialize() -> Scope {
     web::scope("/inference")
@@ -15,7 +17,7 @@ pub fn initialize() -> Scope {
 }
 
 #[get("")]
-pub async fn inference() -> impl Responder {
+async fn inference() -> impl Responder {
     let html = StaticFiles::get("inference.html").expect("File not found in static files.").data;
     let response = HttpResponse::Ok().content_type("text/html").body(html);
     response
@@ -23,7 +25,9 @@ pub async fn inference() -> impl Responder {
 
 #[post("/save_file")]
 async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResponse, Error> {
-    let mut model_type = "".to_string();
+    let mut model_type = String::new();
+    let mut model_filename = String::new();
+    let mut inference_filename = String::new();
     let client_ip = match req.connection_info().peer_addr() {
         Some(ip) => ip.to_string(),
         None => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some("Unknown ip.".to_string())))))
@@ -50,8 +54,14 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
         file_name = format!("{}_{}_{}", client_ip, model_type, file_name);
         let file_extension = Path::new(&file_name).extension().and_then(|os_str| os_str.to_str()).unwrap_or("");
         let file_path = match (field_name, file_extension) {
-            ("cfgFile" | "weightsFile" | "namesFile" | "ptFile" | "h5File" | "onnxFile", "cfg" | "weights" | "names" | "pt" | "pth" | "h5" | "onnx") => "./SavedModel",
-            ("yoloInferenceFile" | "pytorchInferenceFile" | "tensorflowInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => "./SavedFile",
+            ("cfgFile" | "weightsFile" | "namesFile" | "ptFile" | "h5File" | "onnxFile", "cfg" | "weights" | "names" | "pt" | "pth" | "h5" | "onnx") => {
+                model_filename = file_name.clone();
+                "./SavedModel"
+            },
+            ("yoloInferenceFile" | "pytorchInferenceFile" | "tensorflowInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
+                inference_filename = file_name.clone();
+                "./SavedFile"
+            },
             _ => return Ok(HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))))
         };
         let mut file_path = PathBuf::from(file_path);
@@ -64,5 +74,13 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
             }
         }
     }
+    let new_task = Task::new(client_ip, model_filename, inference_filename, match &*model_type {
+        "YOLO" => InferenceType::YOLO,
+        "PyTorch" => InferenceType::PyTorch,
+        "TensorFlow" => InferenceType::TensorFlow,
+        "ONNX" => InferenceType::ONNX,
+        _ => InferenceType::Default
+    });
+    FileManager::add_task(new_task).await;
     Ok(HttpResponse::Ok().json(OperationStatus::new(true, None)))
 }
