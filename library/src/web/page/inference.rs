@@ -58,14 +58,13 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
                 model_filename = file_name.clone();
                 "./SavedModel"
             },
-            ("yoloInferenceFile" | "pytorchInferenceFile" | "tensorflowInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
+            ("yoloInferenceFile" | "pytorchInferenceFile" | "tensorflowInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
                 inference_filename = file_name.clone();
                 "./SavedFile"
             },
             _ => return Ok(HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))))
         };
-        let mut file_path = PathBuf::from(file_path);
-        file_path.push(file_name);
+        let file_path: PathBuf = format!("{}/{}", file_path, file_name).into();
         let mut file = File::create(&file_path).await?;
         while let Some(chunk) = field.next().await {
             match chunk {
