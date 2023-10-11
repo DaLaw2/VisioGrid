@@ -1,3 +1,4 @@
+#[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum InferenceType {
     YOLO,
     PyTorch,
@@ -6,6 +7,7 @@ pub enum InferenceType {
     Default
 }
 
+#[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TaskStatus {
     PreProcessing,
     Waiting,
@@ -14,6 +16,7 @@ pub enum TaskStatus {
     Fail
 }
 
+#[derive(Hash, Eq, PartialEq,Ord, PartialOrd)]
 pub struct Task {
     pub ip: String,
     pub status: TaskStatus,

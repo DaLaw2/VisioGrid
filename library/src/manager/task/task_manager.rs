@@ -2,6 +2,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
+use priority_queue::PriorityQueue;
+use crate::manager::node_cluster::NodeCluster;
 use crate::manager::task::definition::Task;
 use crate::manager::utils::image_resource::ImageResource;
 
@@ -11,14 +13,14 @@ lazy_static!{
 
 pub struct TaskManager {
     task_queue: VecDeque<Task>,
-    // image_queue: BinaryHeap<(usize, ImageResource)>,
+    image_queue: PriorityQueue<Task, usize>
 }
 
 impl TaskManager {
     fn new() -> Self {
         Self {
             task_queue: VecDeque::new(),
-            // image_queue: BinaryHeap::new(),
+            image_queue: PriorityQueue::new(),
         }
     }
 
