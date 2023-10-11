@@ -8,12 +8,14 @@ lazy_static! {
 }
 
 pub struct NodeCluster {
+    size: usize,
     nodes: HashMap<usize, Node>
 }
 
 impl NodeCluster {
     fn new() -> Self {
         NodeCluster {
+            size: 0_usize,
             nodes: HashMap::new()
         }
     }
@@ -28,13 +30,23 @@ impl NodeCluster {
             return;
         }
         self.nodes.insert(node_id, node);
+        self.size += 1;
     }
 
     pub fn remove_node(&mut self, node_id: usize) -> Option<Node> {
-        self.nodes.remove(&node_id)
+        let node = self.nodes.remove(&node_id);
+        match node {
+            Some(_) => self.size -= 1,
+            None => {}
+        }
+        node
     }
 
     pub fn get_node(&mut self, node_id: usize) -> Option<&mut Node> {
         self.nodes.get_mut(&node_id)
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 }

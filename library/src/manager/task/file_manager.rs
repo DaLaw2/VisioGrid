@@ -1,7 +1,6 @@
 use tokio::fs;
 use std::fs::File;
 use std::io::Error;
-use std::sync::Arc;
 use std::ffi::OsStr;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -16,7 +15,7 @@ use crate::manager::task::task_manager::TaskManager;
 use crate::manager::task::definition::{Task, TaskStatus};
 
 lazy_static! {
-    static ref GLOBAL_FILE_MANAGER: Arc<Mutex<FileManager>> = Arc::new(Mutex::new(FileManager::new()));
+    static ref GLOBAL_FILE_MANAGER: Mutex<FileManager> = Mutex::new(FileManager::new());
 }
 
 pub struct FileManager {
@@ -72,10 +71,9 @@ impl FileManager {
     }
 
     async fn preprocessing() {
-        let file_manager = GLOBAL_FILE_MANAGER.clone();
         loop {
             let task = {
-                let mut file_manager = file_manager.lock().await;
+                let mut file_manager = GLOBAL_FILE_MANAGER.lock().await;
                 file_manager.preprocessing_queue.pop_front()
             };
             match task {

@@ -1,5 +1,6 @@
 use crate::manager::utils::bounding_box::BoundingBox;
 
+#[derive(Hash, Eq, PartialEq)]
 pub struct ImageResource {
     file_name: String,
     file_path: String,
