@@ -6,13 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+zip = "0.6.6"
 toml = "0.8.1"
 chrono = "0.4.31"
 futures = "0.3.28"
 actix-rt = "2.9.0"
 actix-web = "4.4.0"
-rust-embed = "8.0.0"
 gstreamer = "0.21.0"
+rust-embed = "8.0.0"
 lazy_static = "1.4.0"
 actix-multipart = "0.6.1"
 sanitize-filename = "0.5.0"

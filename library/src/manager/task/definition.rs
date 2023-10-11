@@ -8,6 +8,7 @@ pub enum InferenceType {
 
 pub enum TaskStatus {
     PreProcessing,
+    Waiting,
     Processing,
     PostProcessing,
     Fail
@@ -20,10 +21,11 @@ pub struct Task {
     pub inference_filename: String,
     pub inference_type: InferenceType,
     pub processed: usize,
+    pub unprocessed: usize,
 }
 
 impl Task {
-    pub fn new(ip: String, model_filename: String, inference_filename: String, inference_type: InferenceType) -> Task {
+    pub fn new(ip: String, model_filename: String, inference_filename: String, inference_type: InferenceType) -> Self {
         Self {
             ip,
             status: TaskStatus::PreProcessing,
@@ -31,6 +33,7 @@ impl Task {
             inference_filename,
             inference_type,
             processed: 0_usize,
+            unprocessed: 0_usize,
         }
     }
 }

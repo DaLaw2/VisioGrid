@@ -4,7 +4,7 @@ use library::connection::connection_channel::data_channel::DataChannel;
 
 #[tokio::main]
 async fn main() {
-    let mut socket = NodeSocket::new(16384).await;
+    let mut socket = NodeSocket::new().await;
     let stream = socket.get_connection().await;
     let mut data_channel = DataChannel::new(0, stream);
     data_channel.run().await;

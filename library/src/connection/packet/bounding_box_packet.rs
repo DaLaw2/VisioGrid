@@ -12,7 +12,7 @@ pub struct BoundingBoxPacket {
 }
 
 impl BoundingBoxPacket {
-    pub fn new(bounding_box: &BoundingBox) -> BoundingBoxPacket {
+    pub fn new(bounding_box: &BoundingBox) -> Self {
         let data = bounding_box.to_string();
         BoundingBoxPacket {
             length: length_to_byte(16 + data.len()),

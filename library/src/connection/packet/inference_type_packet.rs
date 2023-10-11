@@ -12,7 +12,7 @@ pub struct InferenceTypePacket {
 
 impl InferenceTypePacket {
     // 記得改成傳入type enum
-    pub fn new(inference_type: usize) -> InferenceTypePacket {
+    pub fn new(inference_type: usize) -> Self {
         InferenceTypePacket {
             length: length_to_byte(16 + inference_type.to_string().as_bytes().to_vec().len()),
             id: PacketType::InferenceTypePacket.as_id_byte(),

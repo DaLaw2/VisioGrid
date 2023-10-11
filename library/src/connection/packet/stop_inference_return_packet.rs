@@ -11,7 +11,7 @@ pub struct StopInferenceReturnPacket {
 }
 
 impl StopInferenceReturnPacket {
-    pub fn new() -> StopInferenceReturnPacket {
+    pub fn new() -> Self {
         StopInferenceReturnPacket {
             length: length_to_byte(16),
             id: PacketType::StopInferenceReturnPacket.as_id_byte(),

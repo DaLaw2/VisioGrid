@@ -11,7 +11,8 @@ pub struct NodeSocket {
 }
 
 impl NodeSocket {
-    pub async fn new(port: usize) -> Self {
+    pub async fn new() -> Self {
+        let port = Config::instance().await.node_listen_port;
         let bind_retry_duration = Config::instance().await.bind_retry_duration;
         let listener = loop {
             match TcpListener::bind(format!("127.0.0.1:{}", port)).await {

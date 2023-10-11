@@ -12,7 +12,7 @@ pub struct NodeCluster {
 }
 
 impl NodeCluster {
-    fn new() -> NodeCluster {
+    fn new() -> Self {
         NodeCluster {
             nodes: HashMap::new()
         }

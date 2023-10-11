@@ -1,7 +1,6 @@
-use std::time::Duration;
-use actix_web::{App, Error, HttpServer};
-use library::web::page::inference;
 use library::web::page::setting;
+use library::web::page::inference;
+use actix_web::{App, Error, HttpServer};
 use library::manager::task::file_manager::FileManager;
 
 #[actix_web::main]
@@ -16,7 +15,6 @@ async fn main() -> Result<(), Error> {
         .bind("127.0.0.1:8080")?
         .run()
         .await?;
-    tokio::time::sleep(Duration::from_secs(60)).await;
     FileManager::cleanup().await;
     Ok(())
 }

@@ -11,7 +11,7 @@ pub struct PicturePacket {
 }
 
 impl PicturePacket {
-    pub fn new(picture: Vec<u8>) -> PicturePacket {
+    pub fn new(picture: Vec<u8>) -> Self {
         PicturePacket {
             length: length_to_byte(16 + picture.len()),
             id: PacketType::PicturePacket.as_id_byte(),

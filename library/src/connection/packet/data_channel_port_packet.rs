@@ -11,7 +11,7 @@ pub struct DataChannelPortPacket {
 }
 
 impl DataChannelPortPacket {
-    pub fn new(port: usize) -> DataChannelPortPacket {
+    pub fn new(port: usize) -> Self {
         DataChannelPortPacket {
             length: length_to_byte(16 + port.to_string().as_bytes().to_vec().len()),
             id: PacketType::DataChannelPortPacket.as_id_byte(),

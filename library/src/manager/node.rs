@@ -4,7 +4,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(node_id: usize) -> Node {
+    pub fn new(node_id: usize) -> Self {
         Node {
             node_id,
         }

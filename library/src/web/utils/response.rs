@@ -7,7 +7,7 @@ pub struct OperationStatus {
 }
 
 impl OperationStatus {
-    pub fn new(success: bool, error: Option<String>) -> OperationStatus {
+    pub fn new(success: bool, error: Option<String>) -> Self {
         Self {
             success,
             error

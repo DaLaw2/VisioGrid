@@ -1,7 +1,6 @@
 use crate::manager::utils::bounding_box::BoundingBox;
 
 pub struct ImageResource {
-    source_ip: String,
     file_name: String,
     file_path: String,
     image_size: usize,
@@ -9,21 +8,15 @@ pub struct ImageResource {
     inference_type: usize,
     allocate: bool,
     finished: bool,
-    fail_times: usize,
-    cost_time: f64,
     bounding_boxes: Vec<BoundingBox>
 }
 
 impl ImageResource {
-    // File Name Format: `inferenceType_sourceIp_originalFilesName`
     pub fn new(image_id: usize, file_name: String, file_path: String) -> Self {
         let parts: Vec<&str> = file_name.split('_').collect();
-        // Should never occur error here
         let inference_type = parts.get(0).unwrap().parse::<usize>().unwrap();
-        let source_ip = parts.get(1).unwrap().to_string();
 
         Self {
-            source_ip,
             file_name,
             file_path,
             image_size: 0,
@@ -31,8 +24,6 @@ impl ImageResource {
             inference_type,
             allocate: false,
             finished: false,
-            fail_times: 0,
-            cost_time: 0.0,
             bounding_boxes: Vec::new(),
         }
     }
