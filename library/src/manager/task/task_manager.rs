@@ -1,53 +1,71 @@
-use std::sync::Arc;
+use tokio::fs;
+use std::path::Path;
 use tokio::sync::Mutex;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
 use priority_queue::PriorityQueue;
-use crate::manager::node_cluster::NodeCluster;
-use crate::manager::task::definition::{Task, TaskStatus};
-use crate::manager::utils::image_resource::ImageResource;
+use crate::utils::id_manager::IDManager;
+use crate::manager::task::definition::Task;
 use crate::utils::logger::{Logger, LogLevel};
+use crate::manager::node_cluster::NodeCluster;
+use crate::manager::utils::image_resource::ImageResource;
 
 lazy_static! {
-    static ref GLOBAL_TASK_MANAGER: Arc<Mutex<TaskManager>> = Arc::new(Mutex::new(TaskManager::new()));
+    static ref TASK_UUID_MANAGER: Mutex<IDManager> = Mutex::new(IDManager::new());
+    static ref GLOBAL_TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager::new());
 }
 
 pub struct TaskManager {
     task_queue: VecDeque<Task>,
-    image_queue: PriorityQueue<ImageResource, usize>
+    process_queue: PriorityQueue<ImageResource, usize>
 }
 
 impl TaskManager {
     fn new() -> Self {
         Self {
             task_queue: VecDeque::new(),
-            image_queue: PriorityQueue::new(),
+            process_queue: PriorityQueue::new(),
         }
     }
 
-    pub async fn add_task(task: Task) {
-        let mut manager = GLOBAL_TASK_MANAGER.lock().await;
-        manager.task_queue.push_back(task);
+    pub async fn add_task(mut task: Task) {
+        let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
+        let mut id_manager = TASK_UUID_MANAGER.lock().await;
+        task.uuid = id_manager.allocate_id();
+        task_manager.task_queue.push_back(task);
     }
 
-    //當圖片數小於node數
-    //將任務的image丟到queue裡面
-    //最少一個task進入
     pub async fn run() {
         loop {
             let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
             let node_amount = { NodeCluster::instance().await.size() };
-            while task_manager.image_queue.len() < node_amount {
+            while task_manager.process_queue.len() < node_amount {
                 match task_manager.task_queue.front_mut() {
                     Some(task) => {
-                        task.status = TaskStatus::Processing;
                         match Path::new(&task.inference_filename).extension().and_then(|os_str| os_str.to_str()) {
                             Some("png") | Some("jpg") | Some("jpeg") => {
-
+                                let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
+                                let inference_filepath = Path::new(".").join("PreProcessing").join(task.inference_filename.clone());
+                                let image_resource = ImageResource::new(task.uuid, model_filepath, inference_filepath, task.inference_type.clone()).await;
+                                let priority = Self::calc_priority(&image_resource).await;
+                                task_manager.process_queue.push(image_resource, priority);
                             },
                             Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
-
+                                let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
+                                let inference_folder = Path::new(".").join("PreProcessing").join(task.inference_filename.clone()).with_extension("");
+                                let mut inference_folder = match fs::read_dir(&inference_folder).await {
+                                    Ok(inference_folder) => inference_folder,
+                                    Err(err) => {
+                                        Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Fail read folder {}: {:?}", inference_folder.display(), err));
+                                        continue;
+                                    }
+                                };
+                                while let Ok(Some(inference_filepath)) = inference_folder.next_entry().await {
+                                    let inference_filepath = inference_filepath.path();
+                                    let image_resource = ImageResource::new(task.uuid, model_filepath.clone(), inference_filepath, task.inference_type.clone()).await;
+                                    let priority = Self::calc_priority(&image_resource).await;
+                                    task_manager.process_queue.push(image_resource, priority);
+                                }
                             },
                             _ => Logger::instance().await.append_global_log(LogLevel::ERROR, "Add image to task manager failed.".to_string()),
                         }
@@ -57,4 +75,9 @@ impl TaskManager {
             }
         }
     }
+
+    async fn calc_priority(image_resource: &ImageResource) -> usize {
+        0
+    }
+
 }

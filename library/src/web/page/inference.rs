@@ -38,7 +38,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
             if let Some(chunk) = field.next().await {
                 let content = match chunk {
                     Ok(data) => data,
-                    Err(e) => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some(format!("{}", e))))))
+                    Err(err) => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some(format!("{}", err))))))
                 };
                 model_type = String::from_utf8_lossy(&content).to_string();
             }
@@ -69,7 +69,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
         while let Some(chunk) = field.next().await {
             match chunk {
                 Ok(data) => file.write_all(&data).await?,
-                Err(e) => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some(format!("{}", e))))))
+                Err(err) => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some(format!("{}", err))))))
             }
         }
     }

@@ -106,13 +106,13 @@ impl FileManager {
     async fn extract_media(mut task: Task) {
         let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.inference_filename);
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.inference_filename);
-        let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
-        if let Err(e) = fs::create_dir(&create_folder).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), e));
+        let create_folder: PathBuf = destination_path.clone().with_extension("");
+        if let Err(err) = fs::create_dir(&create_folder).await {
+            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), err));
             return;
         }
-        if let Err(e) = fs::rename(&source_path, &destination_path).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to move file from {} to {}: {:?}", source_path.display(), destination_path.display(), e));
+        if let Err(err) = fs::rename(&source_path, &destination_path).await {
+            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to move file from {} to {}: {:?}", source_path.display(), destination_path.display(), err));
             return;
         }
         let media_path = destination_path.clone();
@@ -132,11 +132,10 @@ impl FileManager {
             Ok(Err(err)) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("GStreamer extraction failed: {}.", err)),
             Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Task panicked: {:?}.", err)),
         }
-
     }
 
     fn media_process(media_path: PathBuf) -> Result<(), String> {
-        let mut saved_path = media_path.clone().with_extension("").to_path_buf();
+        let saved_path = media_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.png"));
         let pipeline = match gstreamer::parse_launch(&pipeline_string) {
             Ok(pipeline) => pipeline,
@@ -177,12 +176,12 @@ impl FileManager {
         let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.inference_filename);
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.inference_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
-        if let Err(e) = fs::create_dir(&create_folder).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), e));
+        if let Err(err) = fs::create_dir(&create_folder).await {
+            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), err));
             return;
         }
-        if let Err(e) = fs::rename(&source_path, &destination_path).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to move file from {} to {}: {:?}", source_path.display(), destination_path.display(), e));
+        if let Err(err) = fs::rename(&source_path, &destination_path).await {
+            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to move file from {} to {}: {:?}", source_path.display(), destination_path.display(), err));
             return;
         }
         let zip_path = destination_path.clone();
@@ -208,28 +207,28 @@ impl FileManager {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = match File::open(&zip_path) {
             Ok(r) => r,
-            Err(e) => return Err(format!("Failed to open ZIP file: {}", e)),
+            Err(err) => return Err(format!("Failed to open ZIP file: {}", err)),
         };
         let mut archive = match ZipArchive::new(reader) {
-            Ok(a) => a,
-            Err(e) => return Err(format!("Failed to read ZIP archive: {}", e)),
+            Ok(archive) => archive,
+            Err(err) => return Err(format!("Failed to read ZIP archive: {}", err)),
         };
-        let mut output_folder = zip_path.clone().with_extension("").to_path_buf();
+        let output_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
             let mut file = match archive.by_index(i) {
-                Ok(f) => f,
-                Err(e) => return Err(format!("Failed to access ZIP entry by index: {}", e)),
+                Ok(file) => file,
+                Err(err) => return Err(format!("Failed to access ZIP entry by index: {}", err)),
             };
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
                     if allowed_extensions.contains(&extension.to_str().unwrap_or("")) {
                         let output_filepath = output_folder.join(enclosed_path.file_name().unwrap_or_default());
                         let mut output_file = match File::create(&output_filepath) {
-                            Ok(f) => f,
-                            Err(e) => return Err(format!("Failed to create output file: {}", e)),
+                            Ok(file) => file,
+                            Err(err) => return Err(format!("Failed to create output file: {}", err)),
                         };
-                        if let Err(e) = std::io::copy(&mut file, &mut output_file) {
-                            return Err(format!("Failed to write to output file: {}", e));
+                        if let Err(err) = std::io::copy(&mut file, &mut output_file) {
+                            return Err(format!("Failed to write to output file: {}", err));
                         }
                     }
                 }

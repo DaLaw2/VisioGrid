@@ -1,25 +1,27 @@
 use std::str::FromStr;
 
 pub struct Task {
+    pub uuid: usize,
+    pub status: TaskStatus,
+    pub processed: usize,
+    pub unprocessed: usize,
     pub ip: String,
     pub model_filename: String,
     pub inference_filename: String,
     pub inference_type: InferenceType,
-    pub processed: usize,
-    pub unprocessed: usize,
-    pub status: TaskStatus,
 }
 
 impl Task {
     pub fn new(ip: String, model_filename: String, inference_filename: String, inference_type: InferenceType) -> Self {
         Self {
+            uuid: 0_usize,
+            status: TaskStatus::PreProcessing,
+            processed: 0_usize,
+            unprocessed: 0_usize,
             ip,
             model_filename,
             inference_filename,
             inference_type,
-            processed: 0_usize,
-            unprocessed: 0_usize,
-            status: TaskStatus::PreProcessing,
         }
     }
 }
@@ -32,7 +34,7 @@ pub enum TaskStatus {
     Fail,
 }
 
-#[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum InferenceType {
     YOLO,
     PyTorch,

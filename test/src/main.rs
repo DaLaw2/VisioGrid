@@ -1,13 +1,20 @@
-use std::time::Duration;
-use library::connection::socket::node_socket::NodeSocket;
-use library::connection::connection_channel::data_channel::DataChannel;
+use library::web::page::setting;
+use library::web::page::inference;
+use actix_web::{App, Error, HttpServer};
+use library::manager::task::file_manager::FileManager;
 
-#[tokio::main]
-async fn main() {
-    let mut socket = NodeSocket::new().await;
-    let stream = socket.get_connection().await;
-    let mut data_channel = DataChannel::new(0, stream);
-    data_channel.run().await;
-    tokio::time::sleep(Duration::from_secs(5)).await;
-    data_channel.disconnect().await;
+#[actix_web::main]
+async fn main() -> Result<(), Error> {
+    FileManager::initialize().await;
+    FileManager::run().await;
+    HttpServer::new(|| {
+        App::new()
+            .service(setting::initialize())
+            .service(inference::initialize())
+    })
+        .bind("127.0.0.1:8080")?
+        .run()
+        .await?;
+    FileManager::cleanup().await;
+    Ok(())
 }
