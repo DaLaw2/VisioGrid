@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use crate::manager::task::task_manager::TaskManager;
 
 pub struct Task {
     pub uuid: usize,
@@ -12,9 +13,9 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(ip: String, model_filename: String, inference_filename: String, inference_type: InferenceType) -> Self {
+    pub async fn new(ip: String, model_filename: String, inference_filename: String, inference_type: InferenceType) -> Self {
         Self {
-            uuid: 0_usize,
+            uuid: TaskManager::allocate_uuid().await,
             status: TaskStatus::PreProcessing,
             processed: 0_usize,
             unprocessed: 0_usize,

@@ -1,6 +1,8 @@
 use tokio::fs;
 use std::path::Path;
+use tokio::time::sleep;
 use tokio::sync::Mutex;
+use std::time::Duration;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use priority_queue::PriorityQueue;
@@ -9,6 +11,7 @@ use crate::manager::task::definition::Task;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::image_resource::ImageResource;
+use crate::utils::config::Config;
 
 lazy_static! {
     static ref TASK_UUID_MANAGER: Mutex<IDManager> = Mutex::new(IDManager::new());
@@ -28,10 +31,18 @@ impl TaskManager {
         }
     }
 
-    pub async fn add_task(mut task: Task) {
-        let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
+    pub async fn allocate_uuid() -> usize {
         let mut id_manager = TASK_UUID_MANAGER.lock().await;
-        task.uuid = id_manager.allocate_id();
+        id_manager.allocate_id()
+    }
+
+    pub async fn free_uuid(uuid: usize) {
+        let mut id_manager = TASK_UUID_MANAGER.lock().await;
+        id_manager.free_id(uuid)
+    }
+
+    pub async fn add_task(task: Task) {
+        let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
         task_manager.task_queue.push_back(task);
     }
 
@@ -40,6 +51,7 @@ impl TaskManager {
             let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
             let node_amount = { NodeCluster::instance().await.size() };
             while task_manager.process_queue.len() < node_amount {
+                let mut process: Vec<(ImageResource, usize)> = Vec::new();
                 match task_manager.task_queue.front_mut() {
                     Some(task) => {
                         match Path::new(&task.inference_filename).extension().and_then(|os_str| os_str.to_str()) {
@@ -48,7 +60,7 @@ impl TaskManager {
                                 let inference_filepath = Path::new(".").join("PreProcessing").join(task.inference_filename.clone());
                                 let image_resource = ImageResource::new(task.uuid, model_filepath, inference_filepath, task.inference_type.clone()).await;
                                 let priority = Self::calc_priority(&image_resource).await;
-                                task_manager.process_queue.push(image_resource, priority);
+                                process.push((image_resource, priority));
                             },
                             Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
                                 let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
@@ -64,7 +76,7 @@ impl TaskManager {
                                     let inference_filepath = inference_filepath.path();
                                     let image_resource = ImageResource::new(task.uuid, model_filepath.clone(), inference_filepath, task.inference_type.clone()).await;
                                     let priority = Self::calc_priority(&image_resource).await;
-                                    task_manager.process_queue.push(image_resource, priority);
+                                    process.push((image_resource, priority));
                                 }
                             },
                             _ => Logger::instance().await.append_global_log(LogLevel::ERROR, "Add image to task manager failed.".to_string()),
@@ -72,12 +84,15 @@ impl TaskManager {
                     },
                     None => break
                 }
+                for (image_resource, priority) in process {
+                    task_manager.process_queue.push(image_resource, priority);
+                }
             }
+            sleep(Duration::from_millis(100)).await;
         }
     }
 
     async fn calc_priority(image_resource: &ImageResource) -> usize {
         0
     }
-
 }

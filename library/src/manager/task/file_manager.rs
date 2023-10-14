@@ -85,7 +85,7 @@ impl FileManager {
                             match fs::rename(source_path, destination_path).await {
                                 Ok(_) => {
                                     task.unprocessed = 1;
-                                    Self::processing(task).await
+                                    Self::task_manager_process(task).await
                                 },
                                 Err(_) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("The task of IP:{} failed: Fail move inference file.", task.ip))
                             }
@@ -124,7 +124,7 @@ impl FileManager {
                 match Self::file_count(create_folder).await {
                     Ok(count) => {
                         task.unprocessed = count;
-                        Self::processing(task).await;
+                        Self::task_manager_process(task).await;
                     }
                     Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Error reading directory: {}.", err))
                 }
@@ -193,7 +193,7 @@ impl FileManager {
                 match Self::file_count(create_folder).await {
                     Ok(count) => {
                         task.unprocessed = count;
-                        Self::processing(task).await;
+                        Self::task_manager_process(task).await;
                     }
                     Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Error reading directory: {}.", err))
                 }
@@ -248,7 +248,7 @@ impl FileManager {
         Ok(count)
     }
 
-    async fn processing(mut task: Task) {
+    async fn task_manager_process(mut task: Task) {
         task.status = TaskStatus::Waiting;
         TaskManager::add_task(task).await;
     }

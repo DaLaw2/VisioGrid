@@ -79,7 +79,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
         "TensorFlow" => InferenceType::TensorFlow,
         "ONNX" => InferenceType::ONNX,
         _ => InferenceType::Default
-    });
+    }).await;
     FileManager::add_task(new_task).await;
     Ok(HttpResponse::Ok().json(OperationStatus::new(true, None)))
 }

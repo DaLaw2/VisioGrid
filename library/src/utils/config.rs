@@ -15,10 +15,10 @@ struct ConfigTable {
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
-    pub(crate) http_server_bind_port: usize,
-    pub(crate) node_listen_port: usize,
-    pub(crate) bind_retry_duration: usize,
-    pub(crate) dedicated_port_range: (usize, usize),
+    pub http_server_bind_port: usize,
+    pub node_listen_port: usize,
+    pub bind_retry_duration: usize,
+    pub dedicated_port_range: (usize, usize),
 }
 
 impl Config {

@@ -3,10 +3,10 @@ use std::fmt::Formatter;
 use crate::connection::packet::definition::{Packet, PacketType};
 
 pub struct BasePacket {
-    pub(crate) length: Vec<u8>,
-    pub(crate) id: Vec<u8>,
-    pub(crate) data: Vec<u8>,
-    pub(crate) packet_type: PacketType,
+    pub length: Vec<u8>,
+    pub id: Vec<u8>,
+    pub data: Vec<u8>,
+    pub packet_type: PacketType,
 }
 
 impl BasePacket {
