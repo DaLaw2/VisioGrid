@@ -30,10 +30,6 @@ impl SocketStream {
         self.address.to_string()
     }
 
-    pub fn get_socket_id(&self) -> usize {
-        self.id
-    }
-
     pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
         self.write_half.send_raw_data(data).await
     }

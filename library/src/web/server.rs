@@ -13,12 +13,12 @@ impl Server {
     async fn new() -> Self {
         Self {
             id_manager: IDManager::new(),
-            node_socket: NodeSocket::new(),
+            node_socket: NodeSocket::new().await,
         }
     }
 
-    pub fn run(&mut self) {
-        tokio::spawn(async || {
+    pub fn run(mut self) {
+        tokio::spawn(async move {
             loop {
                 let node_id = self.id_manager.allocate_id();
                 let (socket_stream, node_ip) = self.node_socket.get_connection().await;

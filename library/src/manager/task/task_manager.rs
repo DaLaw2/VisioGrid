@@ -106,6 +106,6 @@ impl TaskManager {
                 0
             }
         };
-        (inference_filesize * 0.4 + model_filesize * 0.6) as usize
+        (inference_filesize + model_filesize) as usize
     }
 }
