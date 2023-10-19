@@ -10,8 +10,7 @@ use crate::utils::id_manager::IDManager;
 use crate::manager::task::definition::Task;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
-use crate::manager::utils::image_resource::ImageResource;
-use crate::utils::config::Config;
+use crate::manager::utils::infeerence_resource::InferenceResource;
 
 lazy_static! {
     static ref TASK_UUID_MANAGER: Mutex<IDManager> = Mutex::new(IDManager::new());
@@ -20,7 +19,7 @@ lazy_static! {
 
 pub struct TaskManager {
     task_queue: VecDeque<Task>,
-    process_queue: PriorityQueue<ImageResource, usize>
+    process_queue: PriorityQueue<InferenceResource, usize>
 }
 
 impl TaskManager {
@@ -51,16 +50,16 @@ impl TaskManager {
             let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
             let node_amount = { NodeCluster::instance().await.size() };
             while task_manager.process_queue.len() < node_amount {
-                let mut process: Vec<(ImageResource, usize)> = Vec::new();
+                let mut process: Vec<(InferenceResource, usize)> = Vec::new();
                 match task_manager.task_queue.front_mut() {
                     Some(task) => {
                         match Path::new(&task.inference_filename).extension().and_then(|os_str| os_str.to_str()) {
                             Some("png") | Some("jpg") | Some("jpeg") => {
                                 let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
                                 let inference_filepath = Path::new(".").join("PreProcessing").join(task.inference_filename.clone());
-                                let image_resource = ImageResource::new(task.uuid, model_filepath, inference_filepath, task.inference_type.clone()).await;
-                                let priority = Self::calc_priority(&image_resource).await;
-                                process.push((image_resource, priority));
+                                let inference_resource = InferenceResource::new(task.uuid, model_filepath, inference_filepath, task.inference_type.clone()).await;
+                                let priority = Self::calc_priority(&inference_resource).await;
+                                process.push((inference_resource, priority));
                             },
                             Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
                                 let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
@@ -74,9 +73,9 @@ impl TaskManager {
                                 };
                                 while let Ok(Some(inference_filepath)) = inference_folder.next_entry().await {
                                     let inference_filepath = inference_filepath.path();
-                                    let image_resource = ImageResource::new(task.uuid, model_filepath.clone(), inference_filepath, task.inference_type.clone()).await;
-                                    let priority = Self::calc_priority(&image_resource).await;
-                                    process.push((image_resource, priority));
+                                    let inference_resource = InferenceResource::new(task.uuid, model_filepath.clone(), inference_filepath, task.inference_type.clone()).await;
+                                    let priority = Self::calc_priority(&inference_resource).await;
+                                    process.push((inference_resource, priority));
                                 }
                             },
                             _ => Logger::instance().await.append_global_log(LogLevel::ERROR, "Add image to task manager failed.".to_string()),
@@ -84,15 +83,29 @@ impl TaskManager {
                     },
                     None => break
                 }
-                for (image_resource, priority) in process {
-                    task_manager.process_queue.push(image_resource, priority);
+                for (inference_resource, priority) in process {
+                    task_manager.process_queue.push(inference_resource, priority);
                 }
             }
             sleep(Duration::from_millis(100)).await;
         }
     }
 
-    async fn calc_priority(image_resource: &ImageResource) -> usize {
-        0
+    async fn calc_priority(inference_resource: &InferenceResource) -> usize {
+        let inference_filesize = match fs::metadata(&inference_resource.inference_filepath).await {
+            Ok(metadata) => metadata.len(),
+            Err(err) => {
+                Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Fail read file {}: {:?}", inference_resource.inference_filepath.display(), err));
+                0
+            }
+        };
+        let model_filesize = match fs::metadata(&inference_resource.model_filepath).await {
+            Ok(metadata) => metadata.len(),
+            Err(err) => {
+                Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Fail read file {}: {:?}", inference_resource.inference_filepath.display(), err));
+                0
+            }
+        };
+        (inference_filesize * 0.4 + model_filesize * 0.6) as usize
     }
 }

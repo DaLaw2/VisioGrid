@@ -9,14 +9,14 @@ lazy_static! {
 
 pub struct NodeCluster {
     size: usize,
-    nodes: HashMap<usize, Node>
+    nodes: HashMap<usize, Node>,
 }
 
 impl NodeCluster {
     fn new() -> Self {
         NodeCluster {
             size: 0_usize,
-            nodes: HashMap::new()
+            nodes: HashMap::new(),
         }
     }
 
@@ -25,7 +25,7 @@ impl NodeCluster {
     }
 
     pub fn add_node(&mut self, node: Node) {
-        let node_id = node.get_node_id();
+        let node_id = node.get_id();
         if self.nodes.contains_key(&node_id) {
             return;
         }

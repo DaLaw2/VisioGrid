@@ -1,12 +1,11 @@
+use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use crate::utils::id_manager::IDManager;
+use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::SocketStream;
-use crate::utils::config::Config;
 
 pub struct NodeSocket {
-    id: IDManager,
     listener: TcpListener
 }
 
@@ -27,17 +26,16 @@ impl NodeSocket {
             }
         };
         Self {
-            id: IDManager::new(),
             listener
         }
     }
 
-    pub async fn get_connection(&mut self) -> SocketStream {
-        let (stream, _) = loop {
+    pub async fn get_connection(&mut self) -> (SocketStream, SocketAddr) {
+        let (stream, address) = loop {
             if let Ok(connection) = self.listener.accept().await {
                 break connection;
             }
         };
-        SocketStream::new(self.id.allocate_id(), stream)
+        (SocketStream::new(stream, address.clone()), address)
     }
 }

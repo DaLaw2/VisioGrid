@@ -7,18 +7,15 @@ use crate::connection::packet::definition::Packet;
 use crate::connection::packet::base_packet::BasePacket;
 
 pub struct SocketStream {
-    id: usize,
     address: SocketAddr,
     write_half: WriteHalf,
     read_half: ReadHalf
 }
 
 impl SocketStream {
-    pub fn new(id: usize, socket: TcpStream) -> Self {
-        let address = socket.peer_addr().expect(format!("Connection refuse. Socket ID: {}", id).as_str());
+    pub fn new(socket: TcpStream, address: SocketAddr) -> Self {
         let (read_half, write_half) = socket.into_split();
         Self {
-            id,
             address,
             write_half: WriteHalf::new(write_half),
             read_half: ReadHalf::new(read_half)
