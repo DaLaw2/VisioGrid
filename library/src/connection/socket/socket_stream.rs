@@ -8,8 +8,8 @@ use crate::connection::packet::base_packet::BasePacket;
 
 pub struct SocketStream {
     address: SocketAddr,
+    read_half: ReadHalf,
     write_half: WriteHalf,
-    read_half: ReadHalf
 }
 
 impl SocketStream {
@@ -17,25 +17,17 @@ impl SocketStream {
         let (read_half, write_half) = socket.into_split();
         Self {
             address,
+            read_half: ReadHalf::new(read_half),
             write_half: WriteHalf::new(write_half),
-            read_half: ReadHalf::new(read_half)
         }
     }
 
-    pub fn into_split(self) -> (WriteHalf, ReadHalf) {
-        (self.write_half, self.read_half)
+    pub fn into_split(self) -> (ReadHalf, WriteHalf) {
+        (self.read_half, self.write_half)
     }
 
     pub fn get_ip(&self) -> String {
         self.address.to_string()
-    }
-
-    pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
-        self.write_half.send_raw_data(data).await
-    }
-
-    pub async fn send_packet(&mut self, packet: Box<dyn Packet + Send>) -> io::Result<()> {
-        self.write_half.send_packet(packet).await
     }
 
     pub async fn receive_raw_data(&mut self) -> io::Result<Vec<u8>> {
@@ -45,34 +37,13 @@ impl SocketStream {
     pub async fn receive_packet(&mut self) -> io::Result<BasePacket> {
         self.read_half.receive_packet().await
     }
-}
-
-pub struct WriteHalf {
-    write_half: OwnedWriteHalf
-}
-
-impl WriteHalf {
-    pub fn new(write_half: OwnedWriteHalf) -> Self {
-        WriteHalf {
-            write_half
-        }
-    }
 
     pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
-        self.write_half.write_all(&data).await?;
-        self.write_half.flush().await?;
-        Ok(())
+        self.write_half.send_raw_data(data).await
     }
 
     pub async fn send_packet(&mut self, packet: Box<dyn Packet + Send>) -> io::Result<()> {
-        let length = packet.as_length_byte();
-        let id = packet.as_id_byte();
-        let data = packet.as_data_byte();
-        self.write_half.write_all(length).await?;
-        self.write_half.write_all(id).await?;
-        self.write_half.write_all(data).await?;
-        self.write_half.flush().await?;
-        Ok(())
+        self.write_half.send_packet(packet).await
     }
 }
 
@@ -111,5 +82,35 @@ impl ReadHalf {
         self.read_half.read_exact(&mut data_byte).await?;
         let length_byte = length_byte.to_vec();
         Ok(BasePacket::new(length_byte, id_byte, data_byte))
+    }
+}
+
+
+pub struct WriteHalf {
+    write_half: OwnedWriteHalf
+}
+
+impl WriteHalf {
+    pub fn new(write_half: OwnedWriteHalf) -> Self {
+        WriteHalf {
+            write_half
+        }
+    }
+
+    pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
+        self.write_half.write_all(&data).await?;
+        self.write_half.flush().await?;
+        Ok(())
+    }
+
+    pub async fn send_packet(&mut self, packet: Box<dyn Packet + Send>) -> io::Result<()> {
+        let length = packet.as_length_byte();
+        let id = packet.as_id_byte();
+        let data = packet.as_data_byte();
+        self.write_half.write_all(length).await?;
+        self.write_half.write_all(id).await?;
+        self.write_half.write_all(data).await?;
+        self.write_half.flush().await?;
+        Ok(())
     }
 }

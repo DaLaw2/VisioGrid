@@ -18,8 +18,9 @@ pub enum PacketType {
     BoundingBoxPacket,
     BoundingBoxSizePacket,
     DataChannelPortPacket,
+    FileBodyPacket,
+    FileHeaderPacket,
     InferenceTypePacket,
-    PicturePacket,
     StopInferencePacket,
     StopInferenceReturnPacket
 }
@@ -31,10 +32,11 @@ impl PacketType {
             PacketType::BoundingBoxPacket => 1,
             PacketType::BoundingBoxSizePacket => 2,
             PacketType::DataChannelPortPacket => 3,
-            PacketType::InferenceTypePacket => 4,
-            PacketType::PicturePacket => 5,
-            PacketType::StopInferencePacket => 6,
-            PacketType::StopInferenceReturnPacket => 7,
+            PacketType::FileBodyPacket => 4,
+            PacketType::FileHeaderPacket => 5,
+            PacketType::InferenceTypePacket => 6,
+            PacketType::StopInferencePacket => 7,
+            PacketType::StopInferenceReturnPacket => 8,
         };
         id.to_be_bytes().to_vec()
     }
@@ -47,10 +49,11 @@ impl PacketType {
             1 => PacketType::BoundingBoxPacket,
             2 => PacketType::BoundingBoxSizePacket,
             3 => PacketType::DataChannelPortPacket,
-            4 => PacketType::InferenceTypePacket,
-            5 => PacketType::PicturePacket,
-            6 => PacketType::StopInferencePacket,
-            7 => PacketType::StopInferenceReturnPacket,
+            4 => PacketType::FileBodyPacket,
+            5 => PacketType::FileHeaderPacket,
+            6 => PacketType::InferenceTypePacket,
+            7 => PacketType::StopInferencePacket,
+            8 => PacketType::StopInferenceReturnPacket,
             _ => PacketType::BasePacket
         }
     }

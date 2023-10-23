@@ -22,7 +22,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn new() -> Self {
+    pub fn new() -> Self {
         //Should not occur
         let toml_string = fs::read_to_string("./Config.toml").expect("No configuration found.");
         let config_table: ConfigTable = toml::from_str(&toml_string).expect("Fail parse configuration.");

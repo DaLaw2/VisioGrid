@@ -18,7 +18,7 @@ impl ControlChannel {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
         let (receiver_tx, receiver_rx) = mpsc::unbounded_channel();
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let (socket_sender, socket_receiver) = socket.into_split();
+        let (socket_receiver, socket_sender) = socket.into_split();
         let mut send_thread = SendThread::new(node_id, socket_sender, sender_rx);
         let mut receive_thread = ReceiveThread::new(node_id, socket_receiver, receiver_tx, stop_signal_rx);
         tokio::spawn(async move {

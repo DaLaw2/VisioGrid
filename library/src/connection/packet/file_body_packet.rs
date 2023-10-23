@@ -3,34 +3,34 @@ use std::fmt::Formatter;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
-pub struct PicturePacket {
+pub struct FileBodyPacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl PicturePacket {
-    pub fn new(picture: Vec<u8>) -> Self {
-        PicturePacket {
-            length: length_to_byte(16 + picture.len()),
-            id: PacketType::PicturePacket.as_id_byte(),
-            data: picture,
-            packet_type: PacketType::PicturePacket
+impl FileBodyPacket {
+    pub fn new(data: Vec<u8>) -> Self {
+        FileBodyPacket {
+            length: length_to_byte(16 + data.len()),
+            id: PacketType::FileBodyPacket.as_id_byte(),
+            data,
+            packet_type: PacketType::FileBodyPacket
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> PicturePacket {
-        PicturePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> FileBodyPacket {
+        FileBodyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::PicturePacket
+            packet_type: PacketType::FileBodyPacket
         }
     }
 }
 
-impl fmt::Display for PicturePacket {
+impl fmt::Display for FileBodyPacket {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut length_array = [0_u8; 8];
         let mut id_array = [0_u8; 8];
@@ -40,7 +40,7 @@ impl fmt::Display for PicturePacket {
     }
 }
 
-impl Packet for PicturePacket {
+impl Packet for FileBodyPacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }

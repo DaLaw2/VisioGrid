@@ -1,4 +1,11 @@
+use lazy_static::lazy_static;
 use std::collections::BTreeSet;
+use tokio::sync::{Mutex, MutexGuard};
+use cr
+
+lazy_static! {
+    static ref GLOBAL_PORT_POOL: Mutex<PortPool> = Mutex::new(PortPool::new());
+}
 
 pub struct PortPool {
     start: usize,
@@ -7,13 +14,18 @@ pub struct PortPool {
 }
 
 impl PortPool {
-    pub fn new(start: usize, end: usize) -> Self {
+    pub fn new() -> Self {
+
         let available = (start..end).collect::<BTreeSet<usize>>();
         PortPool {
             start,
             end,
             available
         }
+    }
+
+    pub async fn instance() -> MutexGuard<'static, PortPool> {
+        GLOBAL_PORT_POOL.lock().await
     }
 
     pub fn allocate_port(&mut self) -> Option<usize> {

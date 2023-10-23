@@ -1,5 +1,5 @@
-use std::net::SocketAddr;
 use std::time::Duration;
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
