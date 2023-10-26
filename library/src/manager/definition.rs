@@ -1,6 +1,14 @@
 use std::str::FromStr;
 use crate::manager::task_manager::TaskManager;
 
+pub enum TaskStatus {
+    PreProcessing,
+    Waiting,
+    Processing,
+    PostProcessing,
+    Fail,
+}
+
 pub struct Task {
     pub uuid: usize,
     pub status: TaskStatus,
@@ -27,14 +35,6 @@ impl Task {
     }
 }
 
-pub enum TaskStatus {
-    PreProcessing,
-    Waiting,
-    Processing,
-    PostProcessing,
-    Fail,
-}
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum InferenceType {
     YOLO,
@@ -54,6 +54,24 @@ impl FromStr for InferenceType {
             "TensorFlow" => Ok(InferenceType::TensorFlow),
             "ONNX" => Ok(InferenceType::ONNX),
             _ => Ok(InferenceType::Default),
+        }
+    }
+}
+
+pub struct PerformanceData {
+    cpu_usage: f64,
+    ram_usage: f64,
+    gpu_usage: f64,
+    vram_usage: f64,
+}
+
+impl PerformanceData {
+    pub fn new(cpu_usage: f64, ram_usage: f64, gpu_usage: f64, vram_usage: f64) -> Self {
+        Self {
+            cpu_usage,
+            ram_usage,
+            gpu_usage,
+            vram_usage,
         }
     }
 }

@@ -15,6 +15,7 @@ pub struct PortPool {
 
 impl PortPool {
     fn new() -> Self {
+        //沒有更好的方法了嗎？
         let (start, end) = Config::new().dedicated_port_range;
         let available = (start..end).collect::<BTreeSet<usize>>();
         PortPool {

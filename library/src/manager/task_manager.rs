@@ -19,7 +19,8 @@ lazy_static! {
 
 pub struct TaskManager {
     task_queue: VecDeque<Task>,
-    process_queue: PriorityQueue<InferenceResource, usize>
+    //這裡要更改
+    process_queue: PriorityQueue<InferenceResource, (usize, usize)>
 }
 
 impl TaskManager {
@@ -50,7 +51,7 @@ impl TaskManager {
             let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
             let node_amount = { NodeCluster::instance().await.size() };
             while task_manager.process_queue.len() < node_amount {
-                let mut process: Vec<(InferenceResource, usize)> = Vec::new();
+                let mut process: Vec<(InferenceResource, (usize, usize))> = Vec::new();
                 match task_manager.task_queue.front_mut() {
                     Some(task) => {
                         match Path::new(&task.inference_filename).extension().and_then(|os_str| os_str.to_str()) {
@@ -97,7 +98,7 @@ impl TaskManager {
         });
     }
 
-    async fn calc_priority(inference_resource: &InferenceResource) -> usize {
+    async fn calc_priority(inference_resource: &InferenceResource) -> (usize, usize) {
         let inference_filesize = match fs::metadata(&inference_resource.inference_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(err) => {
@@ -112,7 +113,7 @@ impl TaskManager {
                 0
             }
         };
-        (inference_filesize + model_filesize) as usize
+        (model_filesize as usize, inference_filesize as usize)
     }
 
     fn distributed_processing() {

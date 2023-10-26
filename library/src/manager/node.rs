@@ -1,20 +1,22 @@
-use std::collections::VecDeque;
+use tokio::time::sleep;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tokio::time::sleep;
+use std::collections::VecDeque;
+use crate::utils::port_pool::PortPool;
+use crate::utils::logger::{Logger, LogLevel};
+use crate::manager::definition::PerformanceData;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::manager::utils::infeerence_resource::InferenceResource;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
-use crate::utils::logger::{Logger, LogLevel};
-use crate::utils::port_pool::PortPool;
 
 pub struct Node {
     node_id: usize,
     control_channel: ControlChannel,
     data_channel: Option<DataChannel>,
     process_queue: VecDeque<InferenceResource>,
+    performance_data: PerformanceData,
 }
 
 impl Node {
@@ -24,6 +26,7 @@ impl Node {
             control_channel: ControlChannel::new(node_id, socket_stream),
             data_channel: None,
             process_queue: VecDeque::new(),
+            performance_data: PerformanceData::new(0.0, 0.0, 0.0, 0.0),
         }
     }
 
