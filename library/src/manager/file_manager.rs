@@ -11,8 +11,8 @@ use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::VecDeque;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::task::task_manager::TaskManager;
-use crate::manager::task::definition::{Task, TaskStatus};
+use crate::manager::task_manager::TaskManager;
+use crate::manager::definition::{Task, TaskStatus};
 
 lazy_static! {
     static ref GLOBAL_FILE_MANAGER: Mutex<FileManager> = Mutex::new(FileManager::new());
@@ -101,6 +101,7 @@ impl FileManager {
     }
 
     async fn postprocessing() {
+
     }
 
     async fn extract_media(mut task: Task) {

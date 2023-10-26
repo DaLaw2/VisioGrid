@@ -6,9 +6,9 @@ use sanitize_filename::sanitize;
 use futures::{self, StreamExt, TryStreamExt};
 use actix_web::{get, post, web, Scope, Result, Error, HttpRequest, HttpResponse, Responder};
 use crate::utils::static_files::StaticFiles;
+use crate::manager::file_manager::FileManager;
 use crate::web::utils::response::OperationStatus;
-use crate::manager::task::file_manager::FileManager;
-use crate::manager::task::definition::{InferenceType, Task};
+use crate::manager::definition::{InferenceType, Task};
 
 pub fn initialize() -> Scope {
     web::scope("/inference")

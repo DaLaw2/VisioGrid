@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use crate::manager::task::definition::InferenceType;
+use crate::manager::definition::InferenceType;
 use crate::manager::utils::bounding_box::BoundingBox;
 
 #[derive(Hash, Eq, PartialEq)]

@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use std::collections::BTreeSet;
 use tokio::sync::{Mutex, MutexGuard};
-use cr
+use crate::utils::config::Config;
 
 lazy_static! {
     static ref GLOBAL_PORT_POOL: Mutex<PortPool> = Mutex::new(PortPool::new());
@@ -14,8 +14,8 @@ pub struct PortPool {
 }
 
 impl PortPool {
-    pub fn new() -> Self {
-
+    fn new() -> Self {
+        let (start, end) = Config::new().dedicated_port_range;
         let available = (start..end).collect::<BTreeSet<usize>>();
         PortPool {
             start,

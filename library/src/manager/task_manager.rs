@@ -6,8 +6,8 @@ use std::time::Duration;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use priority_queue::PriorityQueue;
+use crate::manager::definition::Task;
 use crate::utils::id_manager::IDManager;
-use crate::manager::task::definition::Task;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::infeerence_resource::InferenceResource;
@@ -45,7 +45,7 @@ impl TaskManager {
         task_manager.task_queue.push_back(task);
     }
 
-    pub async fn run() {
+    async fn add_inference_resource() {
         loop {
             let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
             let node_amount = { NodeCluster::instance().await.size() };
@@ -91,6 +91,12 @@ impl TaskManager {
         }
     }
 
+    pub async fn run() {
+        tokio::spawn(async {
+            Self::add_inference_resource().await;
+        });
+    }
+
     async fn calc_priority(inference_resource: &InferenceResource) -> usize {
         let inference_filesize = match fs::metadata(&inference_resource.inference_filepath).await {
             Ok(metadata) => metadata.len(),
@@ -107,5 +113,9 @@ impl TaskManager {
             }
         };
         (inference_filesize + model_filesize) as usize
+    }
+
+    fn distributed_processing() {
+
     }
 }

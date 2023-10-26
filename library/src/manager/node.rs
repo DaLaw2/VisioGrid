@@ -7,7 +7,6 @@ use crate::manager::utils::infeerence_resource::InferenceResource;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
-use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::utils::port_pool::PortPool;
 
@@ -63,5 +62,7 @@ impl Node {
         Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, format!("Node {} success create data channel.", self.node_id));
     }
 
+    async fn performance() {
 
+    }
 }
