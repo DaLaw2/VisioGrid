@@ -53,7 +53,7 @@ pub struct ReadHalf {
 
 impl ReadHalf {
     pub fn new(read_half: OwnedReadHalf) -> Self {
-        ReadHalf {
+        Self {
             read_half
         }
     }
@@ -92,7 +92,7 @@ pub struct WriteHalf {
 
 impl WriteHalf {
     pub fn new(write_half: OwnedWriteHalf) -> Self {
-        WriteHalf {
+        Self {
             write_half
         }
     }

@@ -14,7 +14,7 @@ pub struct NodeCluster {
 
 impl NodeCluster {
     fn new() -> Self {
-        NodeCluster {
+        Self {
             size: 0_usize,
             nodes: HashMap::new(),
         }

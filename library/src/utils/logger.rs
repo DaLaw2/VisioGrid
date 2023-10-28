@@ -22,8 +22,8 @@ pub struct Logger {
 }
 
 impl Logger {
-    fn new() -> Logger {
-        let mut logger = Logger {
+    fn new() -> Self {
+        let mut logger = Self {
             empty_log: String::new(),
             system_log: String::new(),
             global_log: String::new(),

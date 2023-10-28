@@ -11,7 +11,7 @@ pub struct BasePacket {
 
 impl BasePacket {
     pub fn new(length: Vec<u8>, id: Vec<u8>, data: Vec<u8>) -> Self {
-        BasePacket {
+        Self {
             length,
             id: id.clone(),
             data,

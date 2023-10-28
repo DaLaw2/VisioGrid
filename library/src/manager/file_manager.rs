@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::collections::VecDeque;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
-use crate::manager::definition::{Task, TaskStatus};
+use crate::manager::utils::task::{Task, TaskStatus};
 
 lazy_static! {
     static ref GLOBAL_FILE_MANAGER: Mutex<FileManager> = Mutex::new(FileManager::new());
@@ -25,7 +25,7 @@ pub struct FileManager {
 
 impl FileManager {
     fn new() -> Self {
-        FileManager {
+        Self {
             preprocessing_queue: VecDeque::new(),
             postprocessing_queue: VecDeque::new()
         }
@@ -78,16 +78,16 @@ impl FileManager {
             };
             match task {
                 Some(mut task) => {
-                    match Path::new(&task.inference_filename).extension().and_then(OsStr::to_str) {
+                    match Path::new(&task.image_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => {
-                            let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.inference_filename);
-                            let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.inference_filename);
+                            let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
+                            let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
                             match fs::rename(source_path, destination_path).await {
                                 Ok(_) => {
                                     task.unprocessed = 1;
                                     Self::task_manager_process(task).await
                                 },
-                                Err(_) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("The task of IP:{} failed: Fail move inference file.", task.ip))
+                                Err(_) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("The task of IP:{} failed: Fail move image file.", task.ip))
                             }
                         },
                         Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
@@ -105,8 +105,8 @@ impl FileManager {
     }
 
     async fn extract_media(mut task: Task) {
-        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.inference_filename);
-        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.inference_filename);
+        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
+        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("");
         if let Err(err) = fs::create_dir(&create_folder).await {
             Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), err));
@@ -174,8 +174,8 @@ impl FileManager {
     }
 
     async fn extract_zip(mut task: Task) {
-        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.inference_filename);
-        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.inference_filename);
+        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
+        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
         if let Err(err) = fs::create_dir(&create_folder).await {
             Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), err));

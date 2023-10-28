@@ -12,7 +12,7 @@ pub struct BoundingBoxSizePacket {
 
 impl BoundingBoxSizePacket {
     pub fn new(amount: usize) -> Self {
-        BoundingBoxSizePacket {
+        Self {
             length: length_to_byte(16 + amount.to_string().len()),
             id: PacketType::BoundingBoxSizePacket.as_id_byte(),
             data: amount.to_string().as_bytes().to_vec(),
@@ -20,8 +20,8 @@ impl BoundingBoxSizePacket {
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> BoundingBoxSizePacket {
-        BoundingBoxSizePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> Self {
+        Self {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,

@@ -1,3 +1,6 @@
 pub mod bounding_box;
-pub mod infeerence_resource;
+pub mod image_resource;
 pub mod inference_type;
+pub mod node_information;
+pub mod performance;
+pub mod task;

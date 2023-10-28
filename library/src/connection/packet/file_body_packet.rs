@@ -12,7 +12,7 @@ pub struct FileBodyPacket {
 
 impl FileBodyPacket {
     pub fn new(data: Vec<u8>) -> Self {
-        FileBodyPacket {
+        Self {
             length: length_to_byte(16 + data.len()),
             id: PacketType::FileBodyPacket.as_id_byte(),
             data,
@@ -20,8 +20,8 @@ impl FileBodyPacket {
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> FileBodyPacket {
-        FileBodyPacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> Self {
+        Self {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,

@@ -11,10 +11,12 @@ pub struct Server {
 
 impl Server {
     async fn new() -> Self {
-        Self {
+        let server = Self {
             id_manager: IDManager::new(),
             node_socket: NodeSocket::new().await,
-        }
+        };
+        Logger::instance().await.append_system_log(LogLevel::INFO, "Server online.".to_string());
+        server
     }
 
     pub fn run(mut self) {
@@ -24,7 +26,7 @@ impl Server {
                 let (socket_stream, node_ip) = self.node_socket.get_connection().await;
                 let node = Node::new(node_id, socket_stream);
                 NodeCluster::instance().await.add_node(node);
-                Logger::instance().await.append_global_log(LogLevel::INFO, format!("Node {} connected.", node_ip));
+                Logger::instance().await.append_global_log(LogLevel::INFO, format!("Node connected.Ip: {}, Allocate node ID: {}", node_ip, node_id));
             }
         });
     }

@@ -12,7 +12,7 @@ pub struct StopInferencePacket {
 
 impl StopInferencePacket {
     pub fn new() -> Self {
-        StopInferencePacket {
+        Self {
             length: length_to_byte(16),
             id: PacketType::StopInferencePacket.as_id_byte(),
             data: Vec::new(),
@@ -20,8 +20,8 @@ impl StopInferencePacket {
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> StopInferencePacket {
-        StopInferencePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> Self {
+        Self {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,

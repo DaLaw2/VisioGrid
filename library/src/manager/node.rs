@@ -4,29 +4,31 @@ use tokio::net::TcpListener;
 use std::collections::VecDeque;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::definition::PerformanceData;
+use crate::manager::utils::performance::Performance;
+use crate::manager::utils::image_resource::ImageResource;
 use crate::connection::socket::socket_stream::SocketStream;
-use crate::manager::utils::infeerence_resource::InferenceResource;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 
 pub struct Node {
-    node_id: usize,
+    id: usize,
     control_channel: ControlChannel,
     data_channel: Option<DataChannel>,
-    process_queue: VecDeque<InferenceResource>,
-    performance_data: PerformanceData,
+    process_queue: VecDeque<ImageResource>,
+    idle_performance: Performance,
+    realtime_performance: Performance,
 }
 
 impl Node {
-    pub fn new(node_id: usize, socket_stream: SocketStream) -> Self {
-        Node {
-            node_id,
-            control_channel: ControlChannel::new(node_id, socket_stream),
+    pub fn new(id: usize, socket_stream: SocketStream) -> Self {
+        Self {
+            id,
+            control_channel: ControlChannel::new(id, socket_stream),
             data_channel: None,
             process_queue: VecDeque::new(),
-            performance_data: PerformanceData::new(0.0, 0.0, 0.0, 0.0),
+            idle_performance: Performance::new(0.0, 0.0, 0.0, 0.0),
+            realtime_performance: Performance::new(0.0, 0.0, 0.0, 0.0),
         }
     }
 
@@ -35,7 +37,7 @@ impl Node {
     }
 
     pub fn get_id(&self) -> usize {
-        self.node_id
+        self.id
     }
 
     async fn create_data_channel(&mut self) {
@@ -61,11 +63,11 @@ impl Node {
             }
         };
         let socket_stream =  SocketStream::new(stream, address);
-        self.data_channel = Some(DataChannel::new(self.node_id, socket_stream));
-        Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, format!("Node {} success create data channel.", self.node_id));
+        self.data_channel = Some(DataChannel::new(self.id, socket_stream));
+        Logger::instance().await.append_node_log(self.id, LogLevel::INFO, format!("Node {} success create data channel.", self.id));
     }
 
-    async fn performance() {
+    async fn performance(&mut self) {
 
     }
 }

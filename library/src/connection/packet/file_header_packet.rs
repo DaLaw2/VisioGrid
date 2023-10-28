@@ -13,7 +13,7 @@ pub struct FileHeaderPacket {
 impl FileHeaderPacket {
     pub fn new(filename: String, filesize: usize) -> Self {
         let data = format!("Filename: {}, Size: {}, Packet count: {}", filename, filesize, (filesize + 1048575_usize) / 1048576_usize);
-        FileHeaderPacket {
+        Self {
             length: length_to_byte(16 + data.len()),
             id: PacketType::FileHeaderPacket.as_id_byte(),
             data: data.as_bytes().to_vec(),
@@ -21,8 +21,8 @@ impl FileHeaderPacket {
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> FileHeaderPacket {
-        FileHeaderPacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> Self {
+        Self {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,

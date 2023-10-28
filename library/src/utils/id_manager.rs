@@ -7,7 +7,7 @@ pub struct IDManager {
 
 impl IDManager {
     pub fn new() -> Self {
-        IDManager {
+        Self {
             next: 0,
             available: BTreeSet::new()
         }

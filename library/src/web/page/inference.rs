@@ -8,7 +8,8 @@ use actix_web::{get, post, web, Scope, Result, Error, HttpRequest, HttpResponse,
 use crate::utils::static_files::StaticFiles;
 use crate::manager::file_manager::FileManager;
 use crate::web::utils::response::OperationStatus;
-use crate::manager::definition::{InferenceType, Task};
+use crate::manager::utils::inference_type::InferenceType;
+use crate::manager::utils::task::Task;
 
 pub fn initialize() -> Scope {
     web::scope("/inference")
@@ -27,7 +28,7 @@ async fn inference() -> impl Responder {
 async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResponse, Error> {
     let mut model_type = String::new();
     let mut model_filename = String::new();
-    let mut inference_filename = String::new();
+    let mut image_filename = String::new();
     let client_ip = match req.connection_info().peer_addr() {
         Some(ip) => ip.to_string(),
         None => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some("Unknown ip.".to_string())))))
@@ -59,7 +60,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
                 "./SavedModel"
             },
             ("yoloInferenceFile" | "pytorchInferenceFile" | "tensorflowInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
-                inference_filename = file_name.clone();
+                image_filename = file_name.clone();
                 "./SavedFile"
             },
             _ => return Ok(HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))))
@@ -73,7 +74,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
             }
         }
     }
-    let new_task = Task::new(client_ip, model_filename, inference_filename, match &*model_type {
+    let new_task = Task::new(client_ip, model_filename, image_filename, match &*model_type {
         "YOLO" => InferenceType::YOLO,
         "PyTorch" => InferenceType::PyTorch,
         "TensorFlow" => InferenceType::TensorFlow,

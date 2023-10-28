@@ -14,7 +14,7 @@ pub struct BoundingBoxPacket {
 impl BoundingBoxPacket {
     pub fn new(bounding_box: &BoundingBox) -> Self {
         let data = bounding_box.to_string();
-        BoundingBoxPacket {
+        Self {
             length: length_to_byte(16 + data.len()),
             id: PacketType::BoundingBoxPacket.as_id_byte(),
             data: data.as_bytes().to_vec(),
@@ -22,8 +22,8 @@ impl BoundingBoxPacket {
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> BoundingBoxPacket {
-        BoundingBoxPacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> Self {
+        Self {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,

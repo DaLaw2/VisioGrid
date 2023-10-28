@@ -18,7 +18,7 @@ impl PortPool {
         //沒有更好的方法了嗎？
         let (start, end) = Config::new().dedicated_port_range;
         let available = (start..end).collect::<BTreeSet<usize>>();
-        PortPool {
+        Self {
             start,
             end,
             available

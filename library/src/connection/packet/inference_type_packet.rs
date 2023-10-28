@@ -13,7 +13,7 @@ pub struct InferenceTypePacket {
 impl InferenceTypePacket {
     // 記得改成傳入type enum
     pub fn new(inference_type: usize) -> Self {
-        InferenceTypePacket {
+        Self {
             length: length_to_byte(16 + inference_type.to_string().as_bytes().to_vec().len()),
             id: PacketType::InferenceTypePacket.as_id_byte(),
             data: inference_type.to_string().as_bytes().to_vec(),
@@ -21,8 +21,8 @@ impl InferenceTypePacket {
         }
     }
 
-    pub fn from_base_packet(base_packet: BasePacket) -> InferenceTypePacket {
-        InferenceTypePacket {
+    pub fn from_base_packet(base_packet: BasePacket) -> Self {
+        Self {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
