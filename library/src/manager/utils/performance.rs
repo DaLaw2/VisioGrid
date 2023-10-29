@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Performance {
     pub cpu: f64,
     pub ram: f64,

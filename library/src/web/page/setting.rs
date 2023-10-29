@@ -18,7 +18,7 @@ async fn setting() -> impl Responder {
 
 #[get("/get_config")]
 async fn get_config() -> impl Responder {
-    web::Json(Config::instance().await)
+    web::Json(Config::now().await)
 }
 
 #[post("/update_config")]

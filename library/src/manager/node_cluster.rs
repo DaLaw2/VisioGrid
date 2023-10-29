@@ -1,8 +1,8 @@
+use std::time::Duration;
+use tokio::sync::Mutex;
+use tokio::time::sleep;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::time::Duration;
-use tokio::sync::{Mutex, MutexGuard};
-use tokio::time::sleep;
 use crate::manager::node::Node;
 
 lazy_static! {
@@ -12,7 +12,7 @@ lazy_static! {
 pub struct NodeCluster {
     size: usize,
     nodes: HashMap<usize, Node>,
-    performance: Vec<(usize, f64)>,
+    vram_sorting: Vec<(usize, f64)>,
 }
 
 impl NodeCluster {
@@ -20,7 +20,7 @@ impl NodeCluster {
         Self {
             size: 0_usize,
             nodes: HashMap::new(),
-            performance: Vec::new(),
+            vram_sorting: Vec::new(),
         }
     }
 
@@ -29,42 +29,46 @@ impl NodeCluster {
             loop {
                 {
                     let mut node_cluster = GLOBAL_CLUSTER.lock().await;
-                    let mut performance: Vec<(usize, f64)> = node_cluster.nodes.iter().map(|(&key, node)| (key, node.idle_performance.vram)).collect();
-                    performance.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-                    node_cluster.performance = performance;
+                    let mut vram: Vec<(usize, f64)> = node_cluster.nodes.iter().map(|(&key, node)| (key, node.idle_performance.vram)).collect();
+                    vram.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+                    node_cluster.vram_sorting = vram;
                 }
                 sleep(Duration::from_millis(100)).await;
             }
         });
     }
 
-    pub async fn instance() -> MutexGuard<'static, NodeCluster> {
-        GLOBAL_CLUSTER.lock().await
-    }
-
-    pub fn add_node(&mut self, node: Node) {
+    pub async fn add_node(node: Node) {
+        let mut node_cluster = GLOBAL_CLUSTER.lock().await;
         let node_id = node.get_id();
-        if self.nodes.contains_key(&node_id) {
+        if node_cluster.nodes.contains_key(&node_id) {
             return;
         }
-        self.nodes.insert(node_id, node);
-        self.size += 1;
+        node_cluster.nodes.insert(node_id, node);
+        node_cluster.size += 1;
     }
 
-    pub fn remove_node(&mut self, node_id: usize) -> Option<Node> {
-        let node = self.nodes.remove(&node_id);
+    pub async fn remove_node(node_id: usize) -> Option<Node> {
+        let mut node_cluster = GLOBAL_CLUSTER.lock().await;
+        let node = node_cluster.nodes.remove(&node_id);
         match node {
-            Some(_) => self.size -= 1,
+            Some(_) => node_cluster.size -= 1,
             None => {}
         }
         node
     }
 
-    pub fn get_node(&mut self, node_id: usize) -> Option<&mut Node> {
+    pub async fn get_node(&mut self, node_id: usize) -> Option<&mut Node> {
         self.nodes.get_mut(&node_id)
     }
 
-    pub fn size(&self) -> usize {
-        self.size
+    pub async fn get_vram_sorting() -> Vec<(usize, f64)> {
+        let node_cluster = GLOBAL_CLUSTER.lock().await;
+        node_cluster.vram_sorting.clone()
+    }
+
+    pub async fn size() -> usize {
+        let node_cluster = GLOBAL_CLUSTER.lock().await;
+        node_cluster.size
     }
 }

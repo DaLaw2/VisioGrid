@@ -1,7 +1,7 @@
 use chrono::Local;
+use tokio::sync::Mutex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use tokio::sync::{Mutex, MutexGuard};
 
 lazy_static! {
     static ref GLOBAL_LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
@@ -15,7 +15,6 @@ pub enum LogLevel {
 }
 
 pub struct Logger {
-    empty_log: String,
     system_log: String,
     global_log: String,
     node_log: HashMap<usize, String>,
@@ -23,21 +22,18 @@ pub struct Logger {
 
 impl Logger {
     fn new() -> Self {
-        let mut logger = Self {
-            empty_log: String::new(),
+        let date = Local::now();
+        let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
+        let log_entry = format!("{} [{}] {}\n", timestamp, "INFO", "Log enable.");
+        Self {
             system_log: String::new(),
-            global_log: String::new(),
+            global_log: log_entry,
             node_log: HashMap::new()
-        };
-        logger.append_system_log(LogLevel::INFO, "Logger enable.".to_string());
-        logger
+        }
     }
 
-    pub async fn instance() -> MutexGuard<'static, Logger> {
-        GLOBAL_LOGGER.lock().await
-    }
-
-    pub fn append_system_log(&mut self, log_level: LogLevel, message: String) {
+    pub async fn append_system_log(log_level: LogLevel, message: String) {
+        let mut logger = GLOBAL_LOGGER.lock().await;
         let date = Local::now();
         let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
         let log_entry = format!("{} [{}] {}\n", timestamp, match log_level {
@@ -45,10 +41,12 @@ impl Logger {
             LogLevel::WARNING => "WARNING",
             LogLevel::ERROR => "ERROR",
         }, message);
-        self.system_log.push_str(&log_entry);
+        logger.system_log.push_str(&log_entry);
+        println!("{}", log_entry);
     }
 
-    pub fn append_global_log(&mut self, log_level: LogLevel, message: String) {
+    pub async fn append_global_log(log_level: LogLevel, message: String) {
+        let mut logger = GLOBAL_LOGGER.lock().await;
         let date = Local::now();
         let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
         let log_entry = format!("{} [{}] {}\n", timestamp, match log_level {
@@ -56,14 +54,15 @@ impl Logger {
             LogLevel::WARNING => "WARNING",
             LogLevel::ERROR => "ERROR",
         }, message);
-        self.global_log.push_str(&log_entry);
+        logger.global_log.push_str(&log_entry);
     }
 
-    pub fn append_node_log(&mut self, node_id: usize, log_level: LogLevel, message: String) {
+    pub async fn append_node_log(node_id: usize, log_level: LogLevel, message: String) {
+        let mut logger = GLOBAL_LOGGER.lock().await;
         let date = Local::now();
         let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
-        if !self.node_log.contains_key(&node_id) {
-            self.node_log.insert(node_id, String::new());
+        if !logger.node_log.contains_key(&node_id) {
+            logger.node_log.insert(node_id, String::new());
         }
         let log_entry = format!("{} [{}] {}\n", timestamp, match log_level {
             LogLevel::INFO => "INFO",
@@ -71,23 +70,26 @@ impl Logger {
             LogLevel::ERROR => "ERROR",
         }, message);
         //Impossible error, because it has been checked before.
-        self.node_log.get_mut(&node_id).unwrap().push_str(&log_entry);
+        logger.node_log.get_mut(&node_id).unwrap().push_str(&log_entry);
     }
 
-    pub fn get_system_log(&self) -> &str {
-        &self.system_log
+    pub async fn get_system_log() -> String {
+        let logger = GLOBAL_LOGGER.lock().await;
+        logger.system_log.clone()
     }
 
-    pub fn get_global_log(&self) -> &str {
-        &self.global_log
+    pub async fn get_global_log() -> String {
+        let logger = GLOBAL_LOGGER.lock().await;
+        logger.global_log.clone()
     }
 
-    pub fn get_node_log(&self, node_id: usize) -> &str {
-        let node_log = self.node_log.get(&node_id);
+    pub async fn get_node_log(node_id: usize) -> String {
+        let logger = GLOBAL_LOGGER.lock().await;
+        let node_log = logger.node_log.get(&node_id);
         match node_log {
-            Some(str) => str,
+            Some(str) => str.clone(),
             //When node has not written to the log.
-            None => &self.empty_log
+            None => String::new()
         }
     }
 }

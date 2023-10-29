@@ -36,7 +36,13 @@ impl ControlChannel {
     }
 
     pub async fn run(&mut self) {
-        let mut receiver = self.receiver.take().expect("Control channel has been closed.");
+        let mut receiver = match self.receiver.take() {
+            Some(receiver) => receiver,
+            None => {
+                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Fail to run Control Channel because it's closed.".to_string()).await;
+                return;
+            }
+        };
         tokio::spawn(async move {
             while let Some(_packet) = receiver.recv().await {
                 //Process receive not yet complete
@@ -48,25 +54,27 @@ impl ControlChannel {
     pub async fn disconnect(&mut self) {
         match self.sender.send(None) {
             Ok(_) => {
-                Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, "Control channel destroyed.".to_string());
+                Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel: Destroy Sender successfully.".to_string()).await;
             },
             Err(_) => {
-                Logger::instance().await.append_node_log(self.node_id, LogLevel::ERROR, "Fail destroy control channel.".to_string());
-                Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Node {}: Fail destroy control channel.", self.node_id));
+                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Fail to destroy Sender.".to_string()).await;
             }
         }
-        let _ = self.stop_signal.take().expect("Control channel has been closed.").send(());
+        match self.stop_signal.take() {
+            Some(stop_signal) => {
+                let _ = stop_signal.send(());
+                Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel: Destroy Receiver successfully.".to_string()).await;
+            },
+            None => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Fail to destroy Receiver.".to_string()).await
+        }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         match self.sender.send(Some(packet)) {
-            Ok(_) => {
-                Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, "Add packet to queue.".to_string());
-            },
+            Ok(_) => {},
             Err(_) => {
-                Logger::instance().await.append_node_log(self.node_id, LogLevel::ERROR, "Fail send packet to client.".to_string());
-                Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Node {}: Fail send packet to client.", self.node_id));
+                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Failed to send packet to client.".to_string()).await;
             }
         }
     }

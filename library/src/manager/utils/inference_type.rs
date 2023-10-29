@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone)]
 pub enum InferenceType {
     YOLO,
     PyTorch,

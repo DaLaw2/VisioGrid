@@ -1,9 +1,9 @@
 use uuid::Uuid;
 use std::path::PathBuf;
-use crate::manager::utils::inference_type::InferenceType;
 use crate::manager::utils::bounding_box::BoundingBox;
+use crate::manager::utils::inference_type::InferenceType;
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct ImageResource {
     pub task_uuid: Uuid,
     pub model_filepath: PathBuf,

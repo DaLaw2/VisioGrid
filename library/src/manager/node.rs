@@ -42,7 +42,7 @@ impl Node {
 
     async fn create_data_channel(&mut self) {
         let (listener, port) = loop {
-            let port = match PortPool::instance().await.allocate_port() {
+            let port = match PortPool::allocate_port().await {
                 Some(port) => port,
                 None => continue,
             };
@@ -64,7 +64,7 @@ impl Node {
         };
         let socket_stream =  SocketStream::new(stream, address);
         self.data_channel = Some(DataChannel::new(self.id, socket_stream));
-        Logger::instance().await.append_node_log(self.id, LogLevel::INFO, format!("Node {} success create data channel.", self.id));
+        Logger::append_node_log(self.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
     }
 
     async fn performance(&mut self) {

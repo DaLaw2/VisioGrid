@@ -1,6 +1,6 @@
+use tokio::sync::Mutex;
 use lazy_static::lazy_static;
 use std::collections::BTreeSet;
-use tokio::sync::{Mutex, MutexGuard};
 use crate::utils::config::Config;
 
 lazy_static! {
@@ -15,7 +15,6 @@ pub struct PortPool {
 
 impl PortPool {
     fn new() -> Self {
-        //沒有更好的方法了嗎？
         let (start, end) = Config::new().dedicated_port_range;
         let available = (start..end).collect::<BTreeSet<usize>>();
         Self {
@@ -25,20 +24,18 @@ impl PortPool {
         }
     }
 
-    pub async fn instance() -> MutexGuard<'static, PortPool> {
-        GLOBAL_PORT_POOL.lock().await
-    }
-
-    pub fn allocate_port(&mut self) -> Option<usize> {
-        self.available.iter().next().cloned().map(|port| {
-            self.available.remove(&port);
+    pub async fn allocate_port() -> Option<usize> {
+        let mut port_pool = GLOBAL_PORT_POOL.lock().await;
+        port_pool.available.iter().next().cloned().map(|port| {
+            port_pool.available.remove(&port);
             port
         })
     }
 
-    pub fn free_port(&mut self, port: usize) {
-        if port >= self.start && port < self.end {
-            self.available.insert(port);
+    pub async fn free_port(port: usize) {
+        let mut port_pool = GLOBAL_PORT_POOL.lock().await;
+        if port >= port_pool.start && port < port_pool.end {
+            port_pool.available.insert(port);
         }
     }
 }

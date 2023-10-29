@@ -15,7 +15,7 @@ impl Server {
             id_manager: IDManager::new(),
             node_socket: NodeSocket::new().await,
         };
-        Logger::instance().await.append_system_log(LogLevel::INFO, "Server online.".to_string());
+        Logger::append_system_log(LogLevel::INFO, "Server online.".to_string()).await;
         server
     }
 
@@ -25,8 +25,8 @@ impl Server {
                 let node_id = self.id_manager.allocate_id();
                 let (socket_stream, node_ip) = self.node_socket.get_connection().await;
                 let node = Node::new(node_id, socket_stream);
-                NodeCluster::instance().await.add_node(node);
-                Logger::instance().await.append_global_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id));
+                NodeCluster::add_node(node).await;
+                Logger::append_global_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id)).await;
             }
         });
     }

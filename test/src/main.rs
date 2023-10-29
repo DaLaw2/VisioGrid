@@ -1,7 +1,5 @@
-use actix_rt::System;
 use library::web::page::setting;
 use library::web::page::inference;
-use tokio::time::{sleep, Duration};
 use actix_web::{App, Error, HttpServer};
 use library::manager::file_manager::FileManager;
 

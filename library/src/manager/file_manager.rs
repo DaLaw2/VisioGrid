@@ -35,14 +35,14 @@ impl FileManager {
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "Processing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, format!("Create {} folder success.", folder_name)),
-                Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Fail create {} folder.", folder_name))
+                Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Create {} folder successfully.", folder_name)).await,
+                Err(_) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", folder_name)).await
             }
         }
         if let Err(err) = gstreamer::init() {
-            Logger::instance().await.append_system_log(LogLevel::ERROR, format!("GStreamer initialization failed: {:?}.", err));
+            Logger::append_system_log(LogLevel::ERROR, format!("File Manager: GStreamer initialization failed: {:?}.", err)).await;
         } else {
-            Logger::instance().await.append_system_log(LogLevel::INFO, "GStreamer initialization successful.".to_string());
+            Logger::append_system_log(LogLevel::INFO, "File Manager: GStreamer initialization successfully.".to_string()).await;
         }
     }
 
@@ -50,8 +50,8 @@ impl FileManager {
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "Processing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => Logger::instance().await.append_system_log(LogLevel::INFO, format!("Destroy {} folder success.", folder_name)),
-                Err(_) => Logger::instance().await.append_system_log(LogLevel::ERROR, format!("Fail destroy {} folder.", folder_name))
+                Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Successfully deleted {} folder.", folder_name)).await,
+                Err(_) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Failed to delete {} folder.", folder_name)).await
             }
         };
     }
@@ -87,12 +87,12 @@ impl FileManager {
                                     task.unprocessed = 1;
                                     Self::task_manager_process(task).await
                                 },
-                                Err(_) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("The task of IP:{} failed: Fail move image file.", task.ip))
+                                Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} failed because move image file failed.", task.ip)).await
                             }
                         },
                         Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
                         Some("zip") => Self::extract_zip(task).await,
-                        _ => Logger::instance().await.append_global_log(LogLevel::INFO, format!("The task of IP:{} failed: Unsupported file extension.", task.ip)),
+                        _ => Logger::append_global_log(LogLevel::INFO, format!("File Manager: Task {} failed because the file extension is not supported.", task.ip)).await,
                     }
                 },
                 None => sleep(Duration::from_millis(100)).await
@@ -108,12 +108,12 @@ impl FileManager {
         let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("");
-        if let Err(err) = fs::create_dir(&create_folder).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), err));
+        if let Err(_) = fs::create_dir(&create_folder).await {
+            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", create_folder.display())).await;
             return;
         }
-        if let Err(err) = fs::rename(&source_path, &destination_path).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to move file from {} to {}: {:?}", source_path.display(), destination_path.display(), err));
+        if let Err(_) = fs::rename(&source_path, &destination_path).await {
+            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot to move file from {} to {}", source_path.display(), destination_path.display())).await;
             return;
         }
         let media_path = destination_path.clone();
@@ -122,16 +122,16 @@ impl FileManager {
         }).await;
         match result {
             Ok(Ok(_)) => {
-                match Self::file_count(create_folder).await {
+                match Self::file_count(create_folder.clone()).await {
                     Ok(count) => {
                         task.unprocessed = count;
                         Self::task_manager_process(task).await;
                     }
-                    Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Error reading directory: {}.", err))
+                    Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Error while reading folder {}.", create_folder.display())).await
                 }
             },
-            Ok(Err(err)) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("GStreamer extraction failed: {}.", err)),
-            Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Task panicked: {:?}.", err)),
+            Ok(Err(err)) => Logger::append_global_log(LogLevel::ERROR, err).await,
+            Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} panic.", task.uuid)).await,
         }
     }
 
@@ -140,35 +140,35 @@ impl FileManager {
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.png"));
         let pipeline = match gstreamer::parse_launch(&pipeline_string) {
             Ok(pipeline) => pipeline,
-            Err(err) => return Err(format!("Failed to parse pipeline: {:?}", err))
+            Err(_) => return Err("File Manager: GStreamer cannot parse pipeline.".to_string())
         };
         let bus = match pipeline.bus() {
             Some(bus) => bus,
             None => {
-                return Err("Failed to get pipeline bus.".to_string());
+                return Err("File Manager: Unable to get pipeline bus.".to_string());
             }
         };
-        if let Err(err) = pipeline.set_state(gstreamer::State::Playing) {
-            return Err(format!("Failed to set pipeline to playing: {:?}", err));
+        if let Err(_) = pipeline.set_state(gstreamer::State::Playing) {
+            return Err("File Manager: Unable to set pipeline to playing.".to_string());
         }
         for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
             use gstreamer::MessageView;
 
             match message.view() {
                 MessageView::Eos(..) => break,
-                MessageView::Error(err) => {
+                MessageView::Error(_) => {
                     return if let Some(src) = message.src() {
                         let path = src.path_string();
-                        Err(format!("Error from {}: {}", path, err.error()))
+                        Err(format!("File Manager: Error from {}.", path))
                     } else {
-                        Err("Error from an unknown source.".to_string())
+                        Err("File Manager: Error from an unknown source.".to_string())
                     }
                 },
                 _ => (),
             }
         }
-        if let Err(err) = pipeline.set_state(gstreamer::State::Null) {
-            return Err(format!("Failed to set pipeline to null: {:?}", err));
+        if let Err(_) = pipeline.set_state(gstreamer::State::Null) {
+            return Err("File Manager: Unable to set pipeline to null".to_string());
         }
         Ok(())
     }
@@ -177,12 +177,12 @@ impl FileManager {
         let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
-        if let Err(err) = fs::create_dir(&create_folder).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to create directory {}: {:?}", create_folder.display(), err));
+        if let Err(_) = fs::create_dir(&create_folder).await {
+            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", create_folder.display())).await;
             return;
         }
-        if let Err(err) = fs::rename(&source_path, &destination_path).await {
-            Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Failed to move file from {} to {}: {:?}", source_path.display(), destination_path.display(), err));
+        if let Err(_) = fs::rename(&source_path, &destination_path).await {
+            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot to move file from {} to {}.", source_path.display(), destination_path.display())).await;
             return;
         }
         let zip_path = destination_path.clone();
@@ -191,16 +191,16 @@ impl FileManager {
         }).await;
         match result {
             Ok(Ok(_)) => {
-                match Self::file_count(create_folder).await {
+                match Self::file_count(create_folder.clone()).await {
                     Ok(count) => {
                         task.unprocessed = count;
                         Self::task_manager_process(task).await;
                     }
-                    Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Error reading directory: {}.", err))
+                    Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Error while reading folder {}.", create_folder.display())).await
                 }
             },
-            Ok(Err(err)) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Zip extraction failed: {}.", err)),
-            Err(err) => Logger::instance().await.append_global_log(LogLevel::ERROR, format!("Task panicked: {:?}.", err)),
+            Ok(Err(err)) => Logger::append_global_log(LogLevel::ERROR, err).await,
+            Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} panic.", task.uuid)).await,
         }
     }
 
@@ -208,17 +208,17 @@ impl FileManager {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = match File::open(&zip_path) {
             Ok(r) => r,
-            Err(err) => return Err(format!("Failed to open ZIP file: {}", err)),
+            Err(_) => return Err(format!("File Manager: Unable to open ZIP file {}.", zip_path.display())),
         };
         let mut archive = match ZipArchive::new(reader) {
             Ok(archive) => archive,
-            Err(err) => return Err(format!("Failed to read ZIP archive: {}", err)),
+            Err(_) => return Err(format!("File Manager: Unable to read {} archive.", zip_path.display())),
         };
         let output_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
             let mut file = match archive.by_index(i) {
                 Ok(file) => file,
-                Err(err) => return Err(format!("Failed to access ZIP entry by index: {}", err)),
+                Err(_) => return Err(format!("File Manager: Unable to access {} entry by index.", zip_path.display())),
             };
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
@@ -226,10 +226,10 @@ impl FileManager {
                         let output_filepath = output_folder.join(enclosed_path.file_name().unwrap_or_default());
                         let mut output_file = match File::create(&output_filepath) {
                             Ok(file) => file,
-                            Err(err) => return Err(format!("Failed to create output file: {}", err)),
+                            Err(_) => return Err(format!("File Manager: Cannot create output file {}: ", output_filepath.display())),
                         };
                         if let Err(err) = std::io::copy(&mut file, &mut output_file) {
-                            return Err(format!("Failed to write to output file: {}", err));
+                            return Err(format!("File Manager: Unable to write to output file {}.", err));
                         }
                     }
                 }

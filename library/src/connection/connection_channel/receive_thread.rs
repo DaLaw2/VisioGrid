@@ -27,14 +27,12 @@ impl ReceiveThread {
                     match result {
                         Ok(packet) => {
                             if self.sender.send(packet).is_err() {
-                                Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, format!("Client disconnect."));
-                                Logger::instance().await.append_system_log(LogLevel::INFO, format!("Node {}: Client disconnect.", self.node_id));
+                                Logger::append_node_log(self.node_id, LogLevel::INFO, format!("Receiver: Client disconnect.")).await;
                                 break;
                             }
                         },
                         Err(_) => {
-                            Logger::instance().await.append_node_log(self.node_id, LogLevel::INFO, format!("Client disconnect."));
-                            Logger::instance().await.append_system_log(LogLevel::INFO, format!("Node {}: Client disconnect.", self.node_id));
+                            Logger::append_node_log(self.node_id, LogLevel::INFO, format!("Receiver: Client disconnect.")).await;
                             break;
                         }
                     }
