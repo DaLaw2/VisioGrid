@@ -23,9 +23,9 @@ pub struct Task {
 }
 
 impl Task {
-    pub async fn new(ip: String, model_filename: String, image_filename: String, inference_type: InferenceType) -> Self {
+    pub async fn new(uuid: Uuid, ip: String, model_filename: String, image_filename: String, inference_type: InferenceType) -> Self {
         Self {
-            uuid: Uuid::new_v4(),
+            uuid,
             status: TaskStatus::PreProcessing,
             processed: 0_usize,
             unprocessed: 0_usize,

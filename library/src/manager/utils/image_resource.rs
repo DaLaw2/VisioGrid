@@ -10,6 +10,7 @@ pub struct ImageResource {
     pub image_filepath: PathBuf,
     pub inference_type: InferenceType,
     pub bounding_boxes: Vec<BoundingBox>,
+    pub cache: bool,
 }
 
 impl ImageResource {
@@ -20,6 +21,7 @@ impl ImageResource {
             image_filepath,
             inference_type,
             bounding_boxes: Vec::new(),
+            cache: false,
         }
     }
 }

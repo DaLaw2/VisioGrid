@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use sanitize_filename::sanitize;
 use futures::{self, StreamExt, TryStreamExt};
 use actix_web::{get, post, web, Scope, Result, Error, HttpRequest, HttpResponse, Responder};
+use uuid::Uuid;
 use crate::utils::static_files::StaticFiles;
 use crate::manager::file_manager::FileManager;
 use crate::web::utils::response::OperationStatus;
@@ -26,6 +27,7 @@ async fn inference() -> impl Responder {
 
 #[post("/save_file")]
 async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResponse, Error> {
+    let uuid = Uuid::new_v4();
     let mut model_type = String::new();
     let mut model_filename = String::new();
     let mut image_filename = String::new();
@@ -52,20 +54,20 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
         if file_name.is_empty() {
             return Ok(HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid filename.".to_string())))));
         }
-        file_name = format!("{}_{}_{}", client_ip, model_type, file_name);
+        file_name = format!("{}_{}_{}", uuid, model_type, file_name);
         let file_extension = Path::new(&file_name).extension().and_then(|os_str| os_str.to_str()).unwrap_or("");
         let file_path = match (field_name, file_extension) {
-            ("cfgFile" | "weightsFile" | "namesFile" | "ptFile" | "h5File" | "onnxFile", "cfg" | "weights" | "names" | "pt" | "pth" | "h5" | "onnx") => {
+            ("ptFile" | "onnxFile", "pt" | "onnx") => {
                 model_filename = file_name.clone();
-                "./SavedModel"
+                Path::new(".").join("SavedModel")
             },
-            ("yoloInferenceFile" | "pytorchInferenceFile" | "tensorflowInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
+            ("yoloInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
                 image_filename = file_name.clone();
-                "./SavedFile"
+                Path::new(".").join("SavedFile")
             },
             _ => return Ok(HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))))
         };
-        let file_path: PathBuf = format!("{}/{}", file_path, file_name).into();
+        let file_path: PathBuf = file_path.join(file_name);
         let mut file = File::create(&file_path).await?;
         while let Some(chunk) = field.next().await {
             match chunk {
@@ -74,7 +76,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
             }
         }
     }
-    let new_task = Task::new(client_ip, model_filename, image_filename, match &*model_type {
+    let new_task = Task::new(uuid, client_ip, model_filename, image_filename, match &*model_type {
         "YOLO" => InferenceType::YOLO,
         "PyTorch" => InferenceType::PyTorch,
         "TensorFlow" => InferenceType::TensorFlow,

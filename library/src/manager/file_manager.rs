@@ -2,7 +2,6 @@ use tokio::fs;
 use std::fs::File;
 use std::io::Error;
 use std::ffi::OsStr;
-use tokio::sync::Mutex;
 use tokio::time::sleep;
 use std::time::Duration;
 use gstreamer::prelude::*;
@@ -10,12 +9,13 @@ use zip::read::ZipArchive;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::VecDeque;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::task::{Task, TaskStatus};
 
 lazy_static! {
-    static ref GLOBAL_FILE_MANAGER: Mutex<FileManager> = Mutex::new(FileManager::new());
+    static ref GLOBAL_FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager::new());
 }
 
 pub struct FileManager {
@@ -57,7 +57,7 @@ impl FileManager {
     }
 
     pub async fn add_task(task: Task) {
-        let mut manager = GLOBAL_FILE_MANAGER.lock().await;
+        let mut manager = GLOBAL_FILE_MANAGER.write().await;
         manager.preprocessing_queue.push_back(task);
     }
 
@@ -73,15 +73,15 @@ impl FileManager {
     async fn preprocessing() {
         loop {
             let task = {
-                let mut file_manager = GLOBAL_FILE_MANAGER.lock().await;
+                let mut file_manager = GLOBAL_FILE_MANAGER.write().await;
                 file_manager.preprocessing_queue.pop_front()
             };
             match task {
                 Some(mut task) => {
                     match Path::new(&task.image_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => {
-                            let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
-                            let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
+                            let source_path = Path::new(".").join("SavedFile").join(&task.image_filename);
+                            let destination_path = Path::new(".").join("PreProcessing").join(&task.image_filename);
                             match fs::rename(source_path, destination_path).await {
                                 Ok(_) => {
                                     task.unprocessed = 1;
@@ -144,9 +144,7 @@ impl FileManager {
         };
         let bus = match pipeline.bus() {
             Some(bus) => bus,
-            None => {
-                return Err("File Manager: Unable to get pipeline bus.".to_string());
-            }
+            None => return Err("File Manager: Unable to get pipeline bus.".to_string())
         };
         if let Err(_) = pipeline.set_state(gstreamer::State::Playing) {
             return Err("File Manager: Unable to set pipeline to playing.".to_string());

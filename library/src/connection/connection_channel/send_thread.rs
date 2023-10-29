@@ -24,9 +24,7 @@ impl SendThread {
                 Some(packet) => {
                     match self.socket.send_packet(packet).await {
                         Ok(_) => {},
-                        Err(_) => {
-                            Logger::append_node_log(self.node_id, LogLevel::ERROR, "Sender: Failed to send packet.".to_string()).await;
-                        }
+                        Err(_) => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Sender: Failed to send packet.".to_string()).await
                     }
                 },
                 None => break

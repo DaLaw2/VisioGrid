@@ -53,12 +53,8 @@ impl DataChannel {
 
     pub async fn disconnect(&mut self) {
         match self.sender.send(None) {
-            Ok(_) => {
-                Logger::append_node_log(self.node_id, LogLevel::INFO, "Data Channel: Destroy Sender successfully.".to_string()).await;
-            },
-            Err(_) => {
-                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Fail to destroy Sender.".to_string()).await;
-            }
+            Ok(_) => Logger::append_node_log(self.node_id, LogLevel::INFO, "Data Channel: Destroy Sender successfully.".to_string()).await,
+            Err(_) => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Fail to destroy Sender.".to_string()).await
         }
         match self.stop_signal.take() {
             Some(stop_signal) => {
@@ -73,9 +69,7 @@ impl DataChannel {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         match self.sender.send(Some(packet)) {
             Ok(_) => {},
-            Err(_) => {
-                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Failed to send packet to client.".to_string()).await;
-            }
+            Err(_) => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Failed to send packet to client.".to_string()).await
         }
     }
 }
