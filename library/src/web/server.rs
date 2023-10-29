@@ -26,7 +26,7 @@ impl Server {
                 let (socket_stream, node_ip) = self.node_socket.get_connection().await;
                 let node = Node::new(node_id, socket_stream);
                 NodeCluster::instance().await.add_node(node);
-                Logger::instance().await.append_global_log(LogLevel::INFO, format!("Node connected.Ip: {}, Allocate node ID: {}", node_ip, node_id));
+                Logger::instance().await.append_global_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id));
             }
         });
     }

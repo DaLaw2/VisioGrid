@@ -1,6 +1,8 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::time::Duration;
 use tokio::sync::{Mutex, MutexGuard};
+use tokio::time::sleep;
 use crate::manager::node::Node;
 
 lazy_static! {
@@ -10,6 +12,7 @@ lazy_static! {
 pub struct NodeCluster {
     size: usize,
     nodes: HashMap<usize, Node>,
+    performance: Vec<(usize, f64)>,
 }
 
 impl NodeCluster {
@@ -17,7 +20,22 @@ impl NodeCluster {
         Self {
             size: 0_usize,
             nodes: HashMap::new(),
+            performance: Vec::new(),
         }
+    }
+
+    pub async fn run() {
+        tokio::spawn(async {
+            loop {
+                {
+                    let mut node_cluster = GLOBAL_CLUSTER.lock().await;
+                    let mut performance: Vec<(usize, f64)> = node_cluster.nodes.iter().map(|(&key, node)| (key, node.idle_performance.vram)).collect();
+                    performance.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+                    node_cluster.performance = performance;
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+        });
     }
 
     pub async fn instance() -> MutexGuard<'static, NodeCluster> {

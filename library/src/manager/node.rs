@@ -16,8 +16,8 @@ pub struct Node {
     control_channel: ControlChannel,
     data_channel: Option<DataChannel>,
     process_queue: VecDeque<ImageResource>,
-    idle_performance: Performance,
-    realtime_performance: Performance,
+    pub idle_performance: Performance,
+    pub realtime_usage: Performance,
 }
 
 impl Node {
@@ -28,7 +28,7 @@ impl Node {
             data_channel: None,
             process_queue: VecDeque::new(),
             idle_performance: Performance::new(0.0, 0.0, 0.0, 0.0),
-            realtime_performance: Performance::new(0.0, 0.0, 0.0, 0.0),
+            realtime_usage: Performance::new(0.0, 0.0, 0.0, 0.0),
         }
     }
 
