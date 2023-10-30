@@ -1,11 +1,9 @@
 use tokio::time::sleep;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
-use crate::manager::utils::image_resource::ImageResource;
-use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {
     static ref GLOBAL_CLUSTER: RwLock<NodeCluster> = RwLock::new(NodeCluster::new());
@@ -79,6 +77,19 @@ impl NodeCluster {
     pub async fn sort_by_vram() -> Vec<(usize, f64)> {
         let node_cluster = GLOBAL_CLUSTER.read().await;
         node_cluster.vram_sorting.clone()
+    }
+
+    pub async fn filter_node_by_vram(vram_threshold: f64) -> Vec<(usize, f64)> {
+        let node_cluster = GLOBAL_CLUSTER.read().await;
+        let nodes = node_cluster.vram_sorting.clone();
+        let mut filtered_nodes: Vec<_> = nodes.into_iter()
+            .filter(|&(_, node_vram)| {
+                let vram = if node_vram.is_nan() { 0.0 } else { node_vram };
+                vram >= vram_threshold
+            })
+            .collect();
+        filtered_nodes.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        filtered_nodes
     }
 
     pub async fn size() -> usize {
