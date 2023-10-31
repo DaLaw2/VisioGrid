@@ -36,6 +36,10 @@ impl Node {
 
     }
 
+    pub async fn add_task(&mut self, task: ImageResource) {
+        self.task.push_back(task);
+    }
+
     pub fn get_id(&self) -> usize {
         self.id
     }

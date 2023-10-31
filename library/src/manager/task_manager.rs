@@ -4,9 +4,9 @@ use tokio::sync::Mutex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use crate::manager::utils::task::{Task, TaskStatus};
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
+use crate::manager::utils::task::{Task, TaskStatus};
 use crate::manager::utils::image_resource::ImageResource;
 
 lazy_static! {
@@ -72,7 +72,7 @@ impl TaskManager {
                 match node {
                     Some(node_id) => {
                         match NodeCluster::instance_mut().await.get_node_mut(node_id) {
-                            Some(node) => node.task.push_back(image_resource),
+                            Some(node) => node.add_task(image_resource).await,
                             None => {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
@@ -128,7 +128,7 @@ impl TaskManager {
                     match node {
                         Some(node_id) => {
                             match NodeCluster::instance_mut().await.get_node_mut(node_id) {
-                                Some(node) => node.task.push_back(image_resource),
+                                Some(node) => node.add_task(image_resource).await,
                                 None => Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await
                             }
                         }

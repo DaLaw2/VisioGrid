@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use actix_multipart::Multipart;
@@ -5,12 +6,11 @@ use std::path::{Path, PathBuf};
 use sanitize_filename::sanitize;
 use futures::{self, StreamExt, TryStreamExt};
 use actix_web::{get, post, web, Scope, Result, Error, HttpRequest, HttpResponse, Responder};
-use uuid::Uuid;
+use crate::manager::utils::task::Task;
 use crate::utils::static_files::StaticFiles;
 use crate::manager::file_manager::FileManager;
 use crate::web::utils::response::OperationStatus;
 use crate::manager::utils::inference_type::InferenceType;
-use crate::manager::utils::task::Task;
 
 pub fn initialize() -> Scope {
     web::scope("/inference")

@@ -1,6 +1,6 @@
+use actix_web::{get, post, web, Responder, HttpResponse, Scope};
 use crate::utils::config::Config;
 use crate::utils::static_files::StaticFiles;
-use actix_web::{get, post, web, Responder, HttpResponse, Scope};
 
 pub fn initialize() -> Scope {
     web::scope("/setting")
