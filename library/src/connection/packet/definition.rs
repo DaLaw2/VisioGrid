@@ -16,7 +16,6 @@ pub trait Packet: fmt::Display + Send {
 pub enum PacketType {
     BasePacket,
     BoundingBoxPacket,
-    BoundingBoxSizePacket,
     DataChannelPortPacket,
     FileBodyPacket,
     FileHeaderPacket,
@@ -30,7 +29,6 @@ impl PacketType {
         let id: usize = match self {
             PacketType::BasePacket => 0,
             PacketType::BoundingBoxPacket => 1,
-            PacketType::BoundingBoxSizePacket => 2,
             PacketType::DataChannelPortPacket => 3,
             PacketType::FileBodyPacket => 4,
             PacketType::FileHeaderPacket => 5,
@@ -47,7 +45,6 @@ impl PacketType {
         let id = usize::from_be_bytes(byte_array);
         match id {
             1 => PacketType::BoundingBoxPacket,
-            2 => PacketType::BoundingBoxSizePacket,
             3 => PacketType::DataChannelPortPacket,
             4 => PacketType::FileBodyPacket,
             5 => PacketType::FileHeaderPacket,

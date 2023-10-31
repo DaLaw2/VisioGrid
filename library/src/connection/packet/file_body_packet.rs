@@ -1,5 +1,4 @@
-use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{self, Formatter};
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 

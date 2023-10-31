@@ -1,5 +1,4 @@
-use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{self, Formatter};
 use crate::connection::packet::definition::{Packet, PacketType};
 
 pub struct BasePacket {
@@ -11,11 +10,12 @@ pub struct BasePacket {
 
 impl BasePacket {
     pub fn new(length: Vec<u8>, id: Vec<u8>, data: Vec<u8>) -> Self {
+        let packet_type = PacketType::get_packet_type(&id);
         Self {
             length,
-            id: id.clone(),
+            id,
             data,
-            packet_type: PacketType::get_packet_type(&id)
+            packet_type,
         }
     }
 }

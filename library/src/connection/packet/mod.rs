@@ -1,10 +1,10 @@
 pub mod base_packet;
 pub mod bounding_box_packet;
-pub mod bounding_box_size_packet;
 pub mod data_channel_port_packet;
 pub mod definition;
 pub mod file_body_packet;
 pub mod file_header_packet;
 pub mod inference_type_packet;
-pub mod stop_inference_packet;
-pub mod stop_inference_return_packet;
+pub mod alive_packet;
+pub mod control_packet;
+pub mod reply_packet;
