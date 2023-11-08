@@ -18,7 +18,7 @@ pub struct Node {
     data_channel: Option<DataChannel>,
     task: VecDeque<ImageResource>,
     last_task: Option<ImageResource>,
-    pub idle_performance: Performance,
+    pub idle_unused: Performance,
     pub realtime_usage: Performance,
 }
 
@@ -30,7 +30,7 @@ impl Node {
             data_channel: None,
             task: VecDeque::new(),
             last_task: None,
-            idle_performance: Performance::new(0.0, 0.0, 0.0, 0.0),
+            idle_unused: Performance::new(0.0, 0.0, 0.0, 0.0),
             realtime_usage: Performance::new(0.0, 0.0, 0.0, 0.0),
         }
     }
@@ -51,6 +51,7 @@ impl Node {
                     Some(last_task) => {
                         if task.task_uuid != last_task.task_uuid {
 
+                            Self::transfer_file(task.model_filepath).await;
                         }
                     }
                     None => {}

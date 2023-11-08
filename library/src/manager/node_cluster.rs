@@ -37,7 +37,7 @@ impl NodeCluster {
             loop {
                 {
                     let mut node_cluster = GLOBAL_CLUSTER.write().await;
-                    let mut vram: Vec<(usize, f64)> = node_cluster.nodes.iter().map(|(&key, node)| (key, node.idle_performance.vram)).collect();
+                    let mut vram: Vec<(usize, f64)> = node_cluster.nodes.iter().map(|(&key, node)| (key, node.idle_unused.vram)).collect();
                     vram.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                     node_cluster.vram_sorting = vram;
                 }

@@ -55,7 +55,7 @@ impl TaskManager {
                 let mut node: Option<usize> = None;
                 for (node_id, _) in filter_nodes {
                     let node_ram = match NodeCluster::instance().await.get_node(node_id) {
-                        Some(node) => node.idle_performance.ram,
+                        Some(node) => node.idle_unused.ram,
                         None => {
                             Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                             0.0
@@ -110,7 +110,7 @@ impl TaskManager {
                             None => continue,
                         };
                         let node_ram = match NodeCluster::instance().await.get_node(node_id) {
-                            Some(node) => node.idle_performance.ram,
+                            Some(node) => node.idle_unused.ram,
                             None => {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 0.0

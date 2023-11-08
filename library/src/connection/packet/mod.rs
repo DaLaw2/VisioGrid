@@ -7,4 +7,6 @@ pub mod file_header_packet;
 pub mod inference_type_packet;
 pub mod alive_packet;
 pub mod control_packet;
-pub mod reply_packet;
+pub mod file_transfer_reply_packet;
+pub mod alive_reply_packet;
+mod control_reply_packet;
