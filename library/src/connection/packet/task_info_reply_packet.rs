@@ -1,23 +1,20 @@
-use std::fmt::{self, Formatter};
-use crate::manager::utils::bounding_box::BoundingBox;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
-pub struct BoundingBoxPacket {
+pub struct TaskInfoReplyPacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl BoundingBoxPacket {
-    pub fn new(bounding_box: &BoundingBox) -> Self {
-        let data = bounding_box.to_string();
+impl TaskInfoReplyPacket {
+    pub fn new() -> Self {
         Self {
-            length: length_to_byte(16 + data.len()),
-            id: PacketType::BoundingBoxPacket.as_id_byte(),
-            data: data.as_bytes().to_vec(),
-            packet_type: PacketType::BoundingBoxPacket
+            length: length_to_byte(16),
+            id: PacketType::TaskInfoReplyPacket.as_id_byte(),
+            data: Vec::new(),
+            packet_type: PacketType::TaskInfoReplyPacket
         }
     }
 
@@ -26,22 +23,12 @@ impl BoundingBoxPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::BoundingBoxPacket
+            packet_type: PacketType::TaskInfoReplyPacket
         }
     }
 }
 
-impl fmt::Display for BoundingBoxPacket {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut length_array = [0_u8; 8];
-        let mut id_array = [0_u8; 8];
-        length_array.copy_from_slice(&self.length);
-        id_array.copy_from_slice(&self.id);
-        write!(f, "{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.data.len())
-    }
-}
-
-impl Packet for BoundingBoxPacket {
+impl Packet for TaskInfoReplyPacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }
@@ -70,7 +57,7 @@ impl Packet for BoundingBoxPacket {
         String::from_utf8_lossy(&*self.data.clone()).to_string()
     }
 
-    fn get_packet_type(&self) -> PacketType {
+    fn packet_type(&self) -> PacketType {
         self.packet_type
     }
 

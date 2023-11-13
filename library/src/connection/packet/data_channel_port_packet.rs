@@ -1,4 +1,3 @@
-use std::fmt::{self, Formatter};
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
@@ -26,16 +25,6 @@ impl DataChannelPortPacket {
             data: base_packet.data,
             packet_type: PacketType::DataChannelPortPacket
         }
-    }
-}
-
-impl fmt::Display for DataChannelPortPacket {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut length_array = [0_u8; 8];
-        let mut id_array = [0_u8; 8];
-        length_array.copy_from_slice(&self.length);
-        id_array.copy_from_slice(&self.id);
-        write!(f, "{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.data.len())
     }
 }
 
@@ -68,7 +57,7 @@ impl Packet for DataChannelPortPacket {
         String::from_utf8_lossy(&*self.data.clone()).to_string()
     }
 
-    fn get_packet_type(&self) -> PacketType {
+    fn packet_type(&self) -> PacketType {
         self.packet_type
     }
 

@@ -1,22 +1,20 @@
-use std::fmt::{self, Formatter};
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
-pub struct InferenceTypePacket {
+pub struct PerformancePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl InferenceTypePacket {
-    // 記得改成傳入type enum
-    pub fn new(inference_type: usize) -> Self {
+impl PerformancePacket {
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
-            length: length_to_byte(16 + inference_type.to_string().as_bytes().to_vec().len()),
-            id: PacketType::InferenceTypePacket.as_id_byte(),
-            data: inference_type.to_string().as_bytes().to_vec(),
-            packet_type: PacketType::InferenceTypePacket
+            length: length_to_byte(16 + data.len()),
+            id: PacketType::PerformancePacket.as_id_byte(),
+            data,
+            packet_type: PacketType::PerformancePacket
         }
     }
 
@@ -25,22 +23,12 @@ impl InferenceTypePacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::InferenceTypePacket
+            packet_type: PacketType::PerformancePacket
         }
     }
 }
 
-impl fmt::Display for InferenceTypePacket {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut length_array = [0_u8; 8];
-        let mut id_array = [0_u8; 8];
-        length_array.copy_from_slice(&self.length);
-        id_array.copy_from_slice(&self.id);
-        write!(f, "{} | {} | Data Length: {}", usize::from_be_bytes(length_array), usize::from_be_bytes(id_array), self.data.len())
-    }
-}
-
-impl Packet for InferenceTypePacket {
+impl Packet for PerformancePacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }
@@ -69,7 +57,7 @@ impl Packet for InferenceTypePacket {
         String::from_utf8_lossy(&*self.data.clone()).to_string()
     }
 
-    fn get_packet_type(&self) -> PacketType {
+    fn packet_type(&self) -> PacketType {
         self.packet_type
     }
 

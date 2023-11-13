@@ -11,27 +11,34 @@ use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::connection::connection_channel::control_packet_channel;
+use crate::connection::connection_channel::data_packet_channel;
 
 pub struct Node {
     id: usize,
-    control_channel: ControlChannel,
-    data_channel: Option<DataChannel>,
-    task: VecDeque<ImageResource>,
-    last_task: Option<ImageResource>,
     pub idle_unused: Performance,
     pub realtime_usage: Performance,
+    task: VecDeque<ImageResource>,
+    last_task: Option<ImageResource>,
+    control_channel: ControlChannel,
+    data_channel: Option<DataChannel>,
+    control_packet_channel: control_packet_channel::PacketReceiver,
+    data_packet_channel: Option<data_packet_channel::PacketReceiver>,
 }
 
 impl Node {
     pub fn new(id: usize, socket_stream: SocketStream) -> Self {
+        let (control_channel, control_packet_channel) = ControlChannel::new(id, socket_stream);
         Self {
             id,
-            control_channel: ControlChannel::new(id, socket_stream),
-            data_channel: None,
-            task: VecDeque::new(),
-            last_task: None,
             idle_unused: Performance::new(0.0, 0.0, 0.0, 0.0),
             realtime_usage: Performance::new(0.0, 0.0, 0.0, 0.0),
+            task: VecDeque::new(),
+            last_task: None,
+            control_channel,
+            data_channel: None,
+            control_packet_channel,
+            data_packet_channel: None,
         }
     }
 

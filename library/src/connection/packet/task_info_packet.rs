@@ -1,21 +1,20 @@
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::utils::control_code::ControlCode;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
-pub struct ControlPacket {
+pub struct TaskInfoPacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl ControlPacket {
-    pub fn new(control_code: ControlCode) -> Self {
+impl TaskInfoPacket {
+    pub fn new() -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::ControlPacket.as_id_byte(),
+            id: PacketType::TaskInfoPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::ControlPacket
+            packet_type: PacketType::TaskInfoPacket
         }
     }
 
@@ -24,12 +23,12 @@ impl ControlPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::ControlPacket
+            packet_type: PacketType::TaskInfoPacket
         }
     }
 }
 
-impl Packet for ControlPacket {
+impl Packet for TaskInfoPacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }

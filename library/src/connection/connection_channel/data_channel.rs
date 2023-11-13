@@ -4,35 +4,37 @@ use crate::connection::packet::definition::Packet;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::send_thread::SendThread;
-use crate::connection::connection_channel::receive_thread::ReceiveThread;
+use crate::connection::connection_channel::data_channel_receive_thread::ReceiveThread;
+use crate::connection::connection_channel::data_packet_channel::{DataPacketChannel, PacketReceiver};
 
 pub struct DataChannel {
     node_id: usize,
     sender: mpsc::UnboundedSender<Option<Box<dyn Packet + Send>>>,
     receiver: Option<mpsc::UnboundedReceiver<BasePacket>>,
-    stop_signal: Option<oneshot::Sender<()>>
+    stop_signal: Option<oneshot::Sender<()>>,
 }
 
 impl DataChannel {
-    pub fn new(node_id: usize, socket: SocketStream) -> Self {
+    pub fn new(node_id: usize, socket: SocketStream) -> (Self, PacketReceiver) {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
-        let (receiver_tx, receiver_rx) = mpsc::unbounded_channel();
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let (socket_receiver, socket_sender) = socket.into_split();
+        let (socket_sender, socket_receiver) = socket.into_split();
+        let (data_packet_channel_tx, data_packet_channel_rx) = DataPacketChannel::split();
         let mut send_thread = SendThread::new(node_id, socket_sender, sender_rx);
-        let mut receive_thread = ReceiveThread::new(node_id, socket_receiver, receiver_tx, stop_signal_rx);
+        let mut receive_thread = ReceiveThread::new(node_id, socket_receiver, stop_signal_rx, data_packet_channel_tx);
         tokio::spawn(async move {
             send_thread.run().await;
         });
         tokio::spawn(async move {
             receive_thread.run().await;
         });
-        Self {
+        let data_channel = Self {
             node_id,
             sender: sender_tx,
             receiver: Some(receiver_rx),
             stop_signal: Some(stop_signal_tx)
-        }
+        };
+        (data_channel, data_packet_channel_rx)
     }
 
     pub async fn run(&mut self) {
