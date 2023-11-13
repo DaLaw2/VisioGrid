@@ -1,7 +1,6 @@
 use tokio::sync::{mpsc, oneshot};
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
-use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::send_thread::SendThread;
 use crate::connection::connection_channel::data_channel_receive_thread::ReceiveThread;
@@ -10,7 +9,6 @@ use crate::connection::connection_channel::data_packet_channel::{DataPacketChann
 pub struct DataChannel {
     node_id: usize,
     sender: mpsc::UnboundedSender<Option<Box<dyn Packet + Send>>>,
-    receiver: Option<mpsc::UnboundedReceiver<BasePacket>>,
     stop_signal: Option<oneshot::Sender<()>>,
 }
 
@@ -31,26 +29,9 @@ impl DataChannel {
         let data_channel = Self {
             node_id,
             sender: sender_tx,
-            receiver: Some(receiver_rx),
             stop_signal: Some(stop_signal_tx)
         };
         (data_channel, data_packet_channel_rx)
-    }
-
-    pub async fn run(&mut self) {
-        let mut receiver = match self.receiver.take() {
-            Some(receiver) => receiver,
-            None => {
-                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Fail to run Data Channel because it's closed.".to_string()).await;
-                return;
-            }
-        };
-        tokio::spawn(async move {
-            while let Some(_packet) = receiver.recv().await {
-                //Process receive not yet complete
-                unimplemented!()
-            }
-        });
     }
 
     pub async fn disconnect(&mut self) {
