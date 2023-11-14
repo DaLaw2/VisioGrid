@@ -3,6 +3,7 @@ use tokio::time::sleep;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use std::collections::VecDeque;
+use tokio::fs;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::utils::performance::Performance;
@@ -13,9 +14,12 @@ use crate::connection::connection_channel::control_packet_channel;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::connection::packet::file_header_packet::FileHeaderPacket;
+use crate::connection::packet::task_info_packet::TaskInfoPacket;
+use crate::manager::utils::task_info::TaskInfo;
 
 pub struct Node {
-    id: usize,
+    pub id: usize,
     pub idle_unused: Performance,
     pub realtime_usage: Performance,
     task: VecDeque<ImageResource>,
@@ -54,14 +58,23 @@ impl Node {
         let task = self.task.pop_back();
         match task {
             Some(task) => {
-                match &self.last_task {
-                    Some(last_task) => {
-                        if task.task_uuid != last_task.task_uuid {
-
-                            Self::transfer_file(task.model_filepath).await;
+                match &mut self.data_channel {
+                    Some(data_channel) => {
+                        match &self.last_task {
+                            Some(last_task) => {
+                                if task.task_uuid != last_task.task_uuid {
+                                    data_channel.send(TaskInfo::new(&task)).await;
+                                    self.transfer_file(task.model_filename, task.model_filepath).await;
+                                }
+                            },
+                            None => {
+                                data_channel.send(TaskInfo::new(&task)).await;
+                                self.transfer_file(task.model_filename, task.model_filepath).await;
+                            },
                         }
-                    }
-                    None => {}
+                        self.transfer_file(task.image_filename, task.image_filepath).await;
+                    },
+                    None => Self.create_data_channel().await,
                 }
             },
             None => {
@@ -71,8 +84,22 @@ impl Node {
         }
     }
 
-    async fn transfer_file(file: PathBuf) {
-        //需要創建一個promise來等待是否有封包傳送回來
+    async fn transfer_file(&mut self, filename: String, file: PathBuf) -> Option<()> {
+        match &mut self.data_channel {
+            Some(data_channel) => {
+                let filesize = match fs::metadata(&file).await {
+                    Ok(metadata) => metadata.len(),
+                    Err(_) => {
+                        Logger::append_node_log(self.id, LogLevel::ERROR, format!("Manager: Cannot read file {:?}.", file)).await;
+                        return None;
+                    }
+                };
+                data_channel.send(FileHeaderPacket::new(filename, filesize as usize)).await;
+
+                Some(())
+            }
+            None => self.create_data_channel().await,
+        }
     }
 
     async fn create_data_channel(&mut self) {
@@ -102,9 +129,5 @@ impl Node {
         self.data_channel = Some(data_channel);
         self.data_packet_channel = Some(data_packet_channel);
         Logger::append_node_log(self.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
-    }
-
-    pub fn get_id(&self) -> usize {
-        self.id
     }
 }

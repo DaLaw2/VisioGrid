@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::str::FromStr;
 
 #[derive(Copy, Clone)]
@@ -20,5 +21,17 @@ impl FromStr for InferenceType {
             "ONNX" => Ok(InferenceType::ONNX),
             _ => Ok(InferenceType::Default),
         }
+    }
+}
+
+impl Display for InferenceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            InferenceType::YOLO => "YOLO",
+            InferenceType::PyTorch => "PyTorch",
+            InferenceType::TensorFlow => "TensorFlow",
+            InferenceType::ONNX => "ONNX",
+            InferenceType::Default => "Default",
+        })
     }
 }

@@ -4,3 +4,4 @@ pub mod inference_type;
 pub mod node_information;
 pub mod performance;
 pub mod task;
+pub mod task_info;

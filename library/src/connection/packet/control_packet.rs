@@ -1,5 +1,4 @@
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::utils::control_code::ControlCode;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
 pub struct ControlPacket {
@@ -10,7 +9,7 @@ pub struct ControlPacket {
 }
 
 impl ControlPacket {
-    pub fn new(control_code: ControlCode) -> Self {
+    pub fn new() -> Self {
         Self {
             length: length_to_byte(16),
             id: PacketType::ControlPacket.as_id_byte(),

@@ -10,10 +10,11 @@ pub struct DataChannelPortPacket {
 
 impl DataChannelPortPacket {
     pub fn new(port: usize) -> Self {
+        let port = port.to_string().as_bytes().to_vec();
         Self {
-            length: length_to_byte(16 + port.to_string().as_bytes().to_vec().len()),
+            length: length_to_byte(16 + port.len()),
             id: PacketType::DataChannelPortPacket.as_id_byte(),
-            data: port.to_string().as_bytes().to_vec(),
+            data: port,
             packet_type: PacketType::DataChannelPortPacket
         }
     }
