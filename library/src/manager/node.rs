@@ -1,9 +1,10 @@
 use std::path::PathBuf;
-use tokio::time::sleep;
-use std::time::Duration;
+use tokio::time::{self, sleep, Duration};
 use tokio::net::TcpListener;
 use std::collections::VecDeque;
-use tokio::fs;
+use tokio::{fs, select};
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::utils::performance::Performance;
@@ -14,6 +15,7 @@ use crate::connection::connection_channel::control_packet_channel;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::connection::packet::file_body_packet::FileBodyPacket;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::manager::utils::task_info::TaskInfo;
@@ -63,18 +65,18 @@ impl Node {
                         match &self.last_task {
                             Some(last_task) => {
                                 if task.task_uuid != last_task.task_uuid {
-                                    data_channel.send(TaskInfo::new(&task)).await;
+                                    data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await;
                                     self.transfer_file(task.model_filename, task.model_filepath).await;
                                 }
                             },
                             None => {
-                                data_channel.send(TaskInfo::new(&task)).await;
+                                data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await;
                                 self.transfer_file(task.model_filename, task.model_filepath).await;
                             },
                         }
                         self.transfer_file(task.image_filename, task.image_filepath).await;
                     },
-                    None => Self.create_data_channel().await,
+                    None => self.create_data_channel().await,
                 }
             },
             None => {
@@ -84,21 +86,52 @@ impl Node {
         }
     }
 
-    async fn transfer_file(&mut self, filename: String, file: PathBuf) -> Option<()> {
-        match &mut self.data_channel {
-            Some(data_channel) => {
-                let filesize = match fs::metadata(&file).await {
+    async fn transfer_file(&mut self, filename: String, filepath: PathBuf) -> Option<()> {
+        match (&mut self.data_channel, &mut self.data_packet_channel) {
+            (Some(data_channel), Some(data_packet_channel)) => {
+                let filesize = match fs::metadata(&filepath).await {
                     Ok(metadata) => metadata.len(),
                     Err(_) => {
-                        Logger::append_node_log(self.id, LogLevel::ERROR, format!("Manager: Cannot read file {:?}.", file)).await;
+                        Logger::append_node_log(self.id, LogLevel::ERROR, format!("Manager: Cannot read file {:?}.", filepath)).await;
                         return None;
                     }
                 };
                 data_channel.send(FileHeaderPacket::new(filename, filesize as usize)).await;
+                let mut file = File::open(filepath).await;
+                let mut sequence_number = 0_usize;
+                let mut buffer = vec![0; 1_048_576];
+                match file {
+                    Ok(mut file) => {
+                        loop {
+                            let bytes_read = file.read(&mut buffer).await;
+                            match bytes_read {
+                                Ok(bytes_read) => {
+                                    if bytes_read == 0 {
+                                        break;
+                                    }
+                                    let mut data = sequence_number.to_be_bytes().to_vec();
+                                    data.extend_from_slice(&buffer[..bytes_read]);
+                                    data_channel.send(FileBodyPacket::new(data)).await;
+                                    sequence_number += 1;
+                                },
+                                Err(_) => return None,
+                            }
+                        }
+                    }
+                    Err(_) => return None,
+                }
+                select! {
+                    reply = data_packet_channel.file_transfer_reply_packet.recv() => {
 
+                    },
+                    _ = time::sleep(Duration::from_secs(5)) => {
+                        Logger::append_node_log(self.id, LogLevel::WARNING, format!("Manager: File {:?} transfer timeout.", filepath));
+                        return None;
+                    }
+                }
                 Some(())
             }
-            None => self.create_data_channel().await,
+            _ => self.create_data_channel().await,
         }
     }
 

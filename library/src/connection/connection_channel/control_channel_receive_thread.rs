@@ -37,12 +37,9 @@ impl ReceiveThread {
                                     Ok(())
                                 }
                             };
-                            match result {
-                                Ok(_) => {},
-                                Err(_) => {
-                                    Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel Receiver: Client disconnect.".to_string()).await;
-                                    break;
-                                },
+                            if result.is_err() {
+                                Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel Receiver: Client disconnect.".to_string()).await;
+                                break;
                             }
                         },
                         Err(_) => {

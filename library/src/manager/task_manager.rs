@@ -131,7 +131,7 @@ impl TaskManager {
                                 Some(node) => node.add_task(image_resource).await,
                                 None => Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await
                             }
-                        }
+                        },
                         None => {}
                     }
                 }

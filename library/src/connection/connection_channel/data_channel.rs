@@ -50,9 +50,8 @@ impl DataChannel {
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
-        match self.sender.send(Some(packet)) {
-            Ok(_) => {},
-            Err(_) => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Failed to send packet to client.".to_string()).await
+        if self.sender.send(Some(packet)).is_err() {
+            Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Failed to send packet to client.".to_string()).await;
         }
     }
 }
