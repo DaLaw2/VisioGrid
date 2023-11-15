@@ -1,6 +1,6 @@
 use tokio::fs;
 use uuid::Uuid;
-use tokio::sync::Mutex;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -10,7 +10,7 @@ use crate::manager::utils::task::{Task, TaskStatus};
 use crate::manager::utils::image_resource::ImageResource;
 
 lazy_static! {
-    static ref GLOBAL_TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager::new());
+    static ref GLOBAL_TASK_MANAGER: RwLock<TaskManager> = RwLock::new(TaskManager::new());
 }
 
 pub struct TaskManager {
@@ -24,12 +24,20 @@ impl TaskManager {
         }
     }
 
+    pub async fn instance() -> RwLockReadGuard<TaskManager> {
+        GLOBAL_TASK_MANAGER.read()
+    }
+
+    pub async fn instance_mut() -> RwLockWriteGuard<TaskManager> {
+        GLOBAL_TASK_MANAGER.write()
+    }
+
     pub async fn run() {
 
     }
 
     pub async fn add_task(mut task: Task) {
-        let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
+        let mut task_manager = GLOBAL_TASK_MANAGER.write().await;
         task.status = TaskStatus::Processing;
         task_manager.tasks.insert(task.uuid, task.clone());
         tokio::spawn(async move {
@@ -38,8 +46,16 @@ impl TaskManager {
     }
 
     pub async fn remove_task(uuid: Uuid) -> Option<Task> {
-        let mut task_manager = GLOBAL_TASK_MANAGER.lock().await;
+        let mut task_manager = GLOBAL_TASK_MANAGER.write().await;
         task_manager.tasks.remove(&uuid)
+    }
+
+    pub async fn get_task(&self, uuid: Uuid) -> Option<&Task> {
+        self.tasks.get(&uuid)
+    }
+
+    pub async fn get_task_mut(&mut self, uuid: Uuid) -> Option<&mut Task> {
+        self.tasks.get_mut(&uuid)
     }
 
     pub async fn distribute_task(mut task: Task) {

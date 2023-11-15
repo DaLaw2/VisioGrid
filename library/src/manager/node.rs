@@ -21,6 +21,8 @@ use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::manager::utils::task_info::TaskInfo;
 use crate::utils::config::Config;
 use crate::connection::utils::file_transfer_result::FileTransferResult;
+use crate::manager::task_manager::TaskManager;
+use crate::manager::utils::task::Task;
 
 pub struct Node {
     pub id: usize,
@@ -59,26 +61,39 @@ impl Node {
     }
 
     async fn transfer_task(&mut self) {
+        let mut success = true;
         let task = self.task.pop_back();
         match task {
             Some(task) => {
                 match &mut self.data_channel {
                     Some(data_channel) => {
-                        match &self.last_task {
-                            Some(last_task) => {
-                                if task.task_uuid != last_task.task_uuid {
-                                    data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await;
-                                    self.transfer_file(task.model_filename, task.model_filepath).await;
-                                }
-                            },
-                            None => {
-                                data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await;
-                                self.transfer_file(task.model_filename, task.model_filepath).await;
-                            },
+                        let should_transfer_model = if let Some(last_task) = &self.last_task {
+                            task.task_uuid != last_task.task_uuid
+                        } else {
+                            true
+                        };
+                        if should_transfer_model {
+                            data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await;
+                            if let Err(err) = self.transfer_file(task.model_filename, task.model_filepath).await {
+                                Logger::append_node_log(self.id, LogLevel::ERROR, err).await;
+                                success = false;
+                            }
                         }
-                        self.transfer_file(task.image_filename, task.image_filepath).await;
+                        if let Err(err) = self.transfer_file(task.image_filename, task.image_filepath).await {
+                            Logger::append_node_log(self.id, LogLevel::ERROR, err).await;
+                            success = false;
+                        };
                     },
                     None => self.create_data_channel().await,
+                }
+                if !success {
+                    match TaskManager::instance_mut().await.get_task_mut(task.task_uuid).await {
+                        Some(task) => {
+                            task.processed += 1;
+                            task.unprocessed -= 1;
+                        }
+                        None => Logger::append_node_log(self.id, LogLevel::ERROR, format!("Manager: Task {} does not exist.", task.task_uuid)),
+                    }
                 }
             },
             None => {
@@ -97,7 +112,7 @@ impl Node {
                     Err(_) => return Err(format!("Manager: Cannot read file {}.", filepath.display())),
                 };
                 data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await;
-                let file = File::open(filepath.clone()).await;
+                let file = File::open(filepath.as_ref()).await;
                 let mut sequence_number = 0_usize;
                 let mut buffer = vec![0; 1_048_576];
                 let mut sent_packets = HashMap::new();
@@ -119,7 +134,7 @@ impl Node {
                                 Err(_) => return Err(format!("An error occurred while reading {} file", filepath.display())),
                             }
                         }
-                    }
+                    },
                     Err(_) => return Err(format!("Manager: Cannot read file {}.", filepath.display())),
                 }
                 for _ in 0..config.file_transfer_retry_times {
