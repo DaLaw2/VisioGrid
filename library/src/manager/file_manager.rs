@@ -127,7 +127,7 @@ impl FileManager {
                         task.unprocessed = count;
                         Self::task_manager_process(task).await;
                     }
-                    Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Error while reading folder {}.", create_folder.display())).await
+                    Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: An error occurred while reading folder {}.", create_folder.display())).await
                 }
             },
             Ok(Err(err)) => Logger::append_global_log(LogLevel::ERROR, err).await,
@@ -194,7 +194,7 @@ impl FileManager {
                         task.unprocessed = count;
                         Self::task_manager_process(task).await;
                     }
-                    Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Error while reading folder {}.", create_folder.display())).await
+                    Err(_) => Logger::append_global_log(LogLevel::ERROR, format!("File Manager: An error occurred while reading folder {}.", create_folder.display())).await
                 }
             },
             Ok(Err(err)) => Logger::append_global_log(LogLevel::ERROR, err).await,

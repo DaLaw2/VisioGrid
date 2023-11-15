@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 use tokio::time::{self, sleep, Duration};
 use tokio::net::TcpListener;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use tokio::{fs, select};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::utils::performance::Performance;
+use crate::connection::utils::performance::Performance;
 use crate::manager::utils::image_resource::ImageResource;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::data_packet_channel;
@@ -19,6 +19,8 @@ use crate::connection::packet::file_body_packet::FileBodyPacket;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::manager::utils::task_info::TaskInfo;
+use crate::utils::config::Config;
+use crate::connection::utils::file_transfer_result::FileTransferResult;
 
 pub struct Node {
     pub id: usize,
@@ -86,20 +88,19 @@ impl Node {
         }
     }
 
-    async fn transfer_file(&mut self, filename: String, filepath: PathBuf) -> Option<()> {
+    async fn transfer_file(&mut self, filename: String, filepath: PathBuf) -> Result<(), String> {
+        let config = Config::now().await;
         match (&mut self.data_channel, &mut self.data_packet_channel) {
             (Some(data_channel), Some(data_packet_channel)) => {
                 let filesize = match fs::metadata(&filepath).await {
                     Ok(metadata) => metadata.len(),
-                    Err(_) => {
-                        Logger::append_node_log(self.id, LogLevel::ERROR, format!("Manager: Cannot read file {:?}.", filepath)).await;
-                        return None;
-                    }
+                    Err(_) => return Err(format!("Manager: Cannot read file {}.", filepath.display())),
                 };
-                data_channel.send(FileHeaderPacket::new(filename, filesize as usize)).await;
-                let mut file = File::open(filepath).await;
+                data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await;
+                let file = File::open(filepath.clone()).await;
                 let mut sequence_number = 0_usize;
                 let mut buffer = vec![0; 1_048_576];
+                let mut sent_packets = HashMap::new();
                 match file {
                     Ok(mut file) => {
                         loop {
@@ -111,25 +112,41 @@ impl Node {
                                     }
                                     let mut data = sequence_number.to_be_bytes().to_vec();
                                     data.extend_from_slice(&buffer[..bytes_read]);
-                                    data_channel.send(FileBodyPacket::new(data)).await;
+                                    data_channel.send(FileBodyPacket::new(data.clone())).await;
+                                    sent_packets.insert(sequence_number, data);
                                     sequence_number += 1;
                                 },
-                                Err(_) => return None,
+                                Err(_) => return Err(format!("An error occurred while reading {} file", filepath.display())),
                             }
                         }
                     }
-                    Err(_) => return None,
+                    Err(_) => return Err(format!("Manager: Cannot read file {}.", filepath.display())),
                 }
-                select! {
-                    reply = data_packet_channel.file_transfer_reply_packet.recv() => {
-
-                    },
-                    _ = time::sleep(Duration::from_secs(5)) => {
-                        Logger::append_node_log(self.id, LogLevel::WARNING, format!("Manager: File {:?} transfer timeout.", filepath));
-                        return None;
+                for _ in 0..config.file_transfer_retry_times {
+                    select! {
+                        biased;
+                        reply = data_packet_channel.file_transfer_reply_packet.recv() => {
+                            match &reply {
+                                Some(reply_packet) => {
+                                    if let Some(missing_chunks) = FileTransferResult::parse_from_packet(reply_packet).result {
+                                        for missing_chunk in missing_chunks {
+                                            if let Some(data) = sent_packets.get(&missing_chunk) {
+                                                data_channel.send(FileBodyPacket::new(data.clone())).await;
+                                            }
+                                        }
+                                    } else {
+                                        return Ok(());
+                                    }
+                                },
+                                None => return Err("Manager: An error occurred while receive packet.".to_string()),
+                            }
+                        },
+                        _ = time::sleep(Duration::from_secs(config.file_transfer_timout as u64)) => {
+                            return Err(format!("Manager: File {} transfer timeout.", filepath.display()));
+                        }
                     }
                 }
-                Some(())
+                Err("Manager: File retransmission limit reached.".to_string())
             }
             _ => self.create_data_channel().await,
         }

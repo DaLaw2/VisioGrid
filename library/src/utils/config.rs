@@ -18,6 +18,8 @@ pub struct Config {
     pub http_server_bind_port: usize,
     pub node_listen_port: usize,
     pub bind_retry_duration: usize,
+    pub file_transfer_timout: usize,
+    pub file_transfer_retry_times: usize,
     pub dedicated_port_range: (usize, usize),
 }
 

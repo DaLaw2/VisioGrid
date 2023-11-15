@@ -48,7 +48,7 @@ impl NodeCluster {
 
     pub async fn add_node(node: Node) {
         let mut node_cluster = GLOBAL_CLUSTER.write().await;
-        let node_id = node.get_id();
+        let node_id = node.id;
         if node_cluster.nodes.contains_key(&node_id) {
             return;
         }
