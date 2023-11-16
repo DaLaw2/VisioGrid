@@ -3,6 +3,7 @@ use tokio::time::{self, sleep, Duration};
 use tokio::net::TcpListener;
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
+use std::sync::{Arc, LockResult, RwLock};
 use tokio::{fs, select};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
@@ -58,14 +59,16 @@ impl Node {
 
     }
 
-    pub async fn add_task(&mut self, task: ImageResource) {
-        self.task.push_back(task);
+    pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
+        if let Ok(node) = node.write() {
+            node.task.push_back(task);
+        }
     }
 
-    async fn transfer_task(&mut self) {
+    async fn transfer_task(node: Arc<RwLock<Node>>) {
         let mut success = true;
         let mut task_complete = false;
-        let task = self.task.pop_back();
+        let task = self.task.pop_front();
         match task {
             Some(task) => {
                 match &mut self.data_channel {
@@ -93,7 +96,6 @@ impl Node {
                     },
                 }
                 if !success {
-                    self.task.pop_front();
                     match TaskManager::instance_mut().await.get_task_mut(task.task_uuid).await {
                         Some(task) => {
                             task.processed += 1;
@@ -185,7 +187,8 @@ impl Node {
         }
     }
 
-    async fn create_data_channel(&mut self) {
+    async fn create_data_channel(node: Arc<RwLock<Node>>) {
+        let config = Config::now().await;
         let (listener, port) = loop {
             let port = match PortPool::allocate_port().await {
                 Some(port) => port,
@@ -196,21 +199,37 @@ impl Node {
                 Err(_) => continue,
             }
         };
-        self.control_channel.send(DataChannelPortPacket::new(port)).await;
+        if let Ok(mut node) = node.write() {
+            node.control_channel.send(DataChannelPortPacket::new(port)).await;
+        }
         let (stream, address) = loop {
-            match listener.accept().await {
-                Ok(connection) => break connection,
-                Err(_) => {
-                    self.control_channel.send(DataChannelPortPacket::new(port)).await;
-                    sleep(Duration::from_secs(1)).await;
+            select! {
+                biased;
+                connection = listener.accept().await => {
+                    match connection {
+                        Ok(connection) => break connection,
+                        Err(_) => {
+                            if let Ok(mut node) = node.write() {
+                                node.control_channel.send(DataChannelPortPacket::new(port)).await;
+                            }
+                            continue;
+                        }
+                    }
+                },
+                _ = time::sleep(Duration::from_secs(config.data_channel_timout as u64)) => {
+                    if let Ok(mut node) = node.write() {
+                        node.control_channel.send(DataChannelPortPacket::new(port)).await;
+                    }
                     continue;
-                }
+                },
             }
         };
         let socket_stream =  SocketStream::new(stream, address);
-        let (data_channel, data_packet_channel) = DataChannel::new(self.id, socket_stream);
-        self.data_channel = Some(data_channel);
-        self.data_packet_channel = Some(data_packet_channel);
-        Logger::append_node_log(self.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
+        if let Ok(mut node) = node.write() {
+            let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
+            node.data_channel = Some(data_channel);
+            node.data_packet_channel = Some(data_packet_channel);
+            Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
+        }
     }
 }

@@ -24,11 +24,11 @@ impl TaskManager {
         }
     }
 
-    pub async fn instance() -> RwLockReadGuard<TaskManager> {
+    pub async fn instance() -> RwLockReadGuard<'static, TaskManager> {
         GLOBAL_TASK_MANAGER.read()
     }
 
-    pub async fn instance_mut() -> RwLockWriteGuard<TaskManager> {
+    pub async fn instance_mut() -> RwLockWriteGuard<'static, TaskManager> {
         GLOBAL_TASK_MANAGER.write()
     }
 

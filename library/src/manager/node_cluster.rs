@@ -2,6 +2,7 @@ use tokio::time::sleep;
 use std::time::Duration;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
 
@@ -11,7 +12,7 @@ lazy_static! {
 
 pub struct NodeCluster {
     size: usize,
-    nodes: HashMap<usize, Node>,
+    nodes: HashMap<usize, Arc<RwLock<Node>>>,
     vram_sorting: Vec<(usize, f64)>,
 }
 
@@ -52,26 +53,26 @@ impl NodeCluster {
         if node_cluster.nodes.contains_key(&node_id) {
             return;
         }
-        node_cluster.nodes.insert(node_id, node);
+        node_cluster.nodes.insert(node_id, Arc::new(RwLock::new(node)));
         node_cluster.size += 1;
     }
 
-    pub async fn remove_node(node_id: usize) -> Option<Node> {
+    pub async fn remove_node(node_id: usize) -> Option<Arc<RwLock<Node>>> {
         let mut node_cluster = GLOBAL_CLUSTER.write().await;
         let node = node_cluster.nodes.remove(&node_id);
-        match node {
-            Some(_) => node_cluster.size -= 1,
-            None => {}
+        if node.is_some() {
+            node_cluster.size -= 1
         }
         node
     }
 
-    pub fn get_node(&self, node_id: usize) -> Option<&Node> {
-        self.nodes.get(&node_id)
-    }
-
-    pub fn get_node_mut(&mut self, node_id: usize) -> Option<&mut Node> {
-        self.nodes.get_mut(&node_id)
+    pub async fn get_node(node_id: usize) -> Option<Arc<RwLock<Node>>> {
+        let mut node_cluster = GLOBAL_CLUSTER.write().await;
+        let node = node_cluster.nodes.get(&node_id);
+        match node {
+            Some(node) => Some(node.clone()),
+            None => None
+        }
     }
 
     pub async fn sort_by_vram() -> Vec<(usize, f64)> {
