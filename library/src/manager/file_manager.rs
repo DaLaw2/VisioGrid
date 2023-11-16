@@ -56,9 +56,14 @@ impl FileManager {
         };
     }
 
-    pub async fn add_task(task: Task) {
+    pub async fn add_preprocess_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
         manager.preprocessing_queue.push_back(task);
+    }
+
+    pub async fn add_postprocess_task(task: Task) {
+        let mut manager = GLOBAL_FILE_MANAGER.write().await;
+        manager.postprocessing_queue.push_back(task);
     }
 
     pub async fn run() {

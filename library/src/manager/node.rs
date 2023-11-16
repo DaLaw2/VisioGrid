@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use tokio::time::{self, sleep, Duration};
 use tokio::net::TcpListener;
 use std::collections::{HashMap, VecDeque};
+use std::future::Future;
 use tokio::{fs, select};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
@@ -21,6 +22,7 @@ use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::manager::utils::task_info::TaskInfo;
 use crate::utils::config::Config;
 use crate::connection::utils::file_transfer_result::FileTransferResult;
+use crate::manager::file_manager::FileManager;
 use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::task::Task;
 
@@ -62,6 +64,7 @@ impl Node {
 
     async fn transfer_task(&mut self) {
         let mut success = true;
+        let mut task_complete = false;
         let task = self.task.pop_back();
         match task {
             Some(task) => {
@@ -84,21 +87,36 @@ impl Node {
                             success = false;
                         };
                     },
-                    None => self.create_data_channel().await,
+                    None => {
+                        self.create_data_channel().await;
+                        return;
+                    },
                 }
                 if !success {
+                    self.task.pop_front();
                     match TaskManager::instance_mut().await.get_task_mut(task.task_uuid).await {
                         Some(task) => {
                             task.processed += 1;
                             task.unprocessed -= 1;
+                            if task.unprocessed == 0 {
+                                task_complete = true;
+                            }
                         }
-                        None => Logger::append_node_log(self.id, LogLevel::ERROR, format!("Manager: Task {} does not exist.", task.task_uuid)),
+                        None => Logger::append_node_log(self.id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)),
+                    }
+                }
+                if task_complete {
+                    match TaskManager::remove_task(task.task_uuid).await {
+                        Some(task) => FileManager::add_postprocess_task(task).await,
+                        None => Logger::append_node_log(self.id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)),
                     }
                 }
             },
             None => {
                 //如果沒有任務
                 //任務竊取
+                //如果竊取不到任務
+                //休息
             }
         }
     }
@@ -109,7 +127,7 @@ impl Node {
             (Some(data_channel), Some(data_packet_channel)) => {
                 let filesize = match fs::metadata(&filepath).await {
                     Ok(metadata) => metadata.len(),
-                    Err(_) => return Err(format!("Manager: Cannot read file {}.", filepath.display())),
+                    Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
                 };
                 data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await;
                 let file = File::open(filepath.as_ref()).await;
@@ -131,11 +149,11 @@ impl Node {
                                     sent_packets.insert(sequence_number, data);
                                     sequence_number += 1;
                                 },
-                                Err(_) => return Err(format!("An error occurred while reading {} file", filepath.display())),
+                                Err(_) => return Err(format!("Node: An error occurred while reading {} file", filepath.display())),
                             }
                         }
                     },
-                    Err(_) => return Err(format!("Manager: Cannot read file {}.", filepath.display())),
+                    Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
                 }
                 for _ in 0..config.file_transfer_retry_times {
                     select! {
@@ -153,17 +171,17 @@ impl Node {
                                         return Ok(());
                                     }
                                 },
-                                None => return Err("Manager: An error occurred while receive packet.".to_string()),
+                                None => return Err("Node: An error occurred while receive packet.".to_string()),
                             }
                         },
                         _ = time::sleep(Duration::from_secs(config.file_transfer_timout as u64)) => {
-                            return Err(format!("Manager: File {} transfer timeout.", filepath.display()));
+                            return Err(format!("Node: File {} transfer timeout.", filepath.display()));
                         }
                     }
                 }
-                Err("Manager: File retransmission limit reached.".to_string())
+                Err("Node: File retransmission limit reached.".to_string())
             }
-            _ => self.create_data_channel().await,
+            _ => Err("Node: Unknown error.".to_string()),
         }
     }
 
