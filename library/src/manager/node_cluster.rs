@@ -1,10 +1,12 @@
+use std::sync::Arc;
 use tokio::time::sleep;
 use std::time::Duration;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
+use crate::utils::config::Config;
+use futures::stream::{self, StreamExt};
 
 lazy_static! {
     static ref GLOBAL_CLUSTER: RwLock<NodeCluster> = RwLock::new(NodeCluster::new());
@@ -35,14 +37,18 @@ impl NodeCluster {
 
     pub async fn run() {
         tokio::spawn(async {
+            let config = Config::now().await;
             loop {
                 {
                     let mut node_cluster = GLOBAL_CLUSTER.write().await;
-                    let mut vram: Vec<(usize, f64)> = node_cluster.nodes.iter().map(|(&key, node)| (key, node.idle_unused.vram)).collect();
+                    let mut vram: Vec<(usize, f64)> = stream::iter(&node_cluster.nodes)
+                        .then(|(&key, node)| async move {
+                            (key, node.read().await.idle_unused.vram)
+                        }).collect().await;
                     vram.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                     node_cluster.vram_sorting = vram;
                 }
-                sleep(Duration::from_millis(100)).await;
+                sleep(Duration::from_millis(config.internal_timestamp as u64)).await;
             }
         });
     }
@@ -67,7 +73,7 @@ impl NodeCluster {
     }
 
     pub async fn get_node(node_id: usize) -> Option<Arc<RwLock<Node>>> {
-        let mut node_cluster = GLOBAL_CLUSTER.write().await;
+        let mut node_cluster = GLOBAL_CLUSTER.read().await;
         let node = node_cluster.nodes.get(&node_id);
         match node {
             Some(node) => Some(node.clone()),

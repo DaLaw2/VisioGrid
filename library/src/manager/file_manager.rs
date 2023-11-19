@@ -10,6 +10,7 @@ use zip::read::ZipArchive;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::VecDeque;
+use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::task::{Task, TaskStatus};
@@ -76,6 +77,7 @@ impl FileManager {
     }
 
     async fn preprocessing() {
+        let config = Config::now().await;
         loop {
             let task = {
                 let mut file_manager = GLOBAL_FILE_MANAGER.write().await;
@@ -100,7 +102,7 @@ impl FileManager {
                         _ => Logger::append_global_log(LogLevel::INFO, format!("File Manager: Task {} failed because the file extension is not supported.", task.ip)).await,
                     }
                 },
-                None => sleep(Duration::from_millis(100)).await
+                None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await
             }
         }
     }

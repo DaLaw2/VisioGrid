@@ -1,12 +1,13 @@
 use std::path::PathBuf;
-use tokio::time::{self, sleep, Duration};
+use tokio::time::{self, sleep, Duration, Instant};
 use tokio::net::TcpListener;
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
-use std::sync::{Arc, LockResult, RwLock};
+use std::sync::Arc;
 use tokio::{fs, select};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+use tokio::sync::RwLock;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::utils::performance::Performance;
@@ -60,15 +61,13 @@ impl Node {
     }
 
     pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
-        if let Ok(node) = node.write() {
-            node.task.push_back(task);
-        }
+        node.write().await.task.push_back(task);
     }
 
     async fn transfer_task(node: Arc<RwLock<Node>>) {
         let mut success = true;
         let mut task_complete = false;
-        let task = self.task.pop_front();
+        let task = node.write().await.task.pop_front();
         match task {
             Some(task) => {
                 match &mut self.data_channel {
@@ -123,68 +122,86 @@ impl Node {
         }
     }
 
-    async fn transfer_file(&mut self, filename: String, filepath: PathBuf) -> Result<(), String> {
+    async fn transfer_file(node: Arc<RwLock<Node>>, filename: String, filepath: PathBuf) -> Result<(), String> {
         let config = Config::now().await;
-        match (&mut self.data_channel, &mut self.data_packet_channel) {
-            (Some(data_channel), Some(data_packet_channel)) => {
-                let filesize = match fs::metadata(&filepath).await {
-                    Ok(metadata) => metadata.len(),
-                    Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
-                };
-                data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await;
-                let file = File::open(filepath.as_ref()).await;
-                let mut sequence_number = 0_usize;
-                let mut buffer = vec![0; 1_048_576];
-                let mut sent_packets = HashMap::new();
-                match file {
-                    Ok(mut file) => {
-                        loop {
-                            let bytes_read = file.read(&mut buffer).await;
-                            match bytes_read {
-                                Ok(bytes_read) => {
-                                    if bytes_read == 0 {
-                                        break;
-                                    }
-                                    let mut data = sequence_number.to_be_bytes().to_vec();
-                                    data.extend_from_slice(&buffer[..bytes_read]);
-                                    data_channel.send(FileBodyPacket::new(data.clone())).await;
-                                    sent_packets.insert(sequence_number, data);
-                                    sequence_number += 1;
-                                },
-                                Err(_) => return Err(format!("Node: An error occurred while reading {} file", filepath.display())),
+        let filesize = match fs::metadata(&filepath).await {
+            Ok(metadata) => metadata.len(),
+            Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
+        };
+        if let Some(data_channel) = &mut node.write().await.data_channel {
+            data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await;
+        } else {
+            return Err("Node: Data channel is not available.".to_string());
+        }
+        let file = File::open(filepath.as_ref()).await;
+        let mut sequence_number = 0_usize;
+        let mut buffer = vec![0; 1_048_576];
+        let mut sent_packets = HashMap::new();
+        match file {
+            Ok(mut file) => {
+                loop {
+                    let bytes_read = file.read(&mut buffer).await;
+                    match bytes_read {
+                        Ok(bytes_read) => {
+                            if bytes_read == 0 {
+                                break;
                             }
-                        }
-                    },
-                    Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
-                }
-                for _ in 0..config.file_transfer_retry_times {
-                    select! {
-                        biased;
-                        reply = data_packet_channel.file_transfer_reply_packet.recv() => {
-                            match &reply {
-                                Some(reply_packet) => {
-                                    if let Some(missing_chunks) = FileTransferResult::parse_from_packet(reply_packet).result {
-                                        for missing_chunk in missing_chunks {
-                                            if let Some(data) = sent_packets.get(&missing_chunk) {
-                                                data_channel.send(FileBodyPacket::new(data.clone())).await;
-                                            }
-                                        }
-                                    } else {
-                                        return Ok(());
-                                    }
-                                },
-                                None => return Err("Node: An error occurred while receive packet.".to_string()),
+                            let mut data = sequence_number.to_be_bytes().to_vec();
+                            data.extend_from_slice(&buffer[..bytes_read]);
+                            if let Some(data_channel) = &mut node.write().await.data_channel {
+                                data_channel.send(FileBodyPacket::new(data.clone())).await;
+                            } else {
+                                return Err("Node: Data channel is not available.".to_string());
                             }
+                            sent_packets.insert(sequence_number, data);
+                            sequence_number += 1;
                         },
-                        _ = time::sleep(Duration::from_secs(config.file_transfer_timout as u64)) => {
-                            return Err(format!("Node: File {} transfer timeout.", filepath.display()));
-                        }
+                        Err(_) => return Err(format!("Node: An error occurred while reading {} file", filepath.display())),
                     }
                 }
-                Err("Node: File retransmission limit reached.".to_string())
-            }
-            _ => Err("Node: Unknown error.".to_string()),
+            },
+            Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
         }
+        let mut retry_times = 0_usize;
+        let mut start_time = Instant::now();
+        let timeout_duration = Duration::from_secs(config.file_transfer_timout as u64);
+        let mut require_resend = Vec::new();
+        while retry_times < config.file_transfer_retry_times {
+            if start_time.elapsed() >= timeout_duration {
+                retry_times += 1;
+                start_time = Instant::now();
+            }
+            if let Some(data_packet_channel) = &mut node.write().await.data_packet_channel {
+                select! {
+                    biased;
+                    reply = data_packet_channel.file_transfer_reply_packet.recv() => {
+                        match &reply {
+                            Some(reply_packet) => {
+                                if let Some(missing_chunks) = FileTransferResult::parse_from_packet(reply_packet).result {
+                                    require_resend = missing_chunks;
+                                } else {
+                                    return Ok(());
+                                }
+                            },
+                            None => return Err("Node: An error occurred while receive packet.".to_string()),
+                        }
+                    },
+                    _ = time::sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
+                }
+            } else {
+                return Err("Node: Data channel is not available.".to_string());
+            }
+            for missing_chunk in require_resend {
+                if let Some(data) = sent_packets.get(&missing_chunk) {
+                    if let Some(data_channel) = &mut node.write().await.data_channel {
+                        data_channel.send(FileBodyPacket::new(data.clone())).await;
+                    } else {
+                        return Err("Node: Data channel is not available.".to_string());
+                    }
+                }
+            }
+        }
+        Err("Node: File retransmission limit reached.".to_string())
     }
 
     async fn create_data_channel(node: Arc<RwLock<Node>>) {
@@ -199,9 +216,7 @@ impl Node {
                 Err(_) => continue,
             }
         };
-        if let Ok(mut node) = node.write() {
-            node.control_channel.send(DataChannelPortPacket::new(port)).await;
-        }
+        node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
         let (stream, address) = loop {
             select! {
                 biased;
@@ -209,27 +224,22 @@ impl Node {
                     match connection {
                         Ok(connection) => break connection,
                         Err(_) => {
-                            if let Ok(mut node) = node.write() {
-                                node.control_channel.send(DataChannelPortPacket::new(port)).await;
-                            }
+                            node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
                             continue;
                         }
                     }
                 },
                 _ = time::sleep(Duration::from_secs(config.data_channel_timout as u64)) => {
-                    if let Ok(mut node) = node.write() {
-                        node.control_channel.send(DataChannelPortPacket::new(port)).await;
-                    }
+                    node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
                     continue;
                 },
             }
         };
         let socket_stream =  SocketStream::new(stream, address);
-        if let Ok(mut node) = node.write() {
-            let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
-            node.data_channel = Some(data_channel);
-            node.data_packet_channel = Some(data_packet_channel);
-            Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
-        }
+        let node = node.write().await;
+        let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
+        node.data_channel = Some(data_channel);
+        node.data_packet_channel = Some(data_packet_channel);
+        Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
     }
 }

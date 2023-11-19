@@ -1,9 +1,10 @@
 use tokio::fs;
 use uuid::Uuid;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::manager::node::Node;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task::{Task, TaskStatus};
@@ -70,8 +71,8 @@ impl TaskManager {
                 let ram_usage = Self::calc_ram_usage(image_filepath).await;
                 let mut node: Option<usize> = None;
                 for (node_id, _) in filter_nodes {
-                    let node_ram = match NodeCluster::instance().await.get_node(node_id) {
-                        Some(node) => node.idle_unused.ram,
+                    let node_ram = match NodeCluster::get_node(node_id).await {
+                        Some(node) => node.read().await.idle_unused.ram,
                         None => {
                             Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                             0.0
@@ -87,13 +88,14 @@ impl TaskManager {
                 }
                 match node {
                     Some(node_id) => {
-                        match NodeCluster::instance_mut().await.get_node_mut(node_id) {
-                            Some(node) => node.add_task(image_resource).await,
+                        match NodeCluster::get_node(node_id).await {
+                            Some(node) => Node::add_task(node, image_resource).await,
                             None => {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                                 task.status = TaskStatus::Fail;
                                 let _ = Self::remove_task(task.uuid).await;
+                                unimplemented!("需要將失敗的交給任務後續處理者");
                             }
                         }
                     }
@@ -101,6 +103,7 @@ impl TaskManager {
                         Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                         task.status = TaskStatus::Fail;
                         let _ = Self::remove_task(task.uuid).await;
+                        unimplemented!("需要將失敗的交給任務後續處理者");
                     }
                 }
             },
@@ -125,8 +128,8 @@ impl TaskManager {
                             Some((node_id, _)) => *node_id,
                             None => continue,
                         };
-                        let node_ram = match NodeCluster::instance().await.get_node(node_id) {
-                            Some(node) => node.idle_unused.ram,
+                        let node_ram = match NodeCluster::get_node(node_id).await {
+                            Some(node) => node.read().await.idle_unused.ram,
                             None => {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 0.0
@@ -143,8 +146,8 @@ impl TaskManager {
                     }
                     match node {
                         Some(node_id) => {
-                            match NodeCluster::instance_mut().await.get_node_mut(node_id) {
-                                Some(node) => node.add_task(image_resource).await,
+                            match NodeCluster::get_node(node_id).await {
+                                Some(node) => Node::add_task(node, image_resource).await,
                                 None => Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await
                             }
                         },
@@ -154,13 +157,14 @@ impl TaskManager {
                 if task.processed == task.unprocessed {
                     let _ = Self::remove_task(task.uuid).await;
                     task.status = TaskStatus::Fail;
-                    return;
+                    unimplemented!("需要將失敗的交給任務後續處理者");
                 }
             },
             _ => {
                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} failed because the file extension is not supported.", task.uuid)).await;
-                task.status = TaskStatus::Fail;
                 let _ = Self::remove_task(task.uuid).await;
+                task.status = TaskStatus::Fail;
+                unimplemented!("需要將失敗的交給任務後續處理者");
             },
         }
     }

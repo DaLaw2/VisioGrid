@@ -15,6 +15,7 @@ struct ConfigTable {
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
+    pub internal_timestamp: usize,
     pub http_server_bind_port: usize,
     pub node_listen_port: usize,
     pub bind_retry_duration: usize,
