@@ -1,32 +1,30 @@
+use std::sync::Arc;
+use tokio::fs::File;
 use std::path::PathBuf;
-use tokio::time::{self, sleep, Duration, Instant};
+use tokio::sync::RwLock;
+use tokio::{fs, select};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
 use std::collections::{HashMap, VecDeque};
-use std::future::Future;
-use std::sync::Arc;
-use tokio::{fs, select};
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
-use tokio::sync::RwLock;
+use tokio::time::{sleep, Duration, Instant};
+use crate::utils::config::Config;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
+use crate::manager::file_manager::FileManager;
+use crate::manager::task_manager::TaskManager;
+use crate::manager::utils::task_info::TaskInfo;
 use crate::connection::utils::performance::Performance;
 use crate::manager::utils::image_resource::ImageResource;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::connection_channel::data_packet_channel;
+use crate::connection::packet::task_info_packet::TaskInfoPacket;
+use crate::connection::packet::file_body_packet::FileBodyPacket;
 use crate::connection::connection_channel::control_packet_channel;
+use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::connection::connection_channel::data_channel::DataChannel;
+use crate::connection::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
-use crate::connection::packet::file_body_packet::FileBodyPacket;
-use crate::connection::packet::file_header_packet::FileHeaderPacket;
-use crate::connection::packet::task_info_packet::TaskInfoPacket;
-use crate::manager::utils::task_info::TaskInfo;
-use crate::utils::config::Config;
-use crate::connection::utils::file_transfer_result::FileTransferResult;
-use crate::manager::file_manager::FileManager;
-use crate::manager::task_manager::TaskManager;
-use crate::manager::utils::task::Task;
 
 pub struct Node {
     pub id: usize,
@@ -64,35 +62,42 @@ impl Node {
         node.write().await.task.push_back(task);
     }
 
+
     async fn transfer_task(node: Arc<RwLock<Node>>) {
         let mut success = true;
         let mut task_complete = false;
-        let task = node.write().await.task.pop_front();
+        let (node_id, task) = {
+            let mut node = node.write().await;
+            (node.id, node.task.pop_front())
+        };
         match task {
             Some(task) => {
-                match &mut self.data_channel {
-                    Some(data_channel) => {
-                        let should_transfer_model = if let Some(last_task) = &self.last_task {
-                            task.task_uuid != last_task.task_uuid
-                        } else {
-                            true
-                        };
-                        if should_transfer_model {
-                            data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await;
-                            if let Err(err) = self.transfer_file(task.model_filename, task.model_filepath).await {
-                                Logger::append_node_log(self.id, LogLevel::ERROR, err).await;
-                                success = false;
+                if node.write().await.data_channel.is_some() {
+                    let should_transfer_model = if let Some(last_task) = &node.read().await.last_task {
+                        task.task_uuid != last_task.task_uuid
+                    } else {
+                        true
+                    };
+                    if should_transfer_model {
+                        match &mut node.write().await.data_channel {
+                            Some(data_channel) => data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await,
+                            None => {
+                                Node::create_data_channel(node.clone()).await;
+                                return;
                             }
                         }
-                        if let Err(err) = self.transfer_file(task.image_filename, task.image_filepath).await {
-                            Logger::append_node_log(self.id, LogLevel::ERROR, err).await;
+                        if let Err(err) = Self::transfer_file(node.clone(), task.model_filename, task.model_filepath).await {
+                            Logger::append_node_log(node_id, LogLevel::ERROR, err).await;
                             success = false;
-                        };
-                    },
-                    None => {
-                        self.create_data_channel().await;
-                        return;
-                    },
+                        }
+                    }
+                    if let Err(err) = Self::transfer_file(node.clone(), task.image_filename, task.image_filepath).await {
+                        Logger::append_node_log(node_id, LogLevel::ERROR, err).await;
+                        success = false;
+                    };
+                } else {
+                    Node::create_data_channel(node).await;
+                    return;
                 }
                 if !success {
                     match TaskManager::instance_mut().await.get_task_mut(task.task_uuid).await {
@@ -103,13 +108,13 @@ impl Node {
                                 task_complete = true;
                             }
                         }
-                        None => Logger::append_node_log(self.id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)),
+                        None => Logger::append_node_log(node_id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)).await,
                     }
                 }
                 if task_complete {
                     match TaskManager::remove_task(task.task_uuid).await {
                         Some(task) => FileManager::add_postprocess_task(task).await,
-                        None => Logger::append_node_log(self.id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)),
+                        None => Logger::append_node_log(node_id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)).await,
                     }
                 }
             },
@@ -133,7 +138,7 @@ impl Node {
         } else {
             return Err("Node: Data channel is not available.".to_string());
         }
-        let file = File::open(filepath.as_ref()).await;
+        let file = File::open(filepath.clone()).await;
         let mut sequence_number = 0_usize;
         let mut buffer = vec![0; 1_048_576];
         let mut sent_packets = HashMap::new();
@@ -186,7 +191,7 @@ impl Node {
                             None => return Err("Node: An error occurred while receive packet.".to_string()),
                         }
                     },
-                    _ = time::sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
+                    _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
                 }
             } else {
                 return Err("Node: Data channel is not available.".to_string());
@@ -202,6 +207,10 @@ impl Node {
             }
         }
         Err("Node: File retransmission limit reached.".to_string())
+    }
+
+    pub async fn steal_task(node: Arc<RwLock<Node>>) -> ImageResource {
+
     }
 
     async fn create_data_channel(node: Arc<RwLock<Node>>) {
@@ -220,7 +229,7 @@ impl Node {
         let (stream, address) = loop {
             select! {
                 biased;
-                connection = listener.accept().await => {
+                connection = listener.accept() => {
                     match connection {
                         Ok(connection) => break connection,
                         Err(_) => {
@@ -229,14 +238,14 @@ impl Node {
                         }
                     }
                 },
-                _ = time::sleep(Duration::from_secs(config.data_channel_timout as u64)) => {
+                _ = sleep(Duration::from_secs(config.data_channel_timout as u64)) => {
                     node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
                     continue;
                 },
             }
         };
         let socket_stream =  SocketStream::new(stream, address);
-        let node = node.write().await;
+        let mut node = node.write().await;
         let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
         node.data_channel = Some(data_channel);
         node.data_packet_channel = Some(data_packet_channel);

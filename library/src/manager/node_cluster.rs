@@ -73,7 +73,7 @@ impl NodeCluster {
     }
 
     pub async fn get_node(node_id: usize) -> Option<Arc<RwLock<Node>>> {
-        let mut node_cluster = GLOBAL_CLUSTER.read().await;
+        let node_cluster = GLOBAL_CLUSTER.read().await;
         let node = node_cluster.nodes.get(&node_id);
         match node {
             Some(node) => Some(node.clone()),
