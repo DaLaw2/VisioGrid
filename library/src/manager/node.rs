@@ -12,6 +12,7 @@ use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::file_manager::FileManager;
 use crate::manager::task_manager::TaskManager;
+use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task_info::TaskInfo;
 use crate::connection::utils::performance::Performance;
 use crate::manager::utils::image_resource::ImageResource;
@@ -64,6 +65,7 @@ impl Node {
 
 
     async fn transfer_task(node: Arc<RwLock<Node>>) {
+        let config = Config::now().await;
         let mut success = true;
         let mut task_complete = false;
         let (node_id, task) = {
@@ -119,10 +121,10 @@ impl Node {
                 }
             },
             None => {
-                //如果沒有任務
-                //任務竊取
-                //如果竊取不到任務
-                //休息
+                match Node::steal_task(node).await {
+                    Some(task) => node.write().await.task.push_back(task),
+                    None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await,
+                }
             }
         }
     }
@@ -209,8 +211,22 @@ impl Node {
         Err("Node: File retransmission limit reached.".to_string())
     }
 
-    pub async fn steal_task(node: Arc<RwLock<Node>>) -> ImageResource {
-
+    pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageResource> {
+        let vram = node.read().await.idle_unused.vram;
+        let filter_nodes = NodeCluster::filter_node_by_vram(vram).await;
+        let mut task = None;
+        for (node_id, vram) in filter_nodes {
+            if let Some(node) = NodeCluster::get_node(node_id).await {
+                let node = node.write().await;
+                if node.task.len() < 1 {
+                    continue;
+                } else {
+                    task = node.task.pop_back();
+                    break;
+                }
+            }
+        }
+        task
     }
 
     async fn create_data_channel(node: Arc<RwLock<Node>>) {
