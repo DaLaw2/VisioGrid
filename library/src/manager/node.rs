@@ -1,3 +1,4 @@
+use serde_json;
 use std::sync::Arc;
 use tokio::fs::File;
 use std::path::PathBuf;
@@ -5,6 +6,7 @@ use tokio::sync::RwLock;
 use tokio::{fs, select};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
+use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, VecDeque};
 use tokio::time::{sleep, Duration, Instant};
 use crate::utils::config::Config;
@@ -14,11 +16,9 @@ use crate::manager::file_manager::FileManager;
 use crate::manager::task_manager::TaskManager;
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task_info::TaskInfo;
-use crate::connection::packet::definition::Packet;
 use crate::connection::utils::performance::Performance;
 use crate::manager::utils::image_resource::ImageResource;
 use crate::connection::socket::socket_stream::SocketStream;
-use crate::manager::utils::node_information::NodeInformation;
 use crate::connection::connection_channel::data_packet_channel;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
@@ -28,6 +28,7 @@ use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::manager::utils::node_information::NodeInformation;
 
 pub struct Node {
     pub id: usize,
@@ -47,15 +48,15 @@ impl Node {
         let config = Config::now().await;
         let mut start_time = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
-        let (control_channel, mut control_packet_channel) = ControlChannel::new(id, socket_stream);
+        let (control_channel, control_packet_channel) = ControlChannel::new(id, socket_stream);
         while start_time.elapsed() < timeout_duration {
             select! {
                 biased;
-                reply = control_packet_channel.node_information_packet.recv() => {
+                reply = control_packet_channel.control_reply_packet.recv() => {
                     match reply {
-                        Some(packet) => {
-                            match NodeInformation::from_str(&packet.data_to_string()) {
-                               Ok(node_information) => return Some(Self {
+                        Ok(packet) => {
+                            match serde_json::from_str::<NodeInformation>(packet.as_data_byte()) {
+                                Ok(node_information) => return Some(Self {
                                     id,
                                     node_information,
                                     idle_unused: Performance::new(0.0, 0.0, 0.0, 0.0),
@@ -70,9 +71,9 @@ impl Node {
                                 Err(_) => return None,
                             }
                         },
-                        None => return None,
-                    }
-                },
+                        Err(_) => return None,
+0                    }
+ 0.                },
                 _ = sleep(Duration::from_secs(config.internal_timestamp as u64)) => continue,
             }
         }
@@ -144,7 +145,7 @@ impl Node {
                 }
             },
             None => {
-                match Node::steal_task(node.clone()).await {
+                match Node::steal_task(node).await {
                     Some(task) => node.write().await.task.push_back(task),
                     None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await,
                 }
@@ -235,12 +236,12 @@ impl Node {
     }
 
     pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageResource> {
-        let vram = node.read().await.idle_unused.gram;
+        let vram = node.read().await.idle_unused.vram;
         let filter_nodes = NodeCluster::filter_node_by_vram(vram).await;
         let mut task = None;
-        for (node_id, _) in filter_nodes {
+        for (node_id, vram) in filter_nodes {
             if let Some(node) = NodeCluster::get_node(node_id).await {
-                let mut node = node.write().await;
+                let node = node.write().await;
                 if node.task.len() < 1 {
                     continue;
                 } else {
