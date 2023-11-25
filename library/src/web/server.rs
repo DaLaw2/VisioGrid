@@ -24,9 +24,14 @@ impl Server {
             loop {
                 let node_id = self.id_manager.allocate_id();
                 let (socket_stream, node_ip) = self.node_socket.get_connection().await;
-                let node = Node::new(node_id, socket_stream);
-                NodeCluster::add_node(node).await;
-                Logger::append_global_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id)).await;
+                let node = Node::new(node_id, socket_stream).await;
+                match node {
+                    Some(node) => {
+                        NodeCluster::add_node(node).await;
+                        Logger::append_global_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id)).await;
+                    },
+                    None => self.id_manager.free_id(node_id),
+                }
             }
         });
     }

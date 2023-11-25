@@ -1,1 +1,198 @@
-<!DOCTYPE html><html lang="en"><head>    <meta charset="UTF-8">    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>Setting</title>    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">    <script type="text/javascript">        function validateInput() {            const internal_timestamp = parseInt(document.getElementById('internal_timestamp').value);            const http_server_bind_port = parseInt(document.getElementById('http_server_bind_port').value);            const node_listen_port = parseInt(document.getElementById('node_listen_port').value);            const bindRetryDuration = parseInt(document.getElementById('bind_retry_duration').value);            const data_channel_timout = parseInt(document.getElementById('data_channel_timout').value);            const file_transfer_timout = parseInt(document.getElementById('file_transfer_timout').value);            const file_transfer_retry_times = parseInt(document.getElementById('file_transfer_retry_times').value);            const portRangeStart = parseInt(document.getElementById('dedicated_port_range_start').value);            const portRangeEnd = parseInt(document.getElementById('dedicated_port_range_end').value);            if (internal_timestamp <= 0 || node_listen_port > 60000) {                alert('Internal Timestamp must be between 1 mini second and 60000 mini seconds (1 minute).');                return false;            }            if (http_server_bind_port < 1 || http_server_bind_port > 65535 || node_listen_port < 1 || node_listen_port > 65535) {                alert('Port numbers must be between 1 and 65535.');                return false;            }            if (bindRetryDuration <= 0 || bindRetryDuration > 86400) {                alert('Bind Retry Duration must be between 1 second and 86400 seconds (24 hours).');                return false;            }            if (data_channel_timout <= 0 || data_channel_timout > 86400) {                alert('Data Channel Timout must be between 1 second and 86400 seconds (24 hours).');                return false;            }            if (file_transfer_timout <= 0) {                alert('File Transfer Timout must be between 1 second 86400 seconds (24 hours).');                return false;            }            if (file_transfer_retry_times <= 0) {                alert("File Transfer Retry Times must be gather than 0.");                return false;            }            if (portRangeStart > portRangeEnd) {                alert('Dedicated Port Range Start cannot be greater than Port Range End.');                return false;            }            return true;        }        async function loadCurrentConfig() {            try {                let response = await fetch('/setting/get_config');                if(response.ok) {                    let config = await response.json();                    document.getElementById('internal_timestamp').value = config.internal_timestamp;                    document.getElementById('http_server_bind_port').value = config.http_server_bind_port;                    document.getElementById('node_listen_port').value = config.node_listen_port;                    document.getElementById('bind_retry_duration').value = config.bind_retry_duration;                    document.getElementById('data_channel_timout').value = config.data_channel_timout;                    document.getElementById('file_transfer_timout').value = config.file_transfer_timout;                    document.getElementById('file_transfer_retry_times').value = config.file_transfer_retry_times;                    document.getElementById('dedicated_port_range_start').value = config.dedicated_port_range[0];                    document.getElementById('dedicated_port_range_end').value = config.dedicated_port_range[1];                } else {                    console.error('Failed to fetch current config:', response.statusText);                }            } catch (error) {                console.error('Error:', error);            }        }        async function submitForm() {            if (!validateInput()) {                return;            }            let config = {                internal_timestamp: parseInt(document.getElementById('internal_timestamp').value),                http_server_bind_port: parseInt(document.getElementById('http_server_bind_port').value),                node_listen_port: parseInt(document.getElementById('node_listen_port').value),                bind_retry_duration: parseInt(document.getElementById('bind_retry_duration').value),                data_channel_timout: parseInt(document.getElementById('data_channel_timout').value),                file_transfer_timout: parseInt(document.getElementById('file_transfer_timout').value),                file_transfer_retry_times: parseInt(document.getElementById('file_transfer_retry_times').value),                dedicated_port_range: [                    parseInt(document.getElementById('dedicated_port_range_start').value),                    parseInt(document.getElementById('dedicated_port_range_end').value)                ]            };            try {                let response = await fetch('/setting/update_config', {                    method: 'POST',                    headers: {                        'Content-Type': 'application/json'                    },                    body: JSON.stringify(config)                });                let data = await response.text();                if (response.ok) {                    alert(data);                    await loadCurrentConfig();                } else {                    alert(data);                }            } catch (error) {                alert('Error: ' + error);            }        }        window.onload = loadCurrentConfig;    </script></head><body><div class="container mt-5">    <h2>Update Config</h2>    <form id="config-form" class="mt-4">        <div class="form-group">            <label for="internal_timestamp">Internal Timestamp(ms):</label>            <input type="number" class="form-control" id="internal_timestamp" name="internal_timestamp" required>        </div>        <div class="form-group">            <label for="http_server_bind_port">HTTP Server Bind Port:</label>            <input type="number" class="form-control" id="http_server_bind_port" name="http_server_bind_port" required>        </div>        <div class="form-group">            <label for="node_listen_port">Node Listen Port:</label>            <input type="number" class="form-control" id="node_listen_port" name="node_listen_port" required>        </div>        <div class="form-group">            <label for="bind_retry_duration">Bind Retry Duration:</label>            <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" required>        </div>        <div class="form-group">            <label for="data_channel_timout">Data Channel Timout:</label>            <input type="number" class="form-control" id="data_channel_timout" name="data_channel_timout" required>        </div>        <div class="form-group">            <label for="file_transfer_timout">File Transfer Timout:</label>            <input type="number" class="form-control" id="file_transfer_timout" name="file_transfer_timout" required>        </div>        <div class="form-group">            <label for="file_transfer_retry_times">File Transfer Retry Times:</label>            <input type="number" class="form-control" id="file_transfer_retry_times" name="file_transfer_retry_times" required>        </div>        <div class="form-group">            <label for="dedicated_port_range_start">Dedicated Port Range Start:</label>            <input type="number" class="form-control" id="dedicated_port_range_start" name="dedicated_port_range_start" required>        </div>        <div class="form-group">            <label for="dedicated_port_range_end">Dedicated Port Range End:</label>            <input type="number" class="form-control" id="dedicated_port_range_end" name="dedicated_port_range_end" required>        </div>        <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>    </form>    <p class="mt-4 text-muted">Some settings will take effect after a restart.</p></div><script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script><script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setting</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script type="text/javascript">
+        function validateInput() {
+            const internal_timestamp = parseInt(document.getElementById('internal_timestamp').value);
+            const node_listen_port = parseInt(document.getElementById('node_listen_port').value);
+            const http_server_bind_port = parseInt(document.getElementById('http_server_bind_port').value);
+            const bind_retry_duration = parseInt(document.getElementById('bind_retry_duration').value);
+            const control_channel_timout = parseInt(document.getElementById('control_channel_timout').value);
+            const data_channel_timout = parseInt(document.getElementById('data_channel_timout').value);
+            const file_transfer_timout = parseInt(document.getElementById('file_transfer_timout').value);
+            const file_transfer_retry_times = parseInt(document.getElementById('file_transfer_retry_times').value);
+            const dedicated_port_range_start = parseInt(document.getElementById('dedicated_port_range_start').value);
+            const dedicated_port_range_end = parseInt(document.getElementById('dedicated_port_range_end').value);
+
+            if (internal_timestamp <= 0 || internal_timestamp > 60000) {
+                alert('Internal Timestamp must be between 1 mini second and 60000 mini seconds (1 minute).');
+                return false;
+            }
+
+            if (node_listen_port < 1 || http_server_bind_port < 1 || dedicated_port_range_start < 1 || dedicated_port_range_end < 1) {
+                alert('Port numbers must be gather than 1.');
+                return false;
+            }
+
+            if (node_listen_port > 65535 || http_server_bind_port > 65535 || dedicated_port_range_start > 65535 || dedicated_port_range_end > 65535) {
+                alert('Port numbers must be less than 65535.');
+                return false;
+            }
+
+            if (bind_retry_duration < 1 || bind_retry_duration > 86400) {
+                alert('Bind Retry Duration must be between 1 second and 86400 seconds (24 hours).');
+                return false;
+            }
+
+            if (control_channel_timout < 1 || control_channel_timout > 86400) {
+                alert('Control Channel Timout must be between 1 second and 86400 seconds (24 hours).');
+                return false;
+            }
+
+            if (data_channel_timout < 1 || data_channel_timout > 86400) {
+                alert('Data Channel Timout must be between 1 second and 86400 seconds (24 hours).');
+                return false;
+            }
+
+            if (file_transfer_timout < 1 || file_transfer_timout > 86400) {
+                alert('File Transfer Timout must be between 1 second 86400 seconds (24 hours).');
+                return false;
+            }
+
+            if (file_transfer_retry_times <= 0) {
+                alert("File Transfer Retry Times must be gather than 0.");
+                return false;
+            }
+
+            if (dedicated_port_range_start > dedicated_port_range_end) {
+                alert('Dedicated Port Range Start cannot be greater than Port Range End.');
+                return false;
+            }
+            return true;
+        }
+
+        async function loadCurrentConfig() {
+            try {
+                let response = await fetch('/setting/get_config');
+                if(response.ok) {
+                    let config = await response.json();
+                    document.getElementById('internal_timestamp').value = config.internal_timestamp;
+                    document.getElementById('node_listen_port').value = config.node_listen_port;
+                    document.getElementById('http_server_bind_port').value = config.http_server_bind_port;
+                    document.getElementById('bind_retry_duration').value = config.bind_retry_duration;
+                    document.getElementById('control_channel_timout').value = config.control_channel_timout;
+                    document.getElementById('data_channel_timout').value = config.data_channel_timout;
+                    document.getElementById('file_transfer_timout').value = config.file_transfer_timout;
+                    document.getElementById('file_transfer_retry_times').value = config.file_transfer_retry_times;
+                    document.getElementById('dedicated_port_range_start').value = config.dedicated_port_range[0];
+                    document.getElementById('dedicated_port_range_end').value = config.dedicated_port_range[1];
+                } else {
+                    console.error('Failed to fetch current config:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function submitForm() {
+            if (!validateInput()) {
+                return;
+            }
+            let config = {
+                internal_timestamp: parseInt(document.getElementById('internal_timestamp').value),
+                node_listen_port: parseInt(document.getElementById('node_listen_port').value),
+                http_server_bind_port: parseInt(document.getElementById('http_server_bind_port').value),
+                bind_retry_duration: parseInt(document.getElementById('bind_retry_duration').value),
+                control_channel_timout: parseInt(document.getElementById('control_channel_timout').value),
+                data_channel_timout: parseInt(document.getElementById('data_channel_timout').value),
+                file_transfer_timout: parseInt(document.getElementById('file_transfer_timout').value),
+                file_transfer_retry_times: parseInt(document.getElementById('file_transfer_retry_times').value),
+                dedicated_port_range: [
+                    parseInt(document.getElementById('dedicated_port_range_start').value),
+                    parseInt(document.getElementById('dedicated_port_range_end').value)
+                ]
+            };
+            try {
+                let response = await fetch('/setting/update_config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                let data = await response.text();
+                if (response.ok) {
+                    alert(data);
+                    await loadCurrentConfig();
+                } else {
+                    alert(data);
+                }
+            } catch (error) {
+                alert('Error: ' + error);
+            }
+        }
+
+        window.onload = loadCurrentConfig;
+    </script>
+</head>
+<body>
+
+<div class="container mt-5">
+    <h2>Update Config</h2>
+    <form id="config-form" class="mt-4">
+
+        <div class="form-group">
+            <label for="internal_timestamp">Internal Timestamp(ms):</label>
+            <input type="number" class="form-control" id="internal_timestamp" name="internal_timestamp" required>
+        </div>
+
+        <div class="form-group">
+            <label for="node_listen_port">Node Listen Port:</label>
+            <input type="number" class="form-control" id="node_listen_port" name="node_listen_port" required>
+        </div>
+
+        <div class="form-group">
+            <label for="http_server_bind_port">HTTP Server Bind Port:</label>
+            <input type="number" class="form-control" id="http_server_bind_port" name="http_server_bind_port" required>
+        </div>
+
+        <div class="form-group">
+            <label for="bind_retry_duration">Bind Retry Duration:</label>
+            <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" required>
+        </div>
+
+        <div class="form-group">
+            <label for="control_channel_timout">Control Channel Timout:</label>
+            <input type="number" class="form-control" id="control_channel_timout" name="control_channel_timout" required>
+        </div>
+
+
+        <div class="form-group">
+            <label for="data_channel_timout">Data Channel Timout:</label>
+            <input type="number" class="form-control" id="data_channel_timout" name="data_channel_timout" required>
+        </div>
+
+        <div class="form-group">
+            <label for="file_transfer_timout">File Transfer Timout:</label>
+            <input type="number" class="form-control" id="file_transfer_timout" name="file_transfer_timout" required>
+        </div>
+
+        <div class="form-group">
+            <label for="file_transfer_retry_times">File Transfer Retry Times:</label>
+            <input type="number" class="form-control" id="file_transfer_retry_times" name="file_transfer_retry_times" required>
+        </div>
+
+        <div class="form-group">
+            <label for="dedicated_port_range_start">Dedicated Port Range Start:</label>
+            <input type="number" class="form-control" id="dedicated_port_range_start" name="dedicated_port_range_start" required>
+        </div>
+
+        <div class="form-group">
+            <label for="dedicated_port_range_end">Dedicated Port Range End:</label>
+            <input type="number" class="form-control" id="dedicated_port_range_end" name="dedicated_port_range_end" required>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>
+    </form>
+    <p class="mt-4 text-muted">Some settings will take effect after a restart.</p>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

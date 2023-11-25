@@ -1,20 +1,20 @@
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
-pub struct FileTransferReplyPacket {
+pub struct NodeInformationPacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl FileTransferReplyPacket {
+impl NodeInformationPacket {
     pub fn new() -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::FileTransferReplyPacket.as_id_byte(),
+            id: PacketType::NodeInformationPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::FileTransferReplyPacket
+            packet_type: PacketType::NodeInformationPacket
         }
     }
 
@@ -23,12 +23,12 @@ impl FileTransferReplyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::FileTransferReplyPacket
+            packet_type: PacketType::NodeInformationPacket
         }
     }
 }
 
-impl Packet for FileTransferReplyPacket {
+impl Packet for NodeInformationPacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }

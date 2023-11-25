@@ -13,3 +13,4 @@ pub mod performance_packet;
 pub mod task_info_packet;
 pub mod task_info_reply_packet;
 pub mod result_packet;
+mod node_information_packet;

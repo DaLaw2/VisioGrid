@@ -1,3 +1,4 @@
+use serde_json;
 use std::sync::Arc;
 use tokio::fs::File;
 use std::path::PathBuf;
@@ -5,6 +6,7 @@ use tokio::sync::RwLock;
 use tokio::{fs, select};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
+use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, VecDeque};
 use tokio::time::{sleep, Duration, Instant};
 use crate::utils::config::Config;
@@ -26,9 +28,11 @@ use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::manager::utils::node_information::NodeInformation;
 
 pub struct Node {
     pub id: usize,
+    pub node_information: NodeInformation,
     pub idle_unused: Performance,
     pub realtime_usage: Performance,
     task: VecDeque<ImageResource>,
@@ -40,19 +44,40 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(id: usize, socket_stream: SocketStream) -> Self {
+    pub async fn new(id: usize, socket_stream: SocketStream) -> Option<Self> {
+        let config = Config::now().await;
+        let mut start_time = Instant::now();
+        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
         let (control_channel, control_packet_channel) = ControlChannel::new(id, socket_stream);
-        Self {
-            id,
-            idle_unused: Performance::new(0.0, 0.0, 0.0, 0.0),
-            realtime_usage: Performance::new(0.0, 0.0, 0.0, 0.0),
-            task: VecDeque::new(),
-            last_task: None,
-            control_channel,
-            data_channel: None,
-            control_packet_channel,
-            data_packet_channel: None,
+        while start_time.elapsed() < timeout_duration {
+            select! {
+                biased;
+                reply = control_packet_channel.control_reply_packet.recv() => {
+                    match reply {
+                        Ok(packet) => {
+                            match serde_json::from_str::<NodeInformation>(packet.as_data_byte()) {
+                                Ok(node_information) => return Some(Self {
+                                    id,
+                                    node_information,
+                                    idle_unused: Performance::new(0.0, 0.0, 0.0, 0.0),
+                                    realtime_usage: Performance::new(0.0, 0.0, 0.0, 0.0),
+                                    task: VecDeque::new(),
+                                    last_task: None,
+                                    control_channel,
+                                    data_channel: None,
+                                    control_packet_channel,
+                                    data_packet_channel: None,
+                                }),
+                                Err(_) => return None,
+                            }
+                        },
+                        Err(_) => return None,
+0                    }
+ 0.                },
+                _ = sleep(Duration::from_secs(config.internal_timestamp as u64)) => continue,
+            }
         }
+        None
     }
 
     pub async fn run() {
@@ -62,7 +87,6 @@ impl Node {
     pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
         node.write().await.task.push_back(task);
     }
-
 
     async fn transfer_task(node: Arc<RwLock<Node>>) {
         let config = Config::now().await;
