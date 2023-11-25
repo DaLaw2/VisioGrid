@@ -43,7 +43,7 @@ impl NodeCluster {
                     let mut node_cluster = GLOBAL_CLUSTER.write().await;
                     let mut vram: Vec<(usize, f64)> = stream::iter(&node_cluster.nodes)
                         .then(|(&key, node)| async move {
-                            (key, node.read().await.idle_unused.vram)
+                            (key, node.read().await.idle_unused.gram)
                         }).collect().await;
                     vram.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                     node_cluster.vram_sorting = vram;
