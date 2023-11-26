@@ -3,10 +3,10 @@ use tokio::time::sleep;
 use std::time::Duration;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use futures::stream::{self, StreamExt};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
 use crate::utils::config::Config;
-use futures::stream::{self, StreamExt};
 
 lazy_static! {
     static ref GLOBAL_CLUSTER: RwLock<NodeCluster> = RwLock::new(NodeCluster::new());
@@ -43,7 +43,7 @@ impl NodeCluster {
                     let mut node_cluster = GLOBAL_CLUSTER.write().await;
                     let mut vram: Vec<(usize, f64)> = stream::iter(&node_cluster.nodes)
                         .then(|(&key, node)| async move {
-                            (key, node.read().await.idle_unused.gram)
+                            (key, node.read().await.idle_unused().vram)
                         }).collect().await;
                     vram.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                     node_cluster.vram_sorting = vram;
@@ -55,7 +55,7 @@ impl NodeCluster {
 
     pub async fn add_node(node: Node) {
         let mut node_cluster = GLOBAL_CLUSTER.write().await;
-        let node_id = node.id;
+        let node_id = node.id();
         if node_cluster.nodes.contains_key(&node_id) {
             return;
         }
@@ -81,7 +81,7 @@ impl NodeCluster {
         }
     }
 
-    pub async fn sort_by_vram() -> Vec<(usize, f64)> {
+    pub async fn sorted_by_vram() -> Vec<(usize, f64)> {
         let node_cluster = GLOBAL_CLUSTER.read().await;
         node_cluster.vram_sorting.clone()
     }

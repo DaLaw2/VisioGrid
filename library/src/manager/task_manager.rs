@@ -62,7 +62,7 @@ impl TaskManager {
     pub async fn distribute_task(mut task: Task) {
         let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
         let vram_usage = Self::calc_vram_usage(model_filepath.clone()).await;
-        let nodes = NodeCluster::sort_by_vram().await;
+        let nodes = NodeCluster::sorted_by_vram().await;
         let filter_nodes = NodeCluster::filter_node_by_vram(vram_usage).await;
         match Path::new(&task.image_filename).extension().and_then(|os_str| os_str.to_str()) {
             Some("png") | Some("jpg") | Some("jpeg") => {
@@ -72,7 +72,7 @@ impl TaskManager {
                 let mut node: Option<usize> = None;
                 for (node_id, _) in filter_nodes {
                     let node_ram = match NodeCluster::get_node(node_id).await {
-                        Some(node) => node.read().await.idle_unused.ram,
+                        Some(node) => node.read().await.idle_unused().ram,
                         None => {
                             Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                             0.0
@@ -129,7 +129,7 @@ impl TaskManager {
                             None => continue,
                         };
                         let node_ram = match NodeCluster::get_node(node_id).await {
-                            Some(node) => node.read().await.idle_unused.ram,
+                            Some(node) => node.read().await.idle_unused().ram,
                             None => {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 0.0

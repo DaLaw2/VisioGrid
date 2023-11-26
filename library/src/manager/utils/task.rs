@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use crate::manager::utils::inference_type::InferenceType;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum TaskStatus {
     PreProcessing,
     Waiting,
@@ -10,7 +10,7 @@ pub enum TaskStatus {
     Fail,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Task {
     pub uuid: Uuid,
     pub status: TaskStatus,

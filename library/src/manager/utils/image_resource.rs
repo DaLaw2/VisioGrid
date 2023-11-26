@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::manager::utils::bounding_box::BoundingBox;
 use crate::manager::utils::inference_type::InferenceType;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ImageResource {
     pub task_uuid: Uuid,
     pub model_filename: String,
@@ -19,10 +19,10 @@ impl ImageResource {
     pub fn new(task_uuid: Uuid, model_filepath: PathBuf, image_filepath: PathBuf, inference_type: InferenceType) -> Self {
         let model_filename = model_filepath.clone()
             .file_name().and_then(|name| name.to_str())
-            .map(|name_str| name_str.to_string()).unwrap_or(String::new());
+            .unwrap_or_default().to_string();
         let image_filename = image_filepath.clone()
             .file_name().and_then(|name| name.to_str())
-            .map(|name_str| name_str.to_string()).unwrap_or(String::new());
+            .unwrap_or_default().to_string();
         Self {
             task_uuid,
             model_filename,

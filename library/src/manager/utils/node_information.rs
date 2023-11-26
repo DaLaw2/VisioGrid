@@ -8,5 +8,5 @@ pub struct NodeInformation {
     cores: usize,
     ram: usize,
     gpu: String,
-    gram: usize,
+    vram: usize,
 }

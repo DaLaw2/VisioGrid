@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::manager::utils::inference_type::InferenceType;
 use crate::manager::utils::image_resource::ImageResource;
 
+#[derive(Debug, Clone)]
 pub struct TaskInfo {
     uuid: Uuid,
     model_filename: String,

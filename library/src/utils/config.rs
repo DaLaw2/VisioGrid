@@ -13,7 +13,7 @@ struct ConfigTable {
     config: Config
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct Config {
     pub internal_timestamp: usize,
     pub node_listen_port: usize,

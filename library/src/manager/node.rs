@@ -1,4 +1,3 @@
-use serde_json;
 use std::sync::Arc;
 use tokio::fs::File;
 use std::path::PathBuf;
@@ -15,9 +14,11 @@ use crate::manager::file_manager::FileManager;
 use crate::manager::task_manager::TaskManager;
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task_info::TaskInfo;
+use crate::connection::packet::definition::Packet;
 use crate::connection::utils::performance::Performance;
 use crate::manager::utils::image_resource::ImageResource;
 use crate::connection::socket::socket_stream::SocketStream;
+use crate::manager::utils::node_information::NodeInformation;
 use crate::connection::connection_channel::data_packet_channel;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
@@ -27,14 +28,13 @@ use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
-use crate::manager::utils::node_information::NodeInformation;
-use crate::connection::packet::definition::Packet;
 
 pub struct Node {
-    pub id: usize,
-    pub node_information: NodeInformation,
-    pub idle_unused: Performance,
-    pub realtime_usage: Performance,
+    id: usize,
+    information: NodeInformation,
+    terminate: bool,
+    idle_unused: Performance,
+    realtime_usage: Performance,
     task: VecDeque<ImageResource>,
     last_task: Option<ImageResource>,
     control_channel: ControlChannel,
@@ -46,21 +46,22 @@ pub struct Node {
 impl Node {
     pub async fn new(id: usize, socket_stream: SocketStream) -> Option<Self> {
         let config = Config::now().await;
-        let start_time = Instant::now();
+        let time = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
         let (control_channel, mut control_packet_channel) = ControlChannel::new(id, socket_stream);
-        while start_time.elapsed() < timeout_duration {
+        while time.elapsed() < timeout_duration {
             select! {
                 biased;
-                reply = control_packet_channel.control_reply_packet.recv() => {
+                reply = control_packet_channel.node_information_packet.recv() => {
                     match reply {
                         Some(packet) => {
                             match serde_json::from_str::<NodeInformation>(&packet.data_to_string()) {
-                                Ok(node_information) => return Some(Self {
+                                Ok(information) => return Some(Self {
                                     id,
-                                    node_information,
-                                    idle_unused: Performance::new(0.0, 0.0, 0.0, 0.0),
-                                    realtime_usage: Performance::new(0.0, 0.0, 0.0, 0.0),
+                                    information,
+                                    terminate: false,
+                                    idle_unused: Performance::default(),
+                                    realtime_usage: Performance::default(),
                                     task: VecDeque::new(),
                                     last_task: None,
                                     control_channel,
@@ -80,8 +81,26 @@ impl Node {
         None
     }
 
-    pub async fn run() {
+    pub async fn run(node: Arc<RwLock<Node>>) {
 
+    }
+
+    pub async fn terminate(node: Arc<RwLock<Node>>) {
+
+    }
+
+    pub async fn flash_performance(node: Arc<RwLock<Node>>) {
+        let config = Config::now().await;
+        let mut time = Instant::now();
+        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        loop {
+            if node.read().await.terminate {
+                return;
+            }
+            select! {
+
+            }
+        }
     }
 
     pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
@@ -194,13 +213,13 @@ impl Node {
             Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
         }
         let mut retry_times = 0_usize;
-        let mut start_time = Instant::now();
+        let mut time = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timout as u64);
         let mut require_resend = Vec::new();
         while retry_times < config.file_transfer_retry_times {
-            if start_time.elapsed() >= timeout_duration {
+            if time.elapsed() >= timeout_duration {
                 retry_times += 1;
-                start_time = Instant::now();
+                time = Instant::now();
             }
             if let Some(data_packet_channel) = &mut node.write().await.data_packet_channel {
                 select! {
@@ -208,7 +227,7 @@ impl Node {
                     reply = data_packet_channel.file_transfer_reply_packet.recv() => {
                         match &reply {
                             Some(reply_packet) => {
-                                if let Some(missing_chunks) = FileTransferResult::parse_from_packet(reply_packet).result {
+                                if let Some(missing_chunks) = FileTransferResult::parse_from_packet(reply_packet).into() {
                                     require_resend = missing_chunks;
                                 } else {
                                     return Ok(());
@@ -236,7 +255,7 @@ impl Node {
     }
 
     pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageResource> {
-        let vram = node.read().await.idle_unused.gram;
+        let vram = node.read().await.idle_unused.vram;
         let filter_nodes = NodeCluster::filter_node_by_vram(vram).await;
         let mut task = None;
         for (node_id, _) in filter_nodes {
@@ -266,7 +285,12 @@ impl Node {
             }
         };
         node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
+        let time = Instant::now();
+        let timeout_duration = Duration::from_secs(config.data_channel_timout as u64);
         let (stream, address) = loop {
+            if time.elapsed() >= timeout_duration {
+                return;
+            }
             select! {
                 biased;
                 connection = listener.accept() => {
@@ -278,17 +302,38 @@ impl Node {
                         }
                     }
                 },
-                _ = sleep(Duration::from_secs(config.data_channel_timout as u64)) => {
-                    node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
-                    continue;
-                },
+                _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
             }
         };
-        let socket_stream =  SocketStream::new(stream, address);
+        let socket_stream = SocketStream::new(stream, address);
         let mut node = node.write().await;
         let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
         node.data_channel = Some(data_channel);
         node.data_packet_channel = Some(data_packet_channel);
-        Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create data channel successfully.".to_string()).await;
+        Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
+    }
+
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    pub fn node_information(&self) -> &NodeInformation {
+        &self.information
+    }
+
+    pub fn idle_unused(&self) -> &Performance {
+        &self.idle_unused
+    }
+
+    pub fn mut_idle_unused(&mut self) -> &mut Performance {
+        &mut self.idle_unused
+    }
+
+    pub fn realtime_usage(&self) -> &Performance {
+        &self.realtime_usage
+    }
+
+    pub fn mut_realtime_usage(&mut self) -> &mut Performance {
+        &mut self.realtime_usage
     }
 }
