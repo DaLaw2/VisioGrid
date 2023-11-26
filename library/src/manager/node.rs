@@ -27,6 +27,7 @@ use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
+use crate::connection::packet::confirm_packet::ConfirmPacket;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 
 pub struct Node {
@@ -55,20 +56,24 @@ impl Node {
                 reply = control_packet_channel.node_information_packet.recv() => {
                     match reply {
                         Some(packet) => {
-                            match serde_json::from_str::<NodeInformation>(&packet.data_to_string()) {
-                                Ok(information) => return Some(Self {
-                                    id,
-                                    information,
-                                    terminate: false,
-                                    idle_unused: Performance::default(),
-                                    realtime_usage: Performance::default(),
-                                    task: VecDeque::new(),
-                                    last_task: None,
-                                    control_channel,
-                                    data_channel: None,
-                                    control_packet_channel,
-                                    data_packet_channel: None,
-                                }),
+                            match serde_json::from_slice::<NodeInformation>(&packet.as_data_byte()) {
+                                Ok(information) => {
+                                    let node = Self {
+                                        id,
+                                        information,
+                                        terminate: false,
+                                        idle_unused: Performance::default(),
+                                        realtime_usage: Performance::default(),
+                                        task: VecDeque::new(),
+                                        last_task: None,
+                                        control_channel,
+                                        data_channel: None,
+                                        control_packet_channel,
+                                        data_packet_channel: None,
+                                    };
+                                    control_channel.send(ConfirmPacket::new()).await;
+                                    return Some(node);
+                                },
                                 Err(_) => return None,
                             }
                         },
@@ -81,15 +86,69 @@ impl Node {
         None
     }
 
-    pub async fn run(node: Arc<RwLock<Node>>) {
+    pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
+        node.write().await.task.push_back(task);
+    }
 
+    pub async fn run(node: Arc<RwLock<Node>>) {
+        Node::create_data_channel(node.clone()).await;
+        tokio::spawn(async {
+            Node::flash_performance(node.clone()).await;
+        });
+        tokio::spawn(async {
+            Node::task_management(node).await;
+        });
     }
 
     pub async fn terminate(node: Arc<RwLock<Node>>) {
+        let node_id = node.read().await.id;
+        node.write().await.terminate = true;
+        NodeCluster::remove_node(node_id).await;
+    }
 
+    async fn create_data_channel(node: Arc<RwLock<Node>>) {
+        let config = Config::now().await;
+        let (listener, port) = loop {
+            let port = match PortPool::allocate_port().await {
+                Some(port) => port,
+                None => continue,
+            };
+            match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
+                Ok(listener) => break (listener, port),
+                Err(_) => continue,
+            }
+        };
+        node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
+        let time = Instant::now();
+        let timeout_duration = Duration::from_secs(config.data_channel_timout as u64);
+        let (stream, address) = loop {
+            if time.elapsed() >= timeout_duration {
+                return;
+            }
+            select! {
+                biased;
+                connection = listener.accept() => {
+                    match connection {
+                        Ok(connection) => break connection,
+                        Err(_) => {
+                            node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
+                            continue;
+                        }
+                    }
+                },
+                _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
+            }
+        };
+        let socket_stream = SocketStream::new(stream, address);
+        let mut node = node.write().await;
+        let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
+        node.data_channel = Some(data_channel);
+        node.data_packet_channel = Some(data_packet_channel);
+        Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
     }
 
     pub async fn flash_performance(node: Arc<RwLock<Node>>) {
+        let id = node.read().await.id;
         let config = Config::now().await;
         let mut time = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
@@ -97,77 +156,113 @@ impl Node {
             if node.read().await.terminate {
                 return;
             }
+            if time.elapsed() >= timeout_duration {
+                Logger::append_node_log(id, LogLevel::WARNING, "Node: Control Channel timout.".to_string()).await;
+                Node::terminate(node).await;
+                return;
+            }
+            let node = node.write().await;
             select! {
-
+                biased;
+                reply = node.control_packet_channel.performance_packet.recv() => {
+                    match &reply {
+                        Some(reply_packet) => {
+                            match serde_json::from_slice::<Performance>(reply_packet.as_data_byte()) {
+                                Ok(performance) => {
+                                    node.realtime_usage = performance;
+                                    node.control_channel.send(ConfirmPacket::new()).await;
+                                    time = Instant::now();
+                                },
+                                Err(_) => continue,
+                            }
+                        },
+                        None => continue,
+                    }
+                },
+                _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
             }
         }
     }
 
-    pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
-        node.write().await.task.push_back(task);
+    async fn task_management(node: Arc<RwLock<Node>>) {
+        let id = node.read().await.id;
+        let config = Config::now().await;
+        loop {
+            if node.read().await.terminate {
+                return;
+            }
+            let task = node.write().await.task.pop_front();
+            match task {
+                Some(task) => {
+                    Node::transfer_task(node.clone(), task).await;
+                    let mut time = Instant::now();
+                    let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+                    loop {
+
+                    }
+                },
+                None => {
+                    if let Some(steal_task) = Node::steal_task(node.clone()).await {
+                        Node::add_task(node.clone(), steal_task).await;
+                    } else {
+                        let mut time = Instant::now();
+                        let idle_duration = Duration::from_secs(config.node_idle_duration as u64);
+                        while time.elapsed() < idle_duration {
+
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    async fn transfer_task(node: Arc<RwLock<Node>>) {
-        let config = Config::now().await;
+    async fn transfer_task(node: Arc<RwLock<Node>>, task: ImageResource) {
         let mut success = true;
         let mut task_complete = false;
-        let (node_id, task) = {
-            let mut node = node.write().await;
-            (node.id, node.task.pop_front())
-        };
-        match task {
-            Some(task) => {
-                if node.write().await.data_channel.is_some() {
-                    let should_transfer_model = if let Some(last_task) = &node.read().await.last_task {
-                        task.task_uuid != last_task.task_uuid
-                    } else {
-                        true
-                    };
-                    if should_transfer_model {
-                        match &mut node.write().await.data_channel {
-                            Some(data_channel) => data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await,
-                            None => {
-                                Node::create_data_channel(node.clone()).await;
-                                return;
-                            }
-                        }
-                        if let Err(err) = Self::transfer_file(node.clone(), task.model_filename, task.model_filepath).await {
-                            Logger::append_node_log(node_id, LogLevel::ERROR, err).await;
-                            success = false;
-                        }
+        let node_id = node.read().await.id;
+        if node.write().await.data_channel.is_some() {
+            let should_transfer_model = if let Some(last_task) = &node.read().await.last_task {
+                task.task_uuid != last_task.task_uuid
+            } else {
+                true
+            };
+            if should_transfer_model {
+                match &mut node.write().await.data_channel {
+                    Some(data_channel) => data_channel.send(TaskInfoPacket::new(TaskInfo::new(&task))).await,
+                    None => success = false,
+                }
+                if let Err(err) = Node::transfer_file(node.clone(), task.model_filename, task.model_filepath).await {
+                    Logger::append_node_log(node_id, LogLevel::ERROR, err).await;
+                    success = false;
+                }
+            }
+            if let Err(err) = Node::transfer_file(node.clone(), task.image_filename, task.image_filepath).await {
+                Logger::append_node_log(node_id, LogLevel::ERROR, err).await;
+                success = false;
+            };
+        } else {
+            Node::create_data_channel(node).await;
+            success = false;
+        }
+        if !success {
+            match TaskManager::instance_mut().await.get_task_mut(task.task_uuid).await {
+                Some(task) => {
+                    task.processed += 1;
+                    task.unprocessed -= 1;
+                    if task.unprocessed == 0 {
+                        task_complete = true;
                     }
-                    if let Err(err) = Self::transfer_file(node.clone(), task.image_filename, task.image_filepath).await {
-                        Logger::append_node_log(node_id, LogLevel::ERROR, err).await;
-                        success = false;
-                    };
-                } else {
-                    Node::create_data_channel(node).await;
+                }
+                None => {
+                    Logger::append_node_log(node_id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)).await;
                     return;
-                }
-                if !success {
-                    match TaskManager::instance_mut().await.get_task_mut(task.task_uuid).await {
-                        Some(task) => {
-                            task.processed += 1;
-                            task.unprocessed -= 1;
-                            if task.unprocessed == 0 {
-                                task_complete = true;
-                            }
-                        }
-                        None => Logger::append_node_log(node_id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)).await,
-                    }
-                }
-                if task_complete {
-                    match TaskManager::remove_task(task.task_uuid).await {
-                        Some(task) => FileManager::add_postprocess_task(task).await,
-                        None => Logger::append_node_log(node_id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)).await,
-                    }
-                }
-            },
-            None => {
-                match Node::steal_task(node.clone()).await {
-                    Some(task) => node.write().await.task.push_back(task),
-                    None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await,
-                }
+                },
+            }
+        }
+        if task_complete {
+            match TaskManager::remove_task(task.task_uuid).await {
+                Some(task) => FileManager::add_postprocess_task(task).await,
+                None => Logger::append_node_log(node_id, LogLevel::ERROR, format!("Node: Task {} does not exist.", task.task_uuid)).await,
             }
         }
     }
@@ -270,47 +365,6 @@ impl Node {
             }
         }
         task
-    }
-
-    async fn create_data_channel(node: Arc<RwLock<Node>>) {
-        let config = Config::now().await;
-        let (listener, port) = loop {
-            let port = match PortPool::allocate_port().await {
-                Some(port) => port,
-                None => continue,
-            };
-            match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
-                Ok(listener) => break (listener, port),
-                Err(_) => continue,
-            }
-        };
-        node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
-        let time = Instant::now();
-        let timeout_duration = Duration::from_secs(config.data_channel_timout as u64);
-        let (stream, address) = loop {
-            if time.elapsed() >= timeout_duration {
-                return;
-            }
-            select! {
-                biased;
-                connection = listener.accept() => {
-                    match connection {
-                        Ok(connection) => break connection,
-                        Err(_) => {
-                            node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
-                            continue;
-                        }
-                    }
-                },
-                _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
-            }
-        };
-        let socket_stream = SocketStream::new(stream, address);
-        let mut node = node.write().await;
-        let (data_channel, data_packet_channel) = DataChannel::new(node.id, socket_stream);
-        node.data_channel = Some(data_channel);
-        node.data_packet_channel = Some(data_packet_channel);
-        Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
     }
 
     pub fn id(&self) -> usize {

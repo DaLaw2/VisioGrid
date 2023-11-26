@@ -22,6 +22,6 @@ impl TaskInfo {
 
 impl Display for TaskInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} Model FileName: {}, Inference Type: {}", self.uuid, self.model_filename, self.inference_type.to_string())
+        write!(f, "{},{},{}", self.uuid, self.model_filename, self.inference_type.to_string())
     }
 }

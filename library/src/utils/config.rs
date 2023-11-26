@@ -19,6 +19,8 @@ pub struct Config {
     pub node_listen_port: usize,
     pub http_server_bind_port: usize,
     pub bind_retry_duration: usize,
+    pub node_idle_duration: usize,
+    pub polling_interval: usize,
     pub control_channel_timout: usize,
     pub data_channel_timout: usize,
     pub file_transfer_timout: usize,

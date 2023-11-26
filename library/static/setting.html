@@ -11,6 +11,8 @@
             const node_listen_port = parseInt(document.getElementById('node_listen_port').value);
             const http_server_bind_port = parseInt(document.getElementById('http_server_bind_port').value);
             const bind_retry_duration = parseInt(document.getElementById('bind_retry_duration').value);
+            const node_idle_duration = parseInt(document.getElementById('node_idle_duration').value);
+            const polling_interval = parseInt(document.getElementById('polling_interval').value);
             const control_channel_timout = parseInt(document.getElementById('control_channel_timout').value);
             const data_channel_timout = parseInt(document.getElementById('data_channel_timout').value);
             const file_transfer_timout = parseInt(document.getElementById('file_transfer_timout').value);
@@ -35,6 +37,16 @@
 
             if (bind_retry_duration < 1 || bind_retry_duration > 86400) {
                 alert('Bind Retry Duration must be between 1 second and 86400 seconds (24 hours).');
+                return false;
+            }
+
+            if (node_idle_duration < 1 || node_idle_duration > 86400) {
+                alert('Node Idle Duration must be between 1 second and 86400 seconds (24 hours).');
+                return false;
+            }
+
+            if (polling_interval <= 0 || polling_interval > 60000) {
+                alert('Polling Interval must be between 1 mini second and 60000 mini seconds (1 minute).');
                 return false;
             }
 
@@ -74,6 +86,8 @@
                     document.getElementById('node_listen_port').value = config.node_listen_port;
                     document.getElementById('http_server_bind_port').value = config.http_server_bind_port;
                     document.getElementById('bind_retry_duration').value = config.bind_retry_duration;
+                    document.getElementById('node_idle_duration').value = config.node_idle_duration;
+                    document.getElementById('polling_interval').value = config.polling_interval;
                     document.getElementById('control_channel_timout').value = config.control_channel_timout;
                     document.getElementById('data_channel_timout').value = config.data_channel_timout;
                     document.getElementById('file_transfer_timout').value = config.file_transfer_timout;
@@ -97,6 +111,8 @@
                 node_listen_port: parseInt(document.getElementById('node_listen_port').value),
                 http_server_bind_port: parseInt(document.getElementById('http_server_bind_port').value),
                 bind_retry_duration: parseInt(document.getElementById('bind_retry_duration').value),
+                node_idle_duration: parseInt(document.getElementById('node_idle_duration').value),
+                polling_interval: parseInt(document.getElementById('node_idle_duration').value),
                 control_channel_timout: parseInt(document.getElementById('control_channel_timout').value),
                 data_channel_timout: parseInt(document.getElementById('data_channel_timout').value),
                 file_transfer_timout: parseInt(document.getElementById('file_transfer_timout').value),
@@ -151,23 +167,33 @@
         </div>
 
         <div class="form-group">
-            <label for="bind_retry_duration">Bind Retry Duration:</label>
+            <label for="bind_retry_duration">Bind Retry Duration(s):</label>
             <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" required>
         </div>
 
         <div class="form-group">
-            <label for="control_channel_timout">Control Channel Timout:</label>
+            <label for="node_idle_duration">Node Idle Duration(s):</label>
+            <input type="number" class="form-control" id="node_idle_duration" name="node_idle_duration" required>
+        </div>
+
+        <div class="form-group">
+            <label for="polling_interval">Polling Interval(ms):</label>
+            <input type="number" class="form-control" id="polling_interval" name="polling_interval" required>
+        </div>
+
+        <div class="form-group">
+            <label for="control_channel_timout">Control Channel Timout(s):</label>
             <input type="number" class="form-control" id="control_channel_timout" name="control_channel_timout" required>
         </div>
 
 
         <div class="form-group">
-            <label for="data_channel_timout">Data Channel Timout:</label>
+            <label for="data_channel_timout">Data Channel Timout(s):</label>
             <input type="number" class="form-control" id="data_channel_timout" name="data_channel_timout" required>
         </div>
 
         <div class="form-group">
-            <label for="file_transfer_timout">File Transfer Timout:</label>
+            <label for="file_transfer_timout">File Transfer Timout(s):</label>
             <input type="number" class="form-control" id="file_transfer_timout" name="file_transfer_timout" required>
         </div>
 
