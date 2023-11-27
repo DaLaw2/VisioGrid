@@ -24,7 +24,6 @@ pub struct Config {
     pub control_channel_timout: usize,
     pub data_channel_timout: usize,
     pub file_transfer_timout: usize,
-    pub file_transfer_retry_times: usize,
     pub dedicated_port_range: (usize, usize),
 }
 

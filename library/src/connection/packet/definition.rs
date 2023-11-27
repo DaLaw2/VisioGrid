@@ -18,36 +18,22 @@ pub enum PacketType {
     ConfirmPacket,
     ControlPacket,
     ControlReplyPacket,
+    DataChannelPortPacket,
+    FileBodyPacket,
+    FileHeaderPacket,
+    FileTransferReplyPacket,
     NodeInformationPacket,
     PerformancePacket,
-    DataChannelPortPacket,
+    ResultPacket,
+    StillProcessPacket,
+    StillProcessReplyPacket,
     TaskInfoPacket,
     TaskInfoReplyPacket,
-    FileHeaderPacket,
-    FileBodyPacket,
-    FileTransferReplyPacket,
-    ResultPacket,
 }
 
 impl PacketType {
     pub fn as_id_byte(&self) -> Vec<u8> {
-        let id: usize = match self {
-            PacketType::BasePacket => 0,
-            PacketType::AlivePacket => 1,
-            PacketType::AliveReplyPacket => 2,
-            PacketType::ConfirmPacket => 3,
-            PacketType::ControlPacket => 4,
-            PacketType::ControlReplyPacket => 5,
-            PacketType::NodeInformationPacket => 6,
-            PacketType::PerformancePacket => 7,
-            PacketType::DataChannelPortPacket => 8,
-            PacketType::TaskInfoPacket => 9,
-            PacketType::TaskInfoReplyPacket => 10,
-            PacketType::FileHeaderPacket => 11,
-            PacketType::FileBodyPacket => 12,
-            PacketType::FileTransferReplyPacket => 13,
-            PacketType::ResultPacket => 14,
-        };
+        let id: usize = *self as usize;
         id.to_be_bytes().to_vec()
     }
 
@@ -61,15 +47,17 @@ impl PacketType {
             3 => PacketType::ConfirmPacket,
             4 => PacketType::ControlPacket,
             5 => PacketType::ControlReplyPacket,
-            6 => PacketType::NodeInformationPacket,
-            7 => PacketType::PerformancePacket,
-            8 => PacketType::DataChannelPortPacket,
-            9 => PacketType::TaskInfoPacket,
-            10 => PacketType::TaskInfoReplyPacket,
-            11 => PacketType::FileHeaderPacket,
-            12 => PacketType::FileBodyPacket,
-            13 => PacketType::FileTransferReplyPacket,
-            14 => PacketType::ResultPacket,
+            6 => PacketType::DataChannelPortPacket,
+            7 => PacketType::FileBodyPacket,
+            8 => PacketType::FileHeaderPacket,
+            9 => PacketType::FileTransferReplyPacket,
+            10 => PacketType::NodeInformationPacket,
+            11 => PacketType::PerformancePacket,
+            12 => PacketType::ResultPacket,
+            13 => PacketType::StillProcessPacket,
+            14 => PacketType::StillProcessReplyPacket,
+            15 => PacketType::TaskInfoPacket,
+            16 => PacketType::TaskInfoReplyPacket,
             _ => PacketType::BasePacket
         }
     }

@@ -95,7 +95,7 @@ impl TaskManager {
                                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                                 task.status = TaskStatus::Fail;
                                 let _ = Self::remove_task(task.uuid).await;
-                                unimplemented!("需要將失敗的交給任務後續處理者");
+                                unimplemented!("需要任務交給ResultRepository")
                             }
                         }
                     }
@@ -103,7 +103,7 @@ impl TaskManager {
                         Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                         task.status = TaskStatus::Fail;
                         let _ = Self::remove_task(task.uuid).await;
-                        unimplemented!("需要將失敗的交給任務後續處理者");
+                        unimplemented!("需要任務交給ResultRepository")
                     }
                 }
             },
@@ -151,22 +151,29 @@ impl TaskManager {
                                 None => Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await
                             }
                         },
-                        None => {}
+                        None => {
+                            unimplemented!("其中一個任務Fail")
+                            unimplemented!("需要任務交給ResultRepository")
+                        }
                     }
                 }
                 if task.processed == task.unprocessed {
                     let _ = Self::remove_task(task.uuid).await;
                     task.status = TaskStatus::Fail;
-                    unimplemented!("需要將失敗的交給任務後續處理者");
+                    unimplemented!("需要任務交給ResultRepository")
                 }
             },
             _ => {
                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} failed because the file extension is not supported.", task.uuid)).await;
                 let _ = Self::remove_task(task.uuid).await;
                 task.status = TaskStatus::Fail;
-                unimplemented!("需要將失敗的交給任務後續處理者");
+                unimplemented!("需要任務交給ResultRepository")
             },
         }
+    }
+
+    pub async fn update_task_status(uuid: Uuid, success: bool) {
+        unimplemented!("ImageResource 是否成功")
     }
 
     async fn calc_vram_usage(model_filepath: PathBuf) -> f64 {

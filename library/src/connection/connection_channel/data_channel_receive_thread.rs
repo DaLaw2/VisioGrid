@@ -31,9 +31,10 @@ impl ReceiveThread {
                             let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
                             let result = match packet_type {
                                 PacketType::AliveReplyPacket => self.data_packet_channel.alive_reply_packet.send(packet),
-                                PacketType::TaskInfoReplyPacket => self.data_packet_channel.task_info_reply_packet.send(packet),
                                 PacketType::FileTransferReplyPacket => self.data_packet_channel.file_transfer_reply_packet.send(packet),
                                 PacketType::ResultPacket => self.data_packet_channel.result_packet.send(packet),
+                                PacketType::StillProcessReplyPacket => self.data_packet_channel.still_process_reply_packet.send(packet),
+                                PacketType::TaskInfoReplyPacket => self.data_packet_channel.task_info_reply_packet.send(packet),
                                 _ => {
                                     Logger::append_node_log(self.node_id, LogLevel::WARNING, "Data Channel Receiver: Receive unknown packet.".to_string()).await;
                                     Ok(())
