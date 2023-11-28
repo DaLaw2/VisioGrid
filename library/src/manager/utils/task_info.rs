@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use std::fmt::{self, Display, Formatter};
+use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::inference_type::InferenceType;
-use crate::manager::utils::image_resource::ImageResource;
 
 #[derive(Debug, Clone)]
 pub struct TaskInfo {
@@ -11,7 +11,7 @@ pub struct TaskInfo {
 }
 
 impl TaskInfo {
-    pub fn new(task: &ImageResource) -> Self {
+    pub fn new(task: &ImageTask) -> Self {
         Self {
             uuid: task.task_uuid,
             model_filename: task.model_filename.clone(),

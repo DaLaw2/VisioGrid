@@ -7,8 +7,9 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
+use crate::manager::result_repository::ResultRepository;
 use crate::manager::utils::task::{Task, TaskStatus};
-use crate::manager::utils::image_resource::ImageResource;
+use crate::manager::utils::image_task::ImageTask;
 
 lazy_static! {
     static ref GLOBAL_TASK_MANAGER: RwLock<TaskManager> = RwLock::new(TaskManager::new());
@@ -67,7 +68,7 @@ impl TaskManager {
         match Path::new(&task.image_filename).extension().and_then(|os_str| os_str.to_str()) {
             Some("png") | Some("jpg") | Some("jpeg") => {
                 let image_filepath = Path::new(".").join("PreProcessing").join(task.image_filename.clone());
-                let mut image_resource = ImageResource::new(task.uuid, model_filepath.clone(), image_filepath.clone(), task.inference_type.clone());
+                let mut image_resource = ImageTask::new(task.uuid, model_filepath.clone(), image_filepath.clone(), task.inference_type.clone());
                 let ram_usage = Self::calc_ram_usage(image_filepath).await;
                 let mut node: Option<usize> = None;
                 for (node_id, _) in filter_nodes {
@@ -94,16 +95,18 @@ impl TaskManager {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                                 task.status = TaskStatus::Fail;
-                                let _ = Self::remove_task(task.uuid).await;
-                                unimplemented!("需要任務交給ResultRepository")
+                                if let Some(task) = Self::remove_task(task.uuid).await {
+                                    ResultRepository::add_task(task).await;
+                                }
                             }
                         }
                     }
                     None => {
                         Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                         task.status = TaskStatus::Fail;
-                        let _ = Self::remove_task(task.uuid).await;
-                        unimplemented!("需要任務交給ResultRepository")
+                        if let Some(task) = Self::remove_task(task.uuid).await {
+                            ResultRepository::add_task(task).await;
+                        }
                     }
                 }
             },
@@ -119,7 +122,7 @@ impl TaskManager {
                 let mut current_node = 0_usize;
                 while let Ok(Some(image_filepath)) = inference_folder.next_entry().await {
                     let image_filepath = image_filepath.path();
-                    let mut image_resource = ImageResource::new(task.uuid, model_filepath.clone(), image_filepath.clone(), task.inference_type.clone());
+                    let mut image_resource = ImageTask::new(task.uuid, model_filepath.clone(), image_filepath.clone(), task.inference_type.clone());
                     let ram_usage = Self::calc_ram_usage(image_filepath).await;
                     let mut node: Option<usize> = None;
                     for i in 0..nodes.len() {

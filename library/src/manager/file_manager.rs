@@ -20,15 +20,15 @@ lazy_static! {
 }
 
 pub struct FileManager {
-    preprocessing_queue: VecDeque<Task>,
-    postprocessing_queue: VecDeque<Task>
+    preprocessing: VecDeque<Task>,
+    postprocessing: VecDeque<Task>
 }
 
 impl FileManager {
     fn new() -> Self {
         Self {
-            preprocessing_queue: VecDeque::new(),
-            postprocessing_queue: VecDeque::new()
+            preprocessing: VecDeque::new(),
+            postprocessing: VecDeque::new()
         }
     }
 
@@ -59,12 +59,12 @@ impl FileManager {
 
     pub async fn add_preprocess_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
-        manager.preprocessing_queue.push_back(task);
+        manager.preprocessing.push_back(task);
     }
 
     pub async fn add_postprocess_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
-        manager.postprocessing_queue.push_back(task);
+        manager.postprocessing.push_back(task);
     }
 
     pub async fn run() {
@@ -81,7 +81,7 @@ impl FileManager {
         loop {
             let task = {
                 let mut file_manager = GLOBAL_FILE_MANAGER.write().await;
-                file_manager.preprocessing_queue.pop_front()
+                file_manager.preprocessing.pop_front()
             };
             match task {
                 Some(mut task) => {

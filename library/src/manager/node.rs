@@ -15,8 +15,8 @@ use crate::manager::task_manager::TaskManager;
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task_info::TaskInfo;
 use crate::connection::packet::definition::Packet;
-use crate::connection::utils::performance::Performance;
-use crate::manager::utils::image_resource::ImageResource;
+use crate::manager::utils::performance::Performance;
+use crate::manager::utils::image_task::ImageTask;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::packet::confirm_packet::ConfirmPacket;
 use crate::manager::utils::node_information::NodeInformation;
@@ -26,7 +26,7 @@ use crate::connection::packet::file_body_packet::FileBodyPacket;
 use crate::connection::connection_channel::control_packet_channel;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::connection::connection_channel::data_channel::DataChannel;
-use crate::connection::utils::file_transfer_result::FileTransferResult;
+use crate::manager::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
@@ -37,8 +37,8 @@ pub struct Node {
     terminate: bool,
     idle_unused: Performance,
     realtime_usage: Performance,
-    task: VecDeque<ImageResource>,
-    last_task: Option<ImageResource>,
+    task: VecDeque<ImageTask>,
+    last_task: Option<ImageTask>,
     control_channel: ControlChannel,
     data_channel: Option<DataChannel>,
     control_packet_channel: control_packet_channel::PacketReceiver,
@@ -87,7 +87,7 @@ impl Node {
         None
     }
 
-    pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageResource) {
+    pub async fn add_task(node: Arc<RwLock<Node>>, task: ImageTask) {
         node.write().await.task.push_back(task);
     }
 
@@ -159,18 +159,19 @@ impl Node {
             match task {
                 Some(task) => {
                     Node::transfer_task(node.clone(), task).await;
-                    let time = Instant::now();
                     let mut data_channel = true;
                     let mut polling_times = 0_u32;
+                    let polling_timer = Instant::now();
+                    let mut timeout_timer = Instant::now();
                     let polling_interval = Duration::from_millis(config.polling_interval as u64);
                     let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
                     loop {
-                        if time.elapsed() > timeout_duration {
+                        if timeout_timer.elapsed() > timeout_duration {
                             Logger::append_node_log(node_id, LogLevel::WARNING, "Node: Data Channel timout.".to_string()).await;
                             Node::terminate(node).await;
                             return;
                         }
-                        if time.elapsed() > polling_interval * polling_times {
+                        if polling_timer.elapsed() > polling_interval * polling_times {
                             match &mut node.write().await.data_channel {
                                 Some(data_channel) => data_channel.send(StillProcessPacket::new()).await,
                                 None => {
@@ -184,14 +185,18 @@ impl Node {
                             Some(data_packet_channel) => {
                                 select! {
                                     biased;
+                                    reply = data_packet_channel.result_packet.recv() => {
+                                        unimplemented!("需要寫後續處理代碼")
+                                        match &reply {
+                                            Some(reply_packet) => {},
+                                            None => {},
+                                        }
+                                    },
                                     reply = data_packet_channel.still_process_reply_packet.recv() => {
                                         match &reply {
-                                            Some(reply_packet) => {
-
-                                            },
+                                            Some(reply_packet) => timeout_timer = Instant::now(),
                                             None => continue,
                                         }
-
                                     },
                                     _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
                                 }
@@ -202,7 +207,9 @@ impl Node {
                             },
                         }
                     }
-                    Node::create_data_channel(node.clone()).await;
+                    if !data_channel {
+                        Node::create_data_channel(node.clone()).await;
+                    }
                 },
                 None => {
 
@@ -257,7 +264,7 @@ impl Node {
         Logger::append_node_log(node.id, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
     }
 
-    async fn transfer_task(node: Arc<RwLock<Node>>, task: ImageResource) {
+    async fn transfer_task(node: Arc<RwLock<Node>>, task: ImageTask) {
         let mut success = true;
         let mut task_complete = false;
         let node_id = node.read().await.id;
@@ -308,7 +315,7 @@ impl Node {
         }
     }
 
-    async fn transfer_task_info(node: Arc<RwLock<Node>>, task: &ImageResource) -> Result<(), String> {
+    async fn transfer_task_info(node: Arc<RwLock<Node>>, task: &ImageTask) -> Result<(), String> {
         let config = Config::now().await;
         let time = Instant::now();
         let mut polling_times = 0_u32;
@@ -414,7 +421,7 @@ impl Node {
         Err("Node: File retransmission limit reached.".to_string())
     }
 
-    pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageResource> {
+    pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageTask> {
         let vram = node.read().await.idle_unused.vram;
         let filter_nodes = NodeCluster::filter_node_by_vram(vram).await;
         let mut task = None;
