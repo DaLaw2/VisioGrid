@@ -185,6 +185,12 @@ impl Node {
                                 select! {
                                     biased;
                                     reply = data_packet_channel.still_process_reply_packet.recv() => {
+                                        match &reply {
+                                            Some(reply_packet) => {
+
+                                            },
+                                            None => continue,
+                                        }
 
                                     },
                                     _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
