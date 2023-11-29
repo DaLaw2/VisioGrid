@@ -28,8 +28,10 @@ use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::manager::utils::file_transfer_result::FileTransferResult;
 use crate::connection::connection_channel::control_channel::ControlChannel;
+use crate::connection::packet::alive_packet::AlivePacket;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
+use crate::manager::utils::task_result::TaskResult;
 
 pub struct Node {
     id: usize,
@@ -149,6 +151,7 @@ impl Node {
     }
 
     async fn task_management(node: Arc<RwLock<Node>>) {
+        unimplemented!("需要修改錯誤處理及最佳化代碼");
         let node_id = node.read().await.id;
         let config = Config::now().await;
         loop {
@@ -159,6 +162,7 @@ impl Node {
             match task {
                 Some(task) => {
                     Node::transfer_task(node.clone(), task).await;
+                    let mut success = false;
                     let mut data_channel = true;
                     let mut polling_times = 0_u32;
                     let polling_timer = Instant::now();
@@ -186,10 +190,17 @@ impl Node {
                                 select! {
                                     biased;
                                     reply = data_packet_channel.result_packet.recv() => {
-                                        unimplemented!("需要寫後續處理代碼")
                                         match &reply {
-                                            Some(reply_packet) => {},
-                                            None => {},
+                                            Some(reply_packet) => {
+                                                if let Ok(task_result) = serde_json::from_slice::<TaskResult>(reply_packet.as_data_byte()) {
+                                                    if let Ok(bounding_box) = task_result.result {
+                                                        task.bounding_boxes = bounding_box;
+                                                        success = true;
+                                                    }
+                                                }
+                                                break;
+                                            },
+                                            None => break,
                                         }
                                     },
                                     reply = data_packet_channel.still_process_reply_packet.recv() => {
@@ -210,9 +221,61 @@ impl Node {
                     if !data_channel {
                         Node::create_data_channel(node.clone()).await;
                     }
+                    TaskManager::update_task_status(task.task_uuid.clone(), success).await;
                 },
                 None => {
-
+                    match Node::steal_task(node.clone()).await {
+                        Some(task) => Node::add_task(node.clone(), task).await;
+                        None => {
+                            let mut data_channel = true;
+                            let mut polling_times = 0_u32;
+                            let timer = Instant::now();
+                            let mut timeout_timer = Instant::now();
+                            let polling_interval = Duration::from_millis(config.polling_interval as u64);
+                            let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+                            let idle_duration = Duration::from_secs(config.node_idle_duration as u64);
+                            loop {
+                                if timeout_timer.elapsed() > timeout_duration {
+                                    Logger::append_node_log(node_id, LogLevel::WARNING, "Node: Data Channel timout.".to_string()).await;
+                                    Node::terminate(node).await;
+                                    return;
+                                }
+                                if timer.elapsed() > idle_duration {
+                                    break;
+                                }
+                                if timer.elapsed() > polling_interval * polling_times {
+                                    match &mut node.write().await.data_channel {
+                                        Some(data_channel) => data_channel.send(AlivePacket::new()).await,
+                                        None => {
+                                            data_channel = false;
+                                            break;
+                                        }
+                                    }
+                                    polling_times += 1;
+                                }
+                                match &mut node.write().await.data_packet_channel {
+                                    Some(data_packet_channel) => {
+                                        select! {
+                                            reply = data_packet_channel.alive_reply_packet.recv() => {
+                                                match &reply {
+                                                    Some(reply_packet) => timeout_timer = Instant::now(),
+                                                    None => continue,
+                                                }
+                                            },
+                                            _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
+                                        }
+                                    },
+                                    None => {
+                                        data_channel = false;
+                                        break;
+                                    },
+                                }
+                            }
+                            if !data_channel {
+                                Node::create_data_channel(node.clone()).await;
+                            }
+                        }
+                    }
                 }
             }
         }
