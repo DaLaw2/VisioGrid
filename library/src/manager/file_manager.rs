@@ -79,9 +79,15 @@ impl FileManager {
         manager.postprocessing.push_back(task);
     }
 
-    async fn update_task_status(mut task: Task, success: bool) {
-        task.status = Fail;
-        ResultRepository::add_task(task).await;
+    async fn update_task_status(mut task: Task, result: Result<usize, String>) {
+        match result {
+            Ok(unprocessed) => task.unprocessed = unprocessed,
+            Err(err) => {
+                task.status = Fail;
+                task.result = Err(err);
+                ResultRepository::add_task(task).await;
+            }
+        }
     }
 
     async fn preprocessing() {
@@ -99,21 +105,22 @@ impl FileManager {
                             let destination_path = Path::new(".").join("PreProcessing").join(&task.image_filename);
                             match fs::rename(source_path, destination_path).await {
                                 Ok(_) => {
-                                    task.unprocessed = 1;
+                                    FileManager::update_task_status(task, Ok(1)).await;
                                     Self::task_manager_process(task).await
                                 },
                                 Err(_) => {
-                                    task.unprocessed = 1;
-                                    FileManager::update_task_status(task).await;
-                                    Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} failed because move image file failed.", task.ip)).await;
+                                    let error_message = format!("File Manager: Task {} failed because move image file failed.", task.uuid);
+                                    FileManager::update_task_status(task, Err(error_message.clone())).await;
+                                    Logger::append_global_log(LogLevel::ERROR, error_message).await;
                                 }
                             }
                         },
                         Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
                         Some("zip") => Self::extract_zip(task).await,
                         _ => {
-                            FileManager::update_task_status(task).await;
-                            Logger::append_global_log(LogLevel::INFO, format!("File Manager: Task {} failed because the file extension is not supported.", task.ip)).await;
+                            let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
+                            FileManager::update_task_status(task, Err(error_message.clone())).await;
+                            Logger::append_global_log(LogLevel::INFO, error_message).await;
                         },
                     }
                 },
@@ -131,13 +138,15 @@ impl FileManager {
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("");
         if let Err(_) = fs::create_dir(&create_folder).await {
-            FileManager::update_task_status(task).await;
-            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", create_folder.display())).await;
+            let error_message = format!("File Manager: Cannot create {} folder.", create_folder.display());
+            FileManager::update_task_status(task, Err(error_message.clone())).await;
+            Logger::append_global_log(LogLevel::ERROR, error_message).await;
             return;
         }
         if let Err(_) = fs::rename(&source_path, &destination_path).await {
-            FileManager::update_task_status(task).await;
-            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot to move file from {} to {}", source_path.display(), destination_path.display())).await;
+            let error_message = format!("File Manager: Cannot to move file from {} to {}", source_path.display(), destination_path.display());
+            FileManager::update_task_status(task, Err(error_message.clone())).await;
+            Logger::append_global_log(LogLevel::ERROR, error_message).await;
             return;
         }
         let media_path = destination_path.clone();
@@ -148,22 +157,24 @@ impl FileManager {
             Ok(Ok(_)) => {
                 match Self::file_count(create_folder.clone()).await {
                     Ok(count) => {
-                        task.unprocessed = count;
+                        FileManager::update_task_status(task, Ok(count)).await;
                         Self::task_manager_process(task).await;
                     }
                     Err(_) => {
-                        FileManager::update_task_status(task).await;
-                        Logger::append_global_log(LogLevel::ERROR, format!("File Manager: An error occurred while reading folder {}.", create_folder.display())).await;
+                        let error_message = format!("File Manager: An error occurred while reading folder {}.", create_folder.display());
+                        FileManager::update_task_status(task, Err(error_message.clone())).await;
+                        Logger::append_global_log(LogLevel::ERROR, error_message).await;
                     }
                 }
             },
             Ok(Err(err)) => {
-                FileManager::update_task_status(task).await;
+                FileManager::update_task_status(task, Err(err.clone())).await;
                 Logger::append_global_log(LogLevel::ERROR, err).await;
             },
             Err(_) => {
-                FileManager::update_task_status(task).await;
-                Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} panic.", task.uuid)).await;
+                let error_message = format!("File Manager: Task {} panic.", task.uuid);
+                FileManager::update_task_status(task, Err(error_message.clone())).await;
+                Logger::append_global_log(LogLevel::ERROR, error_message).await;
             },
         }
     }
@@ -209,13 +220,15 @@ impl FileManager {
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
         if let Err(_) = fs::create_dir(&create_folder).await {
-            FileManager::update_task_status(task).await;
-            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", create_folder.display())).await;
+            let error_message = format!("File Manager: Cannot create {} folder.", create_folder.display());
+            FileManager::update_task_status(task, Err(error_message.clone())).await;
+            Logger::append_global_log(LogLevel::ERROR, error_message).await;
             return;
         }
         if let Err(_) = fs::rename(&source_path, &destination_path).await {
-            FileManager::update_task_status(task).await;
-            Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot to move file from {} to {}.", source_path.display(), destination_path.display())).await;
+            let error_message = format!("File Manager: Cannot to move file from {} to {}.", source_path.display(), destination_path.display());
+            FileManager::update_task_status(task, Err(error_message.clone())).await;
+            Logger::append_global_log(LogLevel::ERROR, error_message).await;
             return;
         }
         let zip_path = destination_path.clone();
@@ -226,22 +239,24 @@ impl FileManager {
             Ok(Ok(_)) => {
                 match Self::file_count(create_folder.clone()).await {
                     Ok(count) => {
-                        task.unprocessed = count;
+                        FileManager::update_task_status(task, Ok(count)).await;
                         Self::task_manager_process(task).await;
                     }
                     Err(_) => {
-                        FileManager::update_task_status(task).await;
-                        Logger::append_global_log(LogLevel::ERROR, format!("File Manager: An error occurred while reading folder {}.", create_folder.display())).await;
+                        let error_message = format!("File Manager: An error occurred while reading folder {}.", create_folder.display());
+                        FileManager::update_task_status(task, Err(error_message.clone())).await;
+                        Logger::append_global_log(LogLevel::ERROR, error_message).await;
                     }
                 }
             },
             Ok(Err(err)) => {
-                FileManager::update_task_status(task).await;
+                FileManager::update_task_status(task, Err(err.clone())).await;
                 Logger::append_global_log(LogLevel::ERROR, err).await;
             },
             Err(_) => {
-                FileManager::update_task_status(task).await;
-                Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} panic.", task.uuid)).await;
+                let error_message = format!("File Manager: Task {} panic.", task.uuid);
+                FileManager::update_task_status(task, Err(error_message.clone())).await;
+                Logger::append_global_log(LogLevel::ERROR, error_message).await;
             },
         }
     }
