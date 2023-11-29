@@ -10,10 +10,13 @@ use zip::read::ZipArchive;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::VecDeque;
+use uuid::Uuid;
+use crate::manager::result_repository::ResultRepository;
 use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::task::{Task, TaskStatus};
+use crate::manager::utils::task::TaskStatus::Fail;
 
 lazy_static! {
     static ref GLOBAL_FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager::new());
@@ -57,6 +60,15 @@ impl FileManager {
         };
     }
 
+    pub async fn run() {
+        tokio::spawn(async {
+            Self::preprocessing().await
+        });
+        tokio::spawn(async {
+            Self::postprocessing().await
+        });
+    }
+
     pub async fn add_preprocess_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
         manager.preprocessing.push_back(task);
@@ -67,13 +79,9 @@ impl FileManager {
         manager.postprocessing.push_back(task);
     }
 
-    pub async fn run() {
-        tokio::spawn(async {
-            Self::preprocessing().await
-        });
-        tokio::spawn(async {
-            Self::postprocessing().await
-        });
+    async fn update_task_status(mut task: Task, success: bool) {
+        task.status = Fail;
+        ResultRepository::add_task(task).await;
     }
 
     async fn preprocessing() {
@@ -95,14 +103,18 @@ impl FileManager {
                                     Self::task_manager_process(task).await
                                 },
                                 Err(_) => {
+                                    task.unprocessed = 1;
+                                    FileManager::update_task_status(task).await;
                                     Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} failed because move image file failed.", task.ip)).await;
-                                    unimplemented!("需要任務交給ResultRepository")
                                 }
                             }
                         },
                         Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
                         Some("zip") => Self::extract_zip(task).await,
-                        _ => Logger::append_global_log(LogLevel::INFO, format!("File Manager: Task {} failed because the file extension is not supported.", task.ip)).await,
+                        _ => {
+                            FileManager::update_task_status(task).await;
+                            Logger::append_global_log(LogLevel::INFO, format!("File Manager: Task {} failed because the file extension is not supported.", task.ip)).await;
+                        },
                     }
                 },
                 None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await
@@ -119,14 +131,14 @@ impl FileManager {
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("");
         if let Err(_) = fs::create_dir(&create_folder).await {
+            FileManager::update_task_status(task).await;
             Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", create_folder.display())).await;
             return;
-            unimplemented!("需要任務交給ResultRepository")
         }
         if let Err(_) = fs::rename(&source_path, &destination_path).await {
+            FileManager::update_task_status(task).await;
             Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot to move file from {} to {}", source_path.display(), destination_path.display())).await;
             return;
-            unimplemented!("需要任務交給ResultRepository")
         }
         let media_path = destination_path.clone();
         let result = tokio::task::spawn_blocking(move || {
@@ -140,18 +152,18 @@ impl FileManager {
                         Self::task_manager_process(task).await;
                     }
                     Err(_) => {
+                        FileManager::update_task_status(task).await;
                         Logger::append_global_log(LogLevel::ERROR, format!("File Manager: An error occurred while reading folder {}.", create_folder.display())).await;
-                        unimplemented!("需要任務交給ResultRepository")
                     }
                 }
             },
             Ok(Err(err)) => {
+                FileManager::update_task_status(task).await;
                 Logger::append_global_log(LogLevel::ERROR, err).await;
-                unimplemented!("需要任務交給ResultRepository")
             },
             Err(_) => {
+                FileManager::update_task_status(task).await;
                 Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} panic.", task.uuid)).await;
-                unimplemented!("需要任務交給ResultRepository")
             },
         }
     }
@@ -197,14 +209,14 @@ impl FileManager {
         let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
         if let Err(_) = fs::create_dir(&create_folder).await {
+            FileManager::update_task_status(task).await;
             Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.", create_folder.display())).await;
             return;
-            unimplemented!("需要任務交給ResultRepository")
         }
         if let Err(_) = fs::rename(&source_path, &destination_path).await {
+            FileManager::update_task_status(task).await;
             Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Cannot to move file from {} to {}.", source_path.display(), destination_path.display())).await;
             return;
-            unimplemented!("需要任務交給ResultRepository")
         }
         let zip_path = destination_path.clone();
         let result = tokio::task::spawn_blocking(move || {
@@ -218,18 +230,18 @@ impl FileManager {
                         Self::task_manager_process(task).await;
                     }
                     Err(_) => {
+                        FileManager::update_task_status(task).await;
                         Logger::append_global_log(LogLevel::ERROR, format!("File Manager: An error occurred while reading folder {}.", create_folder.display())).await;
-                        unimplemented!("需要任務交給ResultRepository")
                     }
                 }
             },
             Ok(Err(err)) => {
+                FileManager::update_task_status(task).await;
                 Logger::append_global_log(LogLevel::ERROR, err).await;
-                unimplemented!("需要任務交給ResultRepository")
             },
             Err(_) => {
+                FileManager::update_task_status(task).await;
                 Logger::append_global_log(LogLevel::ERROR, format!("File Manager: Task {} panic.", task.uuid)).await;
-                unimplemented!("需要任務交給ResultRepository")
             },
         }
     }

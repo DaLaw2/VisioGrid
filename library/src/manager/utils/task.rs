@@ -14,12 +14,14 @@ pub enum TaskStatus {
 pub struct Task {
     pub uuid: Uuid,
     pub status: TaskStatus,
-    pub processed: usize,
+    pub failed: usize,
+    pub success: usize,
     pub unprocessed: usize,
     pub ip: String,
     pub model_filename: String,
     pub image_filename: String,
     pub inference_type: InferenceType,
+    pub result: Result<(), String>,
 }
 
 impl Task {
@@ -27,12 +29,18 @@ impl Task {
         Self {
             uuid,
             status: TaskStatus::PreProcessing,
-            processed: 0_usize,
+            failed: 0_usize,
+            success: 0_usize,
             unprocessed: 0_usize,
             ip,
             model_filename,
             image_filename,
             inference_type,
+            result: Ok(()),
         }
+    }
+
+    pub fn error_message(&mut self, error_message: String) {
+        self.result = Err(error_message);
     }
 }

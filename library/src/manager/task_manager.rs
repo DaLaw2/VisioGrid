@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::manager::file_manager::FileManager;
 use crate::manager::node::Node;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::node_cluster::NodeCluster;
@@ -94,19 +95,13 @@ impl TaskManager {
                             None => {
                                 Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
-                                task.status = TaskStatus::Fail;
-                                if let Some(task) = Self::remove_task(task.uuid).await {
-                                    ResultRepository::add_task(task).await;
-                                }
+                                TaskManager::update_task_status(task.uuid, false).await;
                             }
                         }
                     }
                     None => {
                         Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
-                        task.status = TaskStatus::Fail;
-                        if let Some(task) = Self::remove_task(task.uuid).await {
-                            ResultRepository::add_task(task).await;
-                        }
+                        TaskManager::update_task_status(task.uuid, false).await;
                     }
                 }
             },
@@ -151,32 +146,44 @@ impl TaskManager {
                         Some(node_id) => {
                             match NodeCluster::get_node(node_id).await {
                                 Some(node) => Node::add_task(node, image_resource).await,
-                                None => Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await
+                                None => {
+                                    Logger::append_global_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
+                                    TaskManager::update_task_status(task.uuid, false).await;
+                                }
                             }
                         },
-                        None => {
-                            unimplemented!("其中一個任務Fail")
-                            unimplemented!("需要任務交給ResultRepository")
-                        }
+                        None => TaskManager::update_task_status(task.uuid, false).await,
                     }
-                }
-                if task.processed == task.unprocessed {
-                    let _ = Self::remove_task(task.uuid).await;
-                    task.status = TaskStatus::Fail;
-                    unimplemented!("需要任務交給ResultRepository")
                 }
             },
             _ => {
                 Logger::append_global_log(LogLevel::ERROR, format!("Task Manager: Task {} failed because the file extension is not supported.", task.uuid)).await;
                 let _ = Self::remove_task(task.uuid).await;
                 task.status = TaskStatus::Fail;
-                unimplemented!("需要任務交給ResultRepository")
+                ResultRepository::add_task(task).await;
             },
         }
     }
 
     pub async fn update_task_status(uuid: Uuid, success: bool) {
-        unimplemented!("ImageResource 是否成功")
+        let task_manager = GLOBAL_TASK_MANAGER.write().await;
+        let mut complete = false;
+        if let Some(task) = task_manager.tasks.get_mut(&uuid) {
+            task.unprocessed -= 1;
+            if success {
+                task.success += 1;
+            } else {
+                task.failed += 1;
+            }
+            if task.unprocessed == 0 {
+                complete = true;
+            }
+        }
+        if complete {
+            if let Some(task) = task_manager.tasks.remove(&uuid) {
+                FileManager::add_postprocess_task(task).await;
+            }
+        }
     }
 
     async fn calc_vram_usage(model_filepath: PathBuf) -> f64 {
