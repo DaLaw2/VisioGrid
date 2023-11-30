@@ -31,7 +31,7 @@ impl ReceiveThread {
                             let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
                             let result = match packet_type {
                                 PacketType::ControlReplyPacket => self.control_packet_channel.control_reply_packet.send(packet),
-                                PacketType::NodeInformationPacket => self.control_packet_channel.node_information_packet(packet),
+                                PacketType::NodeInformationPacket => self.control_packet_channel.node_information_packet.send(packet),
                                 PacketType::PerformancePacket => self.control_packet_channel.performance_packet.send(packet),
                                 _ => {
                                     Logger::append_node_log(self.node_id, LogLevel::WARNING, "Control Channel Receiver: Receive unknown packet.".to_string()).await;

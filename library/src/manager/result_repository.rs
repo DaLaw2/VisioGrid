@@ -19,7 +19,7 @@ impl ResultRepository {
     }
 
     pub async fn add_task(task: Task) {
-        let result_repository = GLOBAL_RESULT_REPOSITORY.write().await;
+        let mut result_repository = GLOBAL_RESULT_REPOSITORY.write().await;
         result_repository.result.push_back(task);
     }
 }

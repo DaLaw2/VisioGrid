@@ -16,7 +16,6 @@ pub enum LogLevel {
 
 pub struct Logger {
     system_log: String,
-    global_log: String,
     node_log: HashMap<usize, String>,
 }
 
@@ -27,7 +26,6 @@ impl Logger {
         let log_entry = format!("{} [{}] {}", timestamp, "INFO", "Log enable.");
         Self {
             system_log: log_entry,
-            global_log: String::new(),
             node_log: HashMap::new()
         }
     }
@@ -42,19 +40,6 @@ impl Logger {
             LogLevel::ERROR => "ERROR",
         }, message);
         logger.system_log.push_str(&log_entry);
-        println!("{}", log_entry);
-    }
-
-    pub async fn append_global_log(log_level: LogLevel, message: String) {
-        let mut logger = GLOBAL_LOGGER.write().await;
-        let date = Local::now();
-        let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
-        let log_entry = format!("{} [{}] {}", timestamp, match log_level {
-            LogLevel::INFO => "INFO",
-            LogLevel::WARNING => "WARNING",
-            LogLevel::ERROR => "ERROR",
-        }, message);
-        logger.global_log.push_str(&log_entry);
         println!("{}", log_entry);
     }
 
@@ -77,11 +62,6 @@ impl Logger {
     pub async fn get_system_log() -> String {
         let logger = GLOBAL_LOGGER.read().await;
         logger.system_log.clone()
-    }
-
-    pub async fn get_global_log() -> String {
-        let logger = GLOBAL_LOGGER.read().await;
-        logger.global_log.clone()
     }
 
     pub async fn get_node_log(node_id: usize) -> String {

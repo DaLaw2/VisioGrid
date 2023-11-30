@@ -21,7 +21,7 @@ pub struct Task {
     pub model_filename: String,
     pub image_filename: String,
     pub inference_type: InferenceType,
-    pub result: Result<(), String>,
+    pub error: Result<(), String>,
 }
 
 impl Task {
@@ -36,11 +36,11 @@ impl Task {
             model_filename,
             image_filename,
             inference_type,
-            result: Ok(()),
+            error: Ok(()),
         }
     }
 
     pub fn error_message(&mut self, error_message: String) {
-        self.result = Err(error_message);
+        self.error = Err(error_message);
     }
 }

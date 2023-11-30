@@ -28,7 +28,7 @@ impl Server {
                 match node {
                     Some(node) => {
                         NodeCluster::add_node(node).await;
-                        Logger::append_global_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id)).await;
+                        Logger::append_system_log(LogLevel::INFO, format!("Node connected.\nIp: {}, Allocate node ID: {}", node_ip, node_id)).await;
                     },
                     None => self.id_manager.free_id(node_id),
                 }

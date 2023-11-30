@@ -16,7 +16,6 @@
             const control_channel_timout = parseInt(document.getElementById('control_channel_timout').value);
             const data_channel_timout = parseInt(document.getElementById('data_channel_timout').value);
             const file_transfer_timout = parseInt(document.getElementById('file_transfer_timout').value);
-            const file_transfer_retry_times = parseInt(document.getElementById('file_transfer_retry_times').value);
             const dedicated_port_range_start = parseInt(document.getElementById('dedicated_port_range_start').value);
             const dedicated_port_range_end = parseInt(document.getElementById('dedicated_port_range_end').value);
 
@@ -65,11 +64,6 @@
                 return false;
             }
 
-            if (file_transfer_retry_times <= 0) {
-                alert("File Transfer Retry Times must be gather than 0.");
-                return false;
-            }
-
             if (dedicated_port_range_start > dedicated_port_range_end) {
                 alert('Dedicated Port Range Start cannot be greater than Port Range End.');
                 return false;
@@ -91,7 +85,6 @@
                     document.getElementById('control_channel_timout').value = config.control_channel_timout;
                     document.getElementById('data_channel_timout').value = config.data_channel_timout;
                     document.getElementById('file_transfer_timout').value = config.file_transfer_timout;
-                    document.getElementById('file_transfer_retry_times').value = config.file_transfer_retry_times;
                     document.getElementById('dedicated_port_range_start').value = config.dedicated_port_range[0];
                     document.getElementById('dedicated_port_range_end').value = config.dedicated_port_range[1];
                 } else {
@@ -152,63 +145,58 @@
     <form id="config-form" class="mt-4">
 
         <div class="form-group">
-            <label for="internal_timestamp">Internal Timestamp(ms):</label>
+            <label for="internal_timestamp">Internal Timestamp (ms):</label>
             <input type="number" class="form-control" id="internal_timestamp" name="internal_timestamp" required>
         </div>
 
         <div class="form-group">
-            <label for="node_listen_port">Node Listen Port:</label>
+            <label for="node_listen_port">Node Listen Port :</label>
             <input type="number" class="form-control" id="node_listen_port" name="node_listen_port" required>
         </div>
 
         <div class="form-group">
-            <label for="http_server_bind_port">HTTP Server Bind Port:</label>
+            <label for="http_server_bind_port">HTTP Server Bind Port :</label>
             <input type="number" class="form-control" id="http_server_bind_port" name="http_server_bind_port" required>
         </div>
 
         <div class="form-group">
-            <label for="bind_retry_duration">Bind Retry Duration(s):</label>
+            <label for="bind_retry_duration">Bind Retry Duration (s):</label>
             <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" required>
         </div>
 
         <div class="form-group">
-            <label for="node_idle_duration">Node Idle Duration(s):</label>
+            <label for="node_idle_duration">Node Idle Duration (s):</label>
             <input type="number" class="form-control" id="node_idle_duration" name="node_idle_duration" required>
         </div>
 
         <div class="form-group">
-            <label for="polling_interval">Polling Interval(ms):</label>
+            <label for="polling_interval">Polling Interval (ms):</label>
             <input type="number" class="form-control" id="polling_interval" name="polling_interval" required>
         </div>
 
         <div class="form-group">
-            <label for="control_channel_timout">Control Channel Timout(s):</label>
+            <label for="control_channel_timout">Control Channel Timout (s):</label>
             <input type="number" class="form-control" id="control_channel_timout" name="control_channel_timout" required>
         </div>
 
 
         <div class="form-group">
-            <label for="data_channel_timout">Data Channel Timout(s):</label>
+            <label for="data_channel_timout">Data Channel Timout (s):</label>
             <input type="number" class="form-control" id="data_channel_timout" name="data_channel_timout" required>
         </div>
 
         <div class="form-group">
-            <label for="file_transfer_timout">File Transfer Timout(s):</label>
+            <label for="file_transfer_timout">File Transfer Timout (s):</label>
             <input type="number" class="form-control" id="file_transfer_timout" name="file_transfer_timout" required>
         </div>
 
         <div class="form-group">
-            <label for="file_transfer_retry_times">File Transfer Retry Times:</label>
-            <input type="number" class="form-control" id="file_transfer_retry_times" name="file_transfer_retry_times" required>
-        </div>
-
-        <div class="form-group">
-            <label for="dedicated_port_range_start">Dedicated Port Range Start:</label>
+            <label for="dedicated_port_range_start">Dedicated Port Range Start :</label>
             <input type="number" class="form-control" id="dedicated_port_range_start" name="dedicated_port_range_start" required>
         </div>
 
         <div class="form-group">
-            <label for="dedicated_port_range_end">Dedicated Port Range End:</label>
+            <label for="dedicated_port_range_end">Dedicated Port Range End :</label>
             <input type="number" class="form-control" id="dedicated_port_range_end" name="dedicated_port_range_end" required>
         </div>
 
