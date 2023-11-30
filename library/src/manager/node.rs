@@ -10,13 +10,14 @@ use tokio::time::{sleep, Duration, Instant};
 use crate::utils::config::Config;
 use crate::utils::port_pool::PortPool;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::file_manager::FileManager;
 use crate::manager::task_manager::TaskManager;
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task_info::TaskInfo;
-use crate::connection::packet::definition::Packet;
-use crate::manager::utils::performance::Performance;
 use crate::manager::utils::image_task::ImageTask;
+use crate::connection::packet::definition::Packet;
+use crate::manager::utils::task_result::TaskResult;
+use crate::manager::utils::performance::Performance;
+use crate::connection::packet::alive_packet::AlivePacket;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::packet::confirm_packet::ConfirmPacket;
 use crate::manager::utils::node_information::NodeInformation;
@@ -25,13 +26,11 @@ use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
 use crate::connection::connection_channel::control_packet_channel;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
-use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::manager::utils::file_transfer_result::FileTransferResult;
-use crate::connection::connection_channel::control_channel::ControlChannel;
-use crate::connection::packet::alive_packet::AlivePacket;
-use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::connection::connection_channel::data_channel::DataChannel;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
-use crate::manager::utils::task_result::TaskResult;
+use crate::connection::connection_channel::control_channel::ControlChannel;
+use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 
 pub struct Node {
     id: usize,
@@ -227,6 +226,10 @@ impl Node {
                     match Node::steal_task(node.clone()).await {
                         Some(task) => Node::add_task(node.clone(), task).await,
                         None => {
+                            {
+                                let mut node = node.write().await;
+                                node.idle_unused = node.realtime_usage.clone();
+                            }
                             let mut data_channel = true;
                             let mut polling_times = 0_u32;
                             let timer = Instant::now();

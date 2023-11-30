@@ -1,10 +1,10 @@
 pub mod bounding_box;
+pub mod control_code;
+pub mod file_transfer_result;
 pub mod image_task;
 pub mod inference_type;
 pub mod node_information;
+pub mod performance;
 pub mod task;
 pub mod task_info;
-pub mod file_transfer_result;
-pub mod performance;
-pub mod control_code;
 pub mod task_result;

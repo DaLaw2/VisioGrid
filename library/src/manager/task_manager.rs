@@ -190,7 +190,7 @@ impl TaskManager {
                     complete = true;
                 }
             },
-            None => Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Task {} does not exist.", task.task_uuid)).await,
+            None => Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Task {} does not exist.", uuid)).await,
         }
         if complete {
             if let Some(task) = task_manager.tasks.remove(&uuid) {
