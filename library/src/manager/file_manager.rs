@@ -14,7 +14,6 @@ use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::task::{Task, TaskStatus};
-use crate::manager::utils::task::TaskStatus::Fail;
 use crate::manager::result_repository::ResultRepository;
 
 lazy_static! {
@@ -27,8 +26,8 @@ pub struct FileManager {
 }
 
 impl FileManager {
-    fn new() -> Self {
-        Self {
+    fn new() -> FileManager {
+        FileManager {
             preprocessing: VecDeque::new(),
             postprocessing: VecDeque::new()
         }
@@ -60,10 +59,10 @@ impl FileManager {
 
     pub async fn run() {
         tokio::spawn(async {
-            Self::preprocessing().await
+            FileManager::preprocessing().await
         });
         tokio::spawn(async {
-            Self::postprocessing().await
+            FileManager::postprocessing().await
         });
     }
 
@@ -83,24 +82,11 @@ impl FileManager {
             let task = GLOBAL_FILE_MANAGER.write().await.preprocessing.pop_front();
             match task {
                 Some(mut task) => {
-                    match Path::new(&task.image_filename).extension().and_then(OsStr::to_str) {
-                        Some("png") | Some("jpg") | Some("jpeg") => {
-                            let source_path = Path::new(".").join("SavedFile").join(&task.image_filename);
-                            let destination_path = Path::new(".").join("PreProcessing").join(&task.image_filename);
-                            match fs::rename(source_path, destination_path).await {
-                                Ok(_) => {
-                                    FileManager::update_task_unprocessed(&mut task, Ok(1)).await;
-                                    Self::task_manager_process(task).await
-                                },
-                                Err(_) => {
-                                    let error_message = format!("File Manager: Task {} failed because move image file failed.", task.uuid);
-                                    FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-                                    Logger::append_system_log(LogLevel::ERROR, error_message).await;
-                                }
-                            }
-                        },
-                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
-                        Some("zip") => Self::extract_zip(task).await,
+                    task.change_status(TaskStatus::PreProcessing);
+                    match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
+                        Some("png") | Some("jpg") | Some("jpeg") => FileManager::handle_picture(task),
+                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => FileManager::extract_media(task).await,
+                        Some("zip") => FileManager::extract_zip(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
                             FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
@@ -117,48 +103,64 @@ impl FileManager {
 
     }
 
+    async fn handle_picture(mut task: Task) {
+        let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
+        let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
+        match fs::rename(source_path, destination_path).await {
+            Ok(_) => {
+                FileManager::update_task_unprocessed(&mut task, Ok(1)).await;
+                FileManager::task_manager_process(task).await;
+            },
+            Err(_) => {
+                let error_message = format!("File Manager: Task {} failed because move image file failed.", task.uuid);
+                FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
+                Logger::append_system_log(LogLevel::INFO, error_message).await;
+            }
+        }
+    }
+
     async fn extract_media(mut task: Task) {
-        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
-        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
+        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.media_filename);
+        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("");
         if let Err(_) = fs::create_dir(&create_folder).await {
             let error_message = format!("File Manager: Cannot create {} folder.", create_folder.display());
             FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+            Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
         if let Err(_) = fs::rename(&source_path, &destination_path).await {
             let error_message = format!("File Manager: Cannot to move file from {} to {}", source_path.display(), destination_path.display());
             FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+            Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
         let media_path = destination_path;
         let result = tokio::task::spawn_blocking(move || {
-            Self::media_process(media_path)
+            FileManager::media_process(media_path)
         }).await;
         match result {
             Ok(Ok(_)) => {
                 match Self::file_count(&create_folder).await {
                     Ok(count) => {
                         FileManager::update_task_unprocessed(&mut task, Ok(count)).await;
-                        Self::task_manager_process(task).await;
+                        FileManager::task_manager_process(task).await;
                     }
                     Err(_) => {
                         let error_message = format!("File Manager: An error occurred while reading folder {}.", create_folder.display());
                         FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-                        Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                        Logger::append_system_log(LogLevel::INFO, error_message).await;
                     }
                 }
             },
             Ok(Err(err)) => {
                 FileManager::update_task_unprocessed(&mut task, Err(err.clone())).await;
-                Logger::append_system_log(LogLevel::ERROR, err).await;
+                Logger::append_system_log(LogLevel::INFO, err).await;
             },
             Err(_) => {
                 let error_message = format!("File Manager: Task {} panic.", task.uuid);
                 FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-                Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                Logger::append_system_log(LogLevel::INFO, error_message).await;
             },
         }
     }
@@ -200,47 +202,47 @@ impl FileManager {
     }
 
     async fn extract_zip(mut task: Task) {
-        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.image_filename);
-        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.image_filename);
+        let source_path: PathBuf = Path::new(".").join("SavedFile").join(&task.media_filename);
+        let destination_path: PathBuf = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder: PathBuf = destination_path.clone().with_extension("").to_path_buf();
         if let Err(_) = fs::create_dir(&create_folder).await {
             let error_message = format!("File Manager: Cannot create {} folder.", create_folder.display());
             FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+            Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
         if let Err(_) = fs::rename(&source_path, &destination_path).await {
             let error_message = format!("File Manager: Cannot to move file from {} to {}.", source_path.display(), destination_path.display());
             FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+            Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
         let zip_path = destination_path;
         let result = tokio::task::spawn_blocking(move || {
-            Self::zip_process(&zip_path)
+            FileManager::zip_process(&zip_path)
         }).await;
         match result {
             Ok(Ok(_)) => {
-                match Self::file_count(&create_folder).await {
+                match FileManager::file_count(&create_folder).await {
                     Ok(count) => {
                         FileManager::update_task_unprocessed(&mut task, Ok(count)).await;
-                        Self::task_manager_process(task).await;
+                        FileManager::task_manager_process(task).await;
                     }
                     Err(_) => {
                         let error_message = format!("File Manager: An error occurred while reading folder {}.", create_folder.display());
                         FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-                        Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                        Logger::append_system_log(LogLevel::INFO, error_message).await;
                     }
                 }
             },
             Ok(Err(err)) => {
                 FileManager::update_task_unprocessed(&mut task, Err(err.clone())).await;
-                Logger::append_system_log(LogLevel::ERROR, err).await;
+                Logger::append_system_log(LogLevel::INFO, err).await;
             },
             Err(_) => {
                 let error_message = format!("File Manager: Task {} panic.", task.uuid);
                 FileManager::update_task_unprocessed(&mut task, Err(error_message.clone())).await;
-                Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                Logger::append_system_log(LogLevel::INFO, error_message).await;
             },
         }
     }
@@ -283,8 +285,8 @@ impl FileManager {
         match result {
             Ok(unprocessed) => task.unprocessed = unprocessed,
             Err(err) => {
-                task.status = Fail;
-                task.error = Err(err);
+                task.change_status(TaskStatus::Fail);
+                task.panic(err);
                 ResultRepository::add_task(task.clone()).await;
             }
         }

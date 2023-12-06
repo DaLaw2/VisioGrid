@@ -17,30 +17,32 @@ pub struct Task {
     pub failed: usize,
     pub success: usize,
     pub unprocessed: usize,
-    pub ip: String,
-    pub model_filename: String,
-    pub image_filename: String,
-    pub inference_type: InferenceType,
     pub error: Result<(), String>,
+    pub model_filename: String,
+    pub media_filename: String,
+    pub inference_type: InferenceType,
 }
 
 impl Task {
-    pub async fn new(uuid: Uuid, ip: String, model_filename: String, image_filename: String, inference_type: InferenceType) -> Self {
+    pub async fn new(uuid: Uuid, model_filename: String, media_filename: String, inference_type: InferenceType) -> Self {
         Self {
             uuid,
-            status: TaskStatus::PreProcessing,
+            status: TaskStatus::Waiting,
             failed: 0_usize,
             success: 0_usize,
             unprocessed: 0_usize,
-            ip,
-            model_filename,
-            image_filename,
-            inference_type,
             error: Ok(()),
+            model_filename,
+            media_filename,
+            inference_type,
         }
     }
 
-    pub fn error_message(&mut self, error_message: String) {
+    pub fn change_status(&mut self, status: TaskStatus) {
+        self.status = status;
+    }
+
+    pub fn panic(&mut self, error_message: String) {
         self.error = Err(error_message);
     }
 }

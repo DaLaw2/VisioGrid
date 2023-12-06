@@ -21,8 +21,8 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
-    fn new() -> Self {
-        Self {
+    fn new() -> TaskManager {
+        TaskManager {
             tasks: HashMap::new(),
         }
     }
@@ -40,7 +40,7 @@ impl TaskManager {
     }
 
     pub async fn add_task(mut task: Task) {
-        let mut task_manager = GLOBAL_TASK_MANAGER.write().await;
+        let mut task_manager = TaskManager::instance_mut().await;
         task.status = TaskStatus::Processing;
         task_manager.tasks.insert(task.uuid, task.clone());
         tokio::spawn(async move {
@@ -49,7 +49,7 @@ impl TaskManager {
     }
 
     pub async fn remove_task(uuid: &Uuid) -> Option<Task> {
-        let mut task_manager = GLOBAL_TASK_MANAGER.write().await;
+        let mut task_manager = TaskManager::instance_mut().await;
         task_manager.tasks.remove(&uuid)
     }
 
@@ -64,14 +64,14 @@ impl TaskManager {
     pub async fn distribute_task(mut task: Task) {
         let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
         let nodes = NodeCluster::sorted_by_vram().await;
-        let vram_usage = Self::calc_vram_usage(&model_filepath).await;
+        let vram_usage = TaskManager::calc_vram_usage(&model_filepath).await;
         let filter_nodes = NodeCluster::filter_node_by_vram(vram_usage).await;
-        match Path::new(&task.image_filename).extension().and_then(|os_str| os_str.to_str()) {
+        match Path::new(&task.media_filename).extension().and_then(|os_str| os_str.to_str()) {
             Some("png") | Some("jpg") | Some("jpeg") => {
                 let mut node: Option<usize> = None;
-                let image_filepath = Path::new(".").join("PreProcessing").join(task.image_filename.clone());
+                let image_filepath = Path::new(".").join("PreProcessing").join(task.media_filename.clone());
                 let mut image_resource = ImageTask::new(task.uuid, model_filepath, image_filepath.clone(), task.inference_type);
-                let ram_usage = Self::calc_ram_usage(image_filepath).await;
+                let ram_usage = TaskManager::calc_ram_usage(image_filepath).await;
                 for (node_id, _) in filter_nodes {
                     let node_ram = match NodeCluster::get_node(node_id).await {
                         Some(node) => node.read().await.idle_unused().ram,
@@ -93,20 +93,20 @@ impl TaskManager {
                         match NodeCluster::get_node(node_id).await {
                             Some(node) => Node::add_task(node, image_resource).await,
                             None => {
-                                TaskManager::image_task_status(&task.uuid, false).await;
+                                TaskManager::handle_image_task(&task.uuid, false).await;
                                 Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                             }
                         }
-                    }
+                    },
                     None => {
-                        TaskManager::image_task_status(&task.uuid, false).await;
+                        TaskManager::handle_image_task(&task.uuid, false).await;
                         Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                     }
                 }
             },
             Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
-                let inference_folder = Path::new(".").join("PreProcessing").join(task.image_filename.clone()).with_extension("");
+                let inference_folder = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("");
                 let mut inference_folder = match fs::read_dir(&inference_folder).await {
                     Ok(inference_folder) => inference_folder,
                     Err(_) => {
@@ -118,7 +118,7 @@ impl TaskManager {
                 while let Ok(Some(image_filepath)) = inference_folder.next_entry().await {
                     let image_filepath = image_filepath.path();
                     let mut image_resource = ImageTask::new(task.uuid, model_filepath.clone(), image_filepath.clone(), task.inference_type);
-                    let ram_usage = Self::calc_ram_usage(image_filepath).await;
+                    let ram_usage = TaskManager::calc_ram_usage(image_filepath).await;
                     let mut node: Option<usize> = None;
                     for i in 0..nodes.len() {
                         let index = (current_node + i) % filter_nodes.len();
@@ -147,37 +147,35 @@ impl TaskManager {
                             match NodeCluster::get_node(node_id).await {
                                 Some(node) => Node::add_task(node, image_resource).await,
                                 None => {
-                                    TaskManager::image_task_status(&task.uuid, false).await;
+                                    TaskManager::handle_image_task(&task.uuid, false).await;
                                     Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 }
                             }
                         },
-                        None => TaskManager::image_task_status(&task.uuid, false).await,
+                        None => TaskManager::handle_image_task(&task.uuid, false).await,
                     }
                 }
             },
             _ => {
                 let error_message = format!("Task Manager: Task {} failed because the file extension is not supported.", task.uuid);
-                TaskManager::task_status(&task.uuid, Err(error_message.clone())).await;
-                Logger::append_system_log(LogLevel::WARNING, error_message).await;
+                TaskManager::task_panic(&task.uuid, error_message.clone()).await;
+                Logger::append_system_log(LogLevel::INFO, error_message).await;
             },
         }
     }
 
-    pub async fn task_status(uuid: &Uuid, error: Result<(), String>) {
-        if let Err(err) = error {
-            let mut task_manager = GLOBAL_TASK_MANAGER.write().await;
-            if let Some(mut task) = task_manager.tasks.remove(uuid) {
-                task.error = Err(err);
-                task.status = TaskStatus::Fail;
-                ResultRepository::add_task(task).await;
-            }
+    pub async fn task_panic(uuid: &Uuid, error: String) {
+        let mut task_manager = TaskManager::instance_mut().await;
+        if let Some(mut task) = task_manager.tasks.remove(uuid) {
+            task.panic(error);
+            task.change_status(TaskStatus::Fail);
+            ResultRepository::add_task(task).await;
         }
     }
 
-    pub async fn image_task_status(uuid: &Uuid, success: bool) {
+    pub async fn handle_image_task(uuid: &Uuid, success: bool) {
         let mut complete = false;
-        let mut task_manager = GLOBAL_TASK_MANAGER.write().await;
+        let mut task_manager = TaskManager::instance_mut().await;
         match task_manager.tasks.get_mut(&uuid) {
             Some(task) => {
                 task.unprocessed -= 1;
@@ -210,8 +208,8 @@ impl TaskManager {
         2.4319e-6 * model_filesize as f64 + 303.3889
     }
 
-    async fn calc_ram_usage(image_filepath: PathBuf) -> f64 {
-        let image_filesize = match fs::metadata(&image_filepath).await {
+    async fn calc_ram_usage(image_filepath: &PathBuf) -> f64 {
+        let image_filesize = match fs::metadata(image_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(_) => {
                 Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {}.", image_filepath.display())).await;

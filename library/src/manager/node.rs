@@ -220,7 +220,7 @@ impl Node {
                     if !data_channel {
                         Node::create_data_channel(node.clone()).await;
                     }
-                    TaskManager::image_task_status(&task.task_uuid, success).await;
+                    TaskManager::handle_image_task(&task.task_uuid, success).await;
                 },
                 None => {
                     match Node::steal_task(node.clone()).await {
@@ -363,7 +363,7 @@ impl Node {
             Node::create_data_channel(node).await;
             success = false;
         }
-        TaskManager::image_task_status(&task.task_uuid, success).await;
+        TaskManager::handle_image_task(&task.task_uuid, success).await;
     }
 
     async fn transfer_task_info(node: Arc<RwLock<Node>>, task: &ImageTask) -> Result<(), String> {

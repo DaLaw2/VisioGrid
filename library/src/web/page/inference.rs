@@ -1,5 +1,6 @@
 use uuid::Uuid;
 use tokio::fs::File;
+use std::str::FromStr;
 use tokio::io::AsyncWriteExt;
 use actix_multipart::Multipart;
 use std::path::{Path, PathBuf};
@@ -30,11 +31,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
     let uuid = Uuid::new_v4();
     let mut model_type = String::new();
     let mut model_filename = String::new();
-    let mut image_filename = String::new();
-    let client_ip = match req.connection_info().peer_addr() {
-        Some(ip) => ip.to_string(),
-        None => return Ok(HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, Some("Unknown ip.".to_string())))))
-    };
+    let mut media_filename = String::new();
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
         if model_type.is_empty() {
@@ -59,15 +56,14 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
         let file_path = match (field_name, file_extension) {
             ("ptFile" | "onnxFile", "pt" | "onnx") => {
                 model_filename = file_name.clone();
-                Path::new(".").join("SavedModel")
+                Path::new(".").join("SavedModel").join(file_name)
             },
             ("yoloInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "gif" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
-                image_filename = file_name.clone();
-                Path::new(".").join("SavedFile")
+                media_filename = file_name.clone();
+                Path::new(".").join("SavedFile").join(file_name)
             },
             _ => return Ok(HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))))
         };
-        let file_path: PathBuf = file_path.join(file_name);
         let mut file = File::create(&file_path).await?;
         while let Some(chunk) = field.next().await {
             match chunk {
@@ -76,13 +72,7 @@ async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResp
             }
         }
     }
-    let new_task = Task::new(uuid, client_ip, model_filename, image_filename, match &*model_type {
-        "YOLO" => InferenceType::YOLO,
-        "PyTorch" => InferenceType::PyTorch,
-        "TensorFlow" => InferenceType::TensorFlow,
-        "ONNX" => InferenceType::ONNX,
-        _ => InferenceType::Default
-    }).await;
+    let new_task = Task::new(uuid, model_filename, media_filename, InferenceType::from_str(&*model_type)).await;
     FileManager::add_preprocess_task(new_task).await;
     Ok(HttpResponse::Ok().json(OperationStatus::new(true, None)))
 }
