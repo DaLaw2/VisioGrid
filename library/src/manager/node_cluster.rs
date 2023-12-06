@@ -27,11 +27,11 @@ impl NodeCluster {
         }
     }
 
-    pub async fn instance() -> RwLockReadGuard<'static, NodeCluster> {
+    pub async fn instance() -> RwLockReadGuard<'static, Self> {
         GLOBAL_CLUSTER.read().await
     }
 
-    pub async fn instance_mut() -> RwLockWriteGuard<'static, NodeCluster> {
+    pub async fn instance_mut() -> RwLockWriteGuard<'static, Self> {
         GLOBAL_CLUSTER.write().await
     }
 

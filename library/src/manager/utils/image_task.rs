@@ -1,8 +1,8 @@
 use uuid::Uuid;
 use std::path::PathBuf;
+use crate::manager::utils::task::Task;
 use crate::manager::utils::bounding_box::BoundingBox;
 use crate::manager::utils::inference_type::InferenceType;
-use crate::manager::utils::task::Task;
 
 #[derive(Debug, Clone)]
 pub struct ImageTask {
@@ -17,6 +17,7 @@ pub struct ImageTask {
     pub cache: bool,
 }
 
+unimplemented!("想法:將繪製bounding box交給file manager來做, 然後修改Task在TaskManager的狀態")
 impl ImageTask {
     pub fn new(task: &Task, image_filepath: PathBuf) -> Self {
         let model_filename = task.model_filepath.clone()

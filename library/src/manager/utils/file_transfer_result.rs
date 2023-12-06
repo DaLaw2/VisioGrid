@@ -19,12 +19,9 @@ impl FileTransferResult {
         } else {
             let mut result = Vec::new();
             for chunk in data.chunks_exact(8) {
-                match chunk.try_into() {
-                    Ok(bytes) => {
-                        let num = usize::from_be_bytes(bytes);
-                        result.push(num);
-                    },
-                    Err(_) => continue,
+                if let Ok(bytes) = chunk.try_into() {
+                    let num = usize::from_be_bytes(bytes);
+                    result.push(num);
                 }
             }
             Self {
