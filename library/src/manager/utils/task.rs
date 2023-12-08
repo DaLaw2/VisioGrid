@@ -1,4 +1,5 @@
 use uuid::Uuid;
+use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::inference_type::InferenceType;
 
 #[derive(Debug, Copy, Clone)]
@@ -21,6 +22,7 @@ pub struct Task {
     pub model_filename: String,
     pub media_filename: String,
     pub inference_type: InferenceType,
+    pub result: Vec<ImageTask>,
 }
 
 impl Task {
@@ -35,6 +37,7 @@ impl Task {
             model_filename,
             media_filename,
             inference_type,
+            result: Vec::new(),
         }
     }
 
