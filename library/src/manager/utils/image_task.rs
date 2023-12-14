@@ -18,20 +18,18 @@ pub struct ImageTask {
 }
 
 impl ImageTask {
-    pub fn new(task: &Task, image_filepath: PathBuf) -> Self {
-        let model_filename = task.model_filepath.clone()
-            .file_name().and_then(|name| name.to_str())
-            .unwrap_or_default().to_string();
-        let image_filename = image_filepath.clone()
-            .file_name().and_then(|name| name.to_str())
+    pub fn new(id: usize, task: &Task, model_filepath: PathBuf, image_filepath: PathBuf) -> Self {
+        let image_filename = image_filepath.file_name()
+            .and_then(|name| name.to_str())
             .unwrap_or_default().to_string();
         Self {
-            task_uuid,
-            model_filename,
+            id,
+            task_uuid: task.uuid,
+            model_filename: task.model_filename.clone(),
             image_filename,
             model_filepath,
             image_filepath,
-            inference_type,
+            inference_type: task.inference_type,
             bounding_boxes: Vec::new(),
             cache: false,
         }

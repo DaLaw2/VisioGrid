@@ -22,12 +22,11 @@ pub fn initialize() -> Scope {
 #[get("")]
 async fn inference() -> impl Responder {
     let html = StaticFiles::get("inference.html").expect("File not found in static files.").data;
-    let response = HttpResponse::Ok().content_type("text/html").body(html);
-    response
+    HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 #[post("/save_file")]
-async fn save_files(req: HttpRequest, mut payload: Multipart) -> Result<HttpResponse, Error> {
+async fn save_files(mut payload: Multipart) -> Result<HttpResponse, Error> {
     let uuid = Uuid::new_v4();
     let mut model_type = String::new();
     let mut model_filename = String::new();

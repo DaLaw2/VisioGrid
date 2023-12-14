@@ -12,8 +12,7 @@ pub fn initialize() -> Scope {
 #[get("")]
 async fn setting() -> impl Responder {
     let html = StaticFiles::get("setting.html").expect("File not found in static files.").data;
-    let response = HttpResponse::Ok().content_type("text/html").body(html);
-    response
+    HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 #[get("/get_config")]

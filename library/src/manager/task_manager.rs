@@ -41,7 +41,7 @@ impl TaskManager {
 
     pub async fn add_task(mut task: Task) {
         let mut task_manager = Self::instance_mut().await;
-        task.status = TaskStatus::Processing;
+        task.change_status(TaskStatus::Processing);
         task_manager.tasks.insert(task.uuid, task.clone());
         tokio::spawn(async move {
             Self::distribute_task(task).await;
@@ -70,8 +70,8 @@ impl TaskManager {
             Some("png") | Some("jpg") | Some("jpeg") => {
                 let mut node: Option<usize> = None;
                 let image_filepath = Path::new(".").join("PreProcessing").join(task.media_filename.clone());
-                let mut image_resource = ImageTask::new(task.uuid, model_filepath, image_filepath.clone(), task.inference_type);
-                let ram_usage = Self::calc_ram_usage(image_filepath).await;
+                let mut image_resource = ImageTask::new(0_usize, &task, model_filepath, image_filepath.clone());
+                let ram_usage = Self::calc_ram_usage(&image_filepath).await;
                 for (node_id, _) in filter_nodes {
                     let node_ram = match NodeCluster::get_node(node_id).await {
                         Some(node) => node.read().await.idle_unused().ram,
@@ -95,7 +95,7 @@ impl TaskManager {
                             None => {
                                 Self::handle_image_task(&task.uuid, false).await;
                                 Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
-                                Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
+                                Logger::append_system_log(LogLevel::INFO, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
                             }
                         }
                     },
@@ -114,11 +114,12 @@ impl TaskManager {
                         return;
                     },
                 };
-                let mut current_node: usize = 0;
+                let mut image_id = 0_usize;
+                let mut current_node = 0_usize;
                 while let Ok(Some(image_filepath)) = inference_folder.next_entry().await {
                     let image_filepath = image_filepath.path();
-                    let mut image_resource = ImageTask::new(task.uuid, model_filepath.clone(), image_filepath.clone(), task.inference_type);
-                    let ram_usage = Self::calc_ram_usage(image_filepath).await;
+                    let mut image_resource = ImageTask::new(image_id, &task, model_filepath.clone(), image_filepath.clone());
+                    let ram_usage = Self::calc_ram_usage(&image_filepath).await;
                     let mut node: Option<usize> = None;
                     for i in 0..nodes.len() {
                         let index = (current_node + i) % filter_nodes.len();
@@ -154,6 +155,7 @@ impl TaskManager {
                         },
                         None => Self::handle_image_task(&task.uuid, false).await,
                     }
+                    image_id += 1;
                 }
             },
             _ => {
