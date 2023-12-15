@@ -1,16 +1,17 @@
+use uuid::Uuid;
 use tokio::sync::mpsc;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 
 pub struct SendThread {
-    node_id: usize,
+    node_id: Uuid,
     socket: WriteHalf,
     receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>
 }
 
 impl SendThread {
-    pub fn new(node_id: usize, socket: WriteHalf, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>) -> Self {
+    pub fn new(node_id: Uuid, socket: WriteHalf, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>) -> Self {
         Self {
             node_id,
             socket,

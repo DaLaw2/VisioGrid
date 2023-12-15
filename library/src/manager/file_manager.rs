@@ -51,8 +51,8 @@ impl FileManager {
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "Processing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Successfully deleted {} folder.", folder_name)).await,
-                Err(_) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Failed to delete {} folder.", folder_name)).await
+                Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Deleted {} folder successfully.", folder_name)).await,
+                Err(_) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {} folder.", folder_name)).await
             }
         };
     }
@@ -84,7 +84,7 @@ impl FileManager {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PreProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
-                        Some("png") | Some("jpg") | Some("jpeg") => Self::handle_picture(task),
+                        Some("png") | Some("jpg") | Some("jpeg") => Self::handle_picture(task).await,
                         Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
                         Some("zip") => Self::extract_zip(task).await,
                         _ => {

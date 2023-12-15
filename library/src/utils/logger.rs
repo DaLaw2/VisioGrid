@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use chrono::Local;
 use tokio::sync::RwLock;
 use lazy_static::lazy_static;
@@ -16,7 +17,7 @@ pub enum LogLevel {
 
 pub struct Logger {
     system_log: String,
-    node_log: HashMap<usize, String>,
+    node_log: HashMap<Uuid, String>,
 }
 
 impl Logger {
@@ -43,7 +44,7 @@ impl Logger {
         println!("{}", log_entry);
     }
 
-    pub async fn append_node_log(node_id: usize, log_level: LogLevel, message: String) {
+    pub async fn append_node_log(node_id: Uuid, log_level: LogLevel, message: String) {
         let mut logger = GLOBAL_LOGGER.write().await;
         let date = Local::now();
         let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
@@ -64,7 +65,7 @@ impl Logger {
         logger.system_log.clone()
     }
 
-    pub async fn get_node_log(node_id: usize) -> String {
+    pub async fn get_node_log(node_id: Uuid) -> String {
         let logger = GLOBAL_LOGGER.read().await;
         let node_log = logger.node_log.get(&node_id);
         match node_log {
