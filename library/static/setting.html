@@ -136,63 +136,50 @@
 <div class="container mt-5">
     <h2>Config</h2>
     <form id="config-form" class="mt-4">
-
         <div class="form-group">
             <label for="internal_timestamp">Internal Timestamp (ms):</label>
             <input type="number" class="form-control" id="internal_timestamp" name="internal_timestamp" required>
         </div>
-
         <div class="form-group">
             <label for="node_listen_port">Node Listen Port :</label>
             <input type="number" class="form-control" id="node_listen_port" name="node_listen_port" required>
         </div>
-
         <div class="form-group">
             <label for="http_server_bind_port">HTTP Server Bind Port :</label>
             <input type="number" class="form-control" id="http_server_bind_port" name="http_server_bind_port" required>
         </div>
-
         <div class="form-group">
             <label for="bind_retry_duration">Bind Retry Duration (s):</label>
             <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" required>
         </div>
-
         <div class="form-group">
             <label for="node_idle_duration">Node Idle Duration (s):</label>
             <input type="number" class="form-control" id="node_idle_duration" name="node_idle_duration" required>
         </div>
-
         <div class="form-group">
             <label for="polling_interval">Polling Interval (ms):</label>
             <input type="number" class="form-control" id="polling_interval" name="polling_interval" required>
         </div>
-
         <div class="form-group">
             <label for="control_channel_timout">Control Channel Timout (s):</label>
             <input type="number" class="form-control" id="control_channel_timout" name="control_channel_timout" required>
         </div>
-
-
         <div class="form-group">
             <label for="data_channel_timout">Data Channel Timout (s):</label>
             <input type="number" class="form-control" id="data_channel_timout" name="data_channel_timout" required>
         </div>
-
         <div class="form-group">
             <label for="file_transfer_timout">File Transfer Timout (s):</label>
             <input type="number" class="form-control" id="file_transfer_timout" name="file_transfer_timout" required>
         </div>
-
         <div class="form-group">
             <label for="dedicated_port_range_start">Dedicated Port Range Start :</label>
             <input type="number" class="form-control" id="dedicated_port_range_start" name="dedicated_port_range_start" required>
         </div>
-
         <div class="form-group">
             <label for="dedicated_port_range_end">Dedicated Port Range End :</label>
             <input type="number" class="form-control" id="dedicated_port_range_end" name="dedicated_port_range_end" required>
         </div>
-
         <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>
     </form>
     <p class="mt-4 text-muted">Some settings will take effect after a restart.</p>
