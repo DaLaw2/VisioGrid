@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use std::sync::Arc;
 use tokio::time::sleep;
 use std::time::Duration;
@@ -14,8 +15,8 @@ lazy_static! {
 
 pub struct NodeCluster {
     size: usize,
-    nodes: HashMap<usize, Arc<RwLock<Node>>>,
-    vram_sorting: Vec<(usize, f64)>,
+    nodes: HashMap<Uuid, Arc<RwLock<Node>>>,
+    vram_sorting: Vec<(Uuid, f64)>,
 }
 
 impl NodeCluster {
@@ -41,7 +42,7 @@ impl NodeCluster {
             loop {
                 {
                     let mut node_cluster = GLOBAL_CLUSTER.write().await;
-                    let mut vram: Vec<(usize, f64)> = stream::iter(&node_cluster.nodes)
+                    let mut vram: Vec<(Uuid, f64)> = stream::iter(&node_cluster.nodes)
                         .then(|(&key, node)| async move {
                             (key, node.read().await.idle_unused().vram)
                         }).collect().await;
@@ -55,24 +56,26 @@ impl NodeCluster {
 
     pub async fn add_node(node: Node) {
         let mut node_cluster = GLOBAL_CLUSTER.write().await;
-        let node_id = node.id();
+        let node_id = node.uuid();
         if node_cluster.nodes.contains_key(&node_id) {
             return;
         }
-        node_cluster.nodes.insert(node_id, Arc::new(RwLock::new(node)));
+        let node = Arc::new(RwLock::new(node));
+        node_cluster.nodes.insert(node_id, node.clone());
         node_cluster.size += 1;
+        Node::run(node).await;
     }
 
-    pub async fn remove_node(node_id: usize) -> Option<Arc<RwLock<Node>>> {
+    pub async fn remove_node(node_id: Uuid) -> Option<Arc<RwLock<Node>>> {
         let mut node_cluster = GLOBAL_CLUSTER.write().await;
         let node = node_cluster.nodes.remove(&node_id);
         if node.is_some() {
-            node_cluster.size -= 1
+            node_cluster.size -= 1;
         }
         node
     }
 
-    pub async fn get_node(node_id: usize) -> Option<Arc<RwLock<Node>>> {
+    pub async fn get_node(node_id: Uuid) -> Option<Arc<RwLock<Node>>> {
         let node_cluster = GLOBAL_CLUSTER.read().await;
         let node = node_cluster.nodes.get(&node_id);
         match node {
@@ -81,12 +84,12 @@ impl NodeCluster {
         }
     }
 
-    pub async fn sorted_by_vram() -> Vec<(usize, f64)> {
+    pub async fn sorted_by_vram() -> Vec<(Uuid, f64)> {
         let node_cluster = GLOBAL_CLUSTER.read().await;
         node_cluster.vram_sorting.clone()
     }
 
-    pub async fn filter_node_by_vram(vram_threshold: f64) -> Vec<(usize, f64)> {
+    pub async fn filter_node_by_vram(vram_threshold: f64) -> Vec<(Uuid, f64)> {
         let node_cluster = GLOBAL_CLUSTER.read().await;
         let nodes = node_cluster.vram_sorting.clone();
         let mut filtered_nodes: Vec<_> = nodes.into_iter()

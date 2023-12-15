@@ -10,7 +10,7 @@ impl DataPacketChannel {
         let (result_packet_tx, result_packet_rx) = mpsc::unbounded_channel();
         let (still_process_reply_packet_tx, still_process_reply_packet_rx) = mpsc::unbounded_channel();
         let (task_info_reply_packet_tx, task_info_reply_packet_rx) = mpsc::unbounded_channel();
-                (
+        (
             PacketSender {
                 alive_reply_packet: alive_reply_packet_tx,
                 file_transfer_reply_packet: file_transfer_reply_packet_tx,

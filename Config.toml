@@ -1,9 +1,11 @@
 [Config]
-internal_timestamp = 100
-http_server_bind_port = 8080
+internal_timestamp = 50
 node_listen_port = 9090
+http_server_bind_port = 8080
 bind_retry_duration = 30
+node_idle_duration = 5
+polling_interval = 100
+control_channel_timout = 10
 data_channel_timout = 10
 file_transfer_timout = 5
-file_transfer_retry_times = 3
 dedicated_port_range = [60000, 65535]

@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use tokio::sync::{mpsc, oneshot};
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
@@ -7,13 +8,13 @@ use crate::connection::connection_channel::data_channel_receive_thread::ReceiveT
 use crate::connection::connection_channel::data_packet_channel::{DataPacketChannel, PacketReceiver};
 
 pub struct DataChannel {
-    node_id: usize,
+    node_id: Uuid,
     sender: mpsc::UnboundedSender<Option<Box<dyn Packet + Send>>>,
     stop_signal: Option<oneshot::Sender<()>>,
 }
 
 impl DataChannel {
-    pub fn new(node_id: usize, socket: SocketStream) -> (Self, PacketReceiver) {
+    pub fn new(node_id: Uuid, socket: SocketStream) -> (Self, PacketReceiver) {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
         let (socket_sender, socket_receiver) = socket.into_split();

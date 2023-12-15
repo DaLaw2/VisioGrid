@@ -6,7 +6,7 @@ use tokio::io::AsyncWriteExt;
 use actix_multipart::Multipart;
 use sanitize_filename::sanitize;
 use futures::{self, StreamExt, TryStreamExt};
-use actix_web::{get, post, web, Scope, Result, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, post, web, Scope, Result, Error, HttpResponse, Responder};
 use crate::manager::utils::task::Task;
 use crate::utils::static_files::StaticFiles;
 use crate::manager::file_manager::FileManager;
@@ -71,7 +71,7 @@ async fn save_files(mut payload: Multipart) -> Result<HttpResponse, Error> {
             }
         }
     }
-    let new_task = Task::new(uuid, model_filename, media_filename, InferenceType::from_str(&*model_type)).await;
+    let new_task = Task::new(uuid, model_filename, media_filename, InferenceType::from_str(&*model_type).unwrap()).await;
     FileManager::add_preprocess_task(new_task).await;
     Ok(HttpResponse::Ok().json(OperationStatus::new(true, None)))
 }

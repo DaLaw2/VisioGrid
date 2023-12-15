@@ -1,8 +1,8 @@
 use tokio::fs;
 use uuid::Uuid;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::collections::{HashMap, VecDeque};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
 use crate::utils::logger::{Logger, LogLevel};
@@ -35,14 +35,12 @@ impl TaskManager {
         GLOBAL_TASK_MANAGER.write().await
     }
 
-    pub async fn run() {
-
-    }
-
     pub async fn add_task(mut task: Task) {
-        let mut task_manager = Self::instance_mut().await;
         task.change_status(TaskStatus::Processing);
-        task_manager.tasks.insert(task.uuid, task.clone());
+        {
+            let mut task_manager = Self::instance_mut().await;
+            task_manager.tasks.insert(task.uuid, task.clone());
+        }
         tokio::spawn(async move {
             Self::distribute_task(task).await;
         });
@@ -61,17 +59,16 @@ impl TaskManager {
         self.tasks.get_mut(&uuid)
     }
 
-    pub async fn distribute_task(mut task: Task) {
+    pub async fn distribute_task(task: Task) {
         let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
-        let nodes = NodeCluster::sorted_by_vram().await;
         let vram_usage = Self::calc_vram_usage(&model_filepath).await;
         let filter_nodes = NodeCluster::filter_node_by_vram(vram_usage).await;
         match Path::new(&task.media_filename).extension().and_then(|os_str| os_str.to_str()) {
             Some("png") | Some("jpg") | Some("jpeg") => {
-                let mut node: Option<usize> = None;
                 let image_filepath = Path::new(".").join("PreProcessing").join(task.media_filename.clone());
-                let mut image_resource = ImageTask::new(0_usize, &task, model_filepath, image_filepath.clone());
+                let mut image_task = ImageTask::new(0_usize, &task, model_filepath, image_filepath.clone());
                 let ram_usage = Self::calc_ram_usage(&image_filepath).await;
+                let mut assigned = false;
                 for (node_id, _) in filter_nodes {
                     let node_ram = match NodeCluster::get_node(node_id).await {
                         Some(node) => node.read().await.idle_unused().ram,
@@ -81,28 +78,19 @@ impl TaskManager {
                         }
                     };
                     if node_ram > ram_usage * 0.7 {
-                        node = Some(node_id);
-                        if node_ram < ram_usage {
-                            image_resource.cache = true;
+                        if let Some(node) = NodeCluster::get_node(node_id).await {
+                            if node_ram < ram_usage {
+                                image_task.cache = true;
+                            }
+                            Node::add_task(node, image_task.clone()).await;
+                            assigned = true;
+                            break;
                         }
-                        break;
                     }
                 }
-                match node {
-                    Some(node_id) => {
-                        match NodeCluster::get_node(node_id).await {
-                            Some(node) => Node::add_task(node, image_resource).await,
-                            None => {
-                                Self::handle_image_task(&task.uuid, false).await;
-                                Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
-                                Logger::append_system_log(LogLevel::INFO, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
-                            }
-                        }
-                    },
-                    None => {
-                        Self::handle_image_task(&task.uuid, false).await;
-                        Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be assigned to any node.", task.uuid)).await;
-                    }
+                if !assigned {
+                    Self::handle_image_task(&image_task.task_uuid, false).await;
+                    Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be reassigned to any node.", image_task.task_uuid)).await;
                 }
             },
             Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
@@ -118,12 +106,12 @@ impl TaskManager {
                 let mut current_node = 0_usize;
                 while let Ok(Some(image_filepath)) = inference_folder.next_entry().await {
                     let image_filepath = image_filepath.path();
-                    let mut image_resource = ImageTask::new(image_id, &task, model_filepath.clone(), image_filepath.clone());
+                    let mut image_task = ImageTask::new(image_id, &task, model_filepath.clone(), image_filepath.clone());
                     let ram_usage = Self::calc_ram_usage(&image_filepath).await;
-                    let mut node: Option<usize> = None;
-                    for i in 0..nodes.len() {
+                    let mut assigned = false;
+                    for i in 0..filter_nodes.len() {
                         let index = (current_node + i) % filter_nodes.len();
-                        let node_id = match nodes.get(index) {
+                        let node_id = match filter_nodes.get(index) {
                             Some((node_id, _)) => *node_id,
                             None => continue,
                         };
@@ -135,25 +123,20 @@ impl TaskManager {
                             }
                         };
                         if node_ram > ram_usage * 0.7 {
-                            node = Some(node_id);
-                            current_node += 1;
-                            if node_ram < ram_usage {
-                                image_resource.cache = true;
+                            if let Some(node) = NodeCluster::get_node(node_id).await {
+                                if node_ram < ram_usage {
+                                    image_task.cache = true;
+                                }
+                                Node::add_task(node, image_task.clone()).await;
+                                assigned = true;
+                                current_node += 1;
+                                break;
                             }
-                            break;
                         }
                     }
-                    match node {
-                        Some(node_id) => {
-                            match NodeCluster::get_node(node_id).await {
-                                Some(node) => Node::add_task(node, image_resource).await,
-                                None => {
-                                    Self::handle_image_task(&task.uuid, false).await;
-                                    Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
-                                }
-                            }
-                        },
-                        None => Self::handle_image_task(&task.uuid, false).await,
+                    if !assigned {
+                        Self::handle_image_task(&image_task.task_uuid, false).await;
+                        Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be reassigned to any node.", image_task.task_uuid)).await;
                     }
                     image_id += 1;
                 }
@@ -163,6 +146,35 @@ impl TaskManager {
                 Self::task_panic(&task.uuid, error_message.clone()).await;
                 Logger::append_system_log(LogLevel::INFO, error_message).await;
             },
+        }
+    }
+
+    pub async fn redistribute_task(image_tasks: VecDeque<ImageTask>) {
+        for image_task in image_tasks {
+            let vram_usage = TaskManager::calc_vram_usage(&image_task.model_filepath).await;
+            let filter_nodes = NodeCluster::filter_node_by_vram(vram_usage).await;
+            let ram_usage = TaskManager::calc_ram_usage(&image_task.image_filepath).await;
+            let mut assigned = false;
+            for (node_id, _) in filter_nodes {
+                let node_ram = match NodeCluster::get_node(node_id).await {
+                    Some(node) => node.read().await.idle_unused().ram,
+                    None => {
+                        Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
+                        continue;
+                    }
+                };
+                if node_ram > ram_usage * 0.7 {
+                    if let Some(node) = NodeCluster::get_node(node_id).await {
+                        Node::add_task(node, image_task.clone()).await;
+                        assigned = true;
+                        break;
+                    }
+                }
+            }
+            if !assigned {
+                Self::handle_image_task(&image_task.task_uuid, false).await;
+                Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be reassigned to any node.", image_task.task_uuid)).await;
+            }
         }
     }
 

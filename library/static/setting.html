@@ -18,52 +18,42 @@
             const file_transfer_timout = parseInt(document.getElementById('file_transfer_timout').value);
             const dedicated_port_range_start = parseInt(document.getElementById('dedicated_port_range_start').value);
             const dedicated_port_range_end = parseInt(document.getElementById('dedicated_port_range_end').value);
-
             if (internal_timestamp <= 0 || internal_timestamp > 60000) {
                 alert('Internal Timestamp must be between 1 mini second and 60000 mini seconds (1 minute).');
                 return false;
             }
-
             if (node_listen_port < 1 || http_server_bind_port < 1 || dedicated_port_range_start < 1 || dedicated_port_range_end < 1) {
                 alert('Port numbers must be gather than 1.');
                 return false;
             }
-
             if (node_listen_port > 65535 || http_server_bind_port > 65535 || dedicated_port_range_start > 65535 || dedicated_port_range_end > 65535) {
                 alert('Port numbers must be less than 65535.');
                 return false;
             }
-
             if (bind_retry_duration < 1 || bind_retry_duration > 86400) {
                 alert('Bind Retry Duration must be between 1 second and 86400 seconds (24 hours).');
                 return false;
             }
-
             if (node_idle_duration < 1 || node_idle_duration > 86400) {
                 alert('Node Idle Duration must be between 1 second and 86400 seconds (24 hours).');
                 return false;
             }
-
             if (polling_interval <= 0 || polling_interval > 60000) {
                 alert('Polling Interval must be between 1 mini second and 60000 mini seconds (1 minute).');
                 return false;
             }
-
             if (control_channel_timout < 1 || control_channel_timout > 86400) {
                 alert('Control Channel Timout must be between 1 second and 86400 seconds (24 hours).');
                 return false;
             }
-
             if (data_channel_timout < 1 || data_channel_timout > 86400) {
                 alert('Data Channel Timout must be between 1 second and 86400 seconds (24 hours).');
                 return false;
             }
-
             if (file_transfer_timout < 1 || file_transfer_timout > 86400) {
                 alert('File Transfer Timout must be between 1 second 86400 seconds (24 hours).');
                 return false;
             }
-
             if (dedicated_port_range_start > dedicated_port_range_end) {
                 alert('Dedicated Port Range Start cannot be greater than Port Range End.');
                 return false;
@@ -96,7 +86,9 @@
         }
 
         async function submitForm() {
+            console.log('Test');
             if (!validateInput()) {
+                console.log('Validation failed');
                 return;
             }
             let config = {
@@ -105,11 +97,10 @@
                 http_server_bind_port: parseInt(document.getElementById('http_server_bind_port').value),
                 bind_retry_duration: parseInt(document.getElementById('bind_retry_duration').value),
                 node_idle_duration: parseInt(document.getElementById('node_idle_duration').value),
-                polling_interval: parseInt(document.getElementById('node_idle_duration').value),
+                polling_interval: parseInt(document.getElementById('polling_interval').value),
                 control_channel_timout: parseInt(document.getElementById('control_channel_timout').value),
                 data_channel_timout: parseInt(document.getElementById('data_channel_timout').value),
                 file_transfer_timout: parseInt(document.getElementById('file_transfer_timout').value),
-                file_transfer_retry_times: parseInt(document.getElementById('file_transfer_retry_times').value),
                 dedicated_port_range: [
                     parseInt(document.getElementById('dedicated_port_range_start').value),
                     parseInt(document.getElementById('dedicated_port_range_end').value)
@@ -128,9 +119,11 @@
                     alert(data);
                     await loadCurrentConfig();
                 } else {
-                    alert(data);
+                    console.error('Failed to update config:', data);
+                    alert('Failed to update config: ' + data);
                 }
             } catch (error) {
+                console.error('Error submitting form:', error);
                 alert('Error: ' + error);
             }
         }
@@ -141,7 +134,7 @@
 <body>
 
 <div class="container mt-5">
-    <h2>Update Config</h2>
+    <h2>Config</h2>
     <form id="config-form" class="mt-4">
 
         <div class="form-group">
