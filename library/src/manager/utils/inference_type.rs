@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use std::str::FromStr;
+use std::fmt::Display;
 
 #[derive(Debug, Copy, Clone)]
 pub enum InferenceType {

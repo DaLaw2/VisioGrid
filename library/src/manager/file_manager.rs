@@ -34,7 +34,7 @@ impl FileManager {
     }
 
     pub async fn initialize() {
-        let folders = ["SavedModel", "SavedFile", "PreProcessing", "Processing", "PostProcessing", "Result"];
+        let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
                 Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Create {} folder successfully.", folder_name)).await,
@@ -48,7 +48,7 @@ impl FileManager {
     }
 
     pub async fn cleanup() {
-        let folders = ["SavedModel", "SavedFile", "PreProcessing", "Processing", "PostProcessing", "Result"];
+        let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
                 Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Deleted {} folder successfully.", folder_name)).await,
@@ -68,18 +68,18 @@ impl FileManager {
 
     pub async fn add_preprocess_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
-        manager.preprocessing.push_back(task);
+        manager.preprocessing.push_front(task);
     }
 
     pub async fn add_postprocess_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
-        manager.postprocessing.push_back(task);
+        manager.postprocessing.push_front(task);
     }
 
     async fn preprocessing() {
         let config = Config::now().await;
         loop {
-            let task = GLOBAL_FILE_MANAGER.write().await.preprocessing.pop_front();
+            let task = GLOBAL_FILE_MANAGER.write().await.preprocessing.pop_back();
             match task {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PreProcessing);
@@ -100,7 +100,16 @@ impl FileManager {
     }
 
     async fn postprocessing() {
-
+        let config = Config::now().await;
+        loop {
+            let task = GLOBAL_FILE_MANAGER.write().await.postprocessing.pop_back();
+            match task {
+                Some(mut task) => {
+                    task.change_status(TaskStatus::PostProcessing);
+                },
+                None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await
+            }
+        }
     }
 
     async fn handle_picture(mut task: Task) {
@@ -137,7 +146,7 @@ impl FileManager {
         }
         let media_path = destination_path;
         let result = tokio::task::spawn_blocking(move || {
-            Self::media_process(media_path)
+            Self::media_preprocess(media_path)
         }).await;
         match result {
             Ok(Ok(_)) => {
@@ -165,7 +174,7 @@ impl FileManager {
         }
     }
 
-    fn media_process(media_path: PathBuf) -> Result<(), String> {
+    fn media_preprocess(media_path: PathBuf) -> Result<(), String> {
         let saved_path = media_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.png"));
         let pipeline = match gstreamer::parse_launch(&pipeline_string) {
@@ -219,7 +228,7 @@ impl FileManager {
         }
         let zip_path = destination_path;
         let result = tokio::task::spawn_blocking(move || {
-            Self::zip_process(&zip_path)
+            Self::zip_preprocess(&zip_path)
         }).await;
         match result {
             Ok(Ok(_)) => {
@@ -247,7 +256,7 @@ impl FileManager {
         }
     }
 
-    fn zip_process(zip_path: &PathBuf) -> Result<(), String> {
+    fn zip_preprocess(zip_path: &PathBuf) -> Result<(), String> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = match File::open(&zip_path) {
             Ok(reader) => reader,
@@ -281,6 +290,18 @@ impl FileManager {
         Ok(())
     }
 
+    async fn draw_bounding_box() {
+
+    }
+
+    async fn recombination_media(mut task: Task) {
+
+    }
+
+    async fn recombination_zip(mut task: Task) {
+
+    }
+
     async fn update_task_unprocessed(task: &mut Task, result: Result<usize, String>) {
         match result {
             Ok(unprocessed) => task.unprocessed = unprocessed,
@@ -304,7 +325,7 @@ impl FileManager {
     }
 
     async fn task_manager_process(mut task: Task) {
-        task.status = TaskStatus::Waiting;
+        task.change_status(TaskStatus::Waiting);
         TaskManager::add_task(task).await;
     }
 }

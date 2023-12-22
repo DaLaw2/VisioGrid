@@ -92,7 +92,7 @@ impl Node {
     }
 
     pub async fn add_task(node: Arc<RwLock<Node>>, image_task: ImageTask) {
-        node.write().await.image_task.push_back(image_task);
+        node.write().await.image_task.push_front(image_task);
     }
 
     pub async fn run(node: Arc<RwLock<Node>>) {
@@ -163,7 +163,7 @@ impl Node {
             if node.read().await.terminate {
                 return;
             }
-            match node.write().await.image_task.pop_front() {
+            match node.write().await.image_task.pop_back() {
                 Some(mut image_task) => {
                     Node::transfer_task(node.clone(), image_task.clone()).await;
                     let mut success = false;
