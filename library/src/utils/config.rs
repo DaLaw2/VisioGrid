@@ -13,7 +13,7 @@ struct ConfigTable {
     config: Config
 }
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     pub internal_timestamp: usize,
     pub node_listen_port: usize,
@@ -21,10 +21,15 @@ pub struct Config {
     pub bind_retry_duration: usize,
     pub node_idle_duration: usize,
     pub polling_interval: usize,
-    pub control_channel_timout: usize,
-    pub data_channel_timout: usize,
-    pub file_transfer_timout: usize,
+    pub control_channel_timeout: usize,
+    pub data_channel_timeout: usize,
+    pub file_transfer_timeout: usize,
     pub dedicated_port_range: (usize, usize),
+    pub font_path: String,
+    pub border_width: usize,
+    pub font_size: usize,
+    pub border_color: (usize, usize, usize, usize),
+    pub text_color: (usize, usize, usize, usize),
 }
 
 impl Config {

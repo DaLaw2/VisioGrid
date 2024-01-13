@@ -1,3 +1,4 @@
 pub mod index;
 pub mod inference;
-pub mod setting;
+pub mod configuration;
+pub mod javascript;

@@ -53,7 +53,7 @@ impl Node {
         let config = Config::now().await;
         let (mut control_channel, mut control_packet_channel) = ControlChannel::new(uuid, socket_stream);
         let time = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         while time.elapsed() < timeout_duration {
             let node = select! {
                 biased;
@@ -123,13 +123,13 @@ impl Node {
         let uuid = node.read().await.uuid;
         let config = Config::now().await;
         let mut timer = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         loop {
             if node.read().await.terminate {
                 return;
             }
             if timer.elapsed() > timeout_duration {
-                Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Control Channel timout.".to_string()).await;
+                Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Control Channel timeout.".to_string()).await;
                 Node::terminate(node).await;
                 return;
             }
@@ -169,13 +169,13 @@ impl Node {
                     let mut success = false;
                     let mut data_channel = true;
                     let mut timeout_timer = Instant::now();
-                    let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+                    let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
                     let mut polling_times = 0_u32;
                     let polling_timer = Instant::now();
                     let polling_interval = Duration::from_millis(config.polling_interval as u64);
                     loop {
                         if timeout_timer.elapsed() > timeout_duration {
-                            Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timout.".to_string()).await;
+                            Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timeout.".to_string()).await;
                             Node::terminate(node.clone()).await;
                             return;
                         }
@@ -238,13 +238,13 @@ impl Node {
                             let mut data_channel = true;
                             let timer = Instant::now();
                             let mut timeout_timer = Instant::now();
-                            let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+                            let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
                             let idle_duration = Duration::from_secs(config.node_idle_duration as u64);
                             let mut polling_times = 0_u32;
                             let polling_interval = Duration::from_millis(config.polling_interval as u64);
                             loop {
                                 if timeout_timer.elapsed() > timeout_duration {
-                                    Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timout.".to_string()).await;
+                                    Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timeout.".to_string()).await;
                                     Node::terminate(node.clone()).await;
                                     return;
                                 }
@@ -308,7 +308,7 @@ impl Node {
             }
         };
         let timer = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval as u64);
         let (stream, address) = loop {
@@ -376,7 +376,7 @@ impl Node {
         let time = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval as u64);
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         while time.elapsed() < timeout_duration {
             if time.elapsed() > polling_interval * polling_times {
                 match &mut node.write().await.data_channel {
@@ -442,7 +442,7 @@ impl Node {
             Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
         }
         let time = Instant::now();
-        let timeout_duration = Duration::from_secs(config.file_transfer_timout as u64);
+        let timeout_duration = Duration::from_secs(config.file_transfer_timeout as u64);
         let mut require_resend = Vec::new();
         while time.elapsed() < timeout_duration {
             match &mut node.write().await.data_packet_channel {
