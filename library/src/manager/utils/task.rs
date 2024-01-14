@@ -1,5 +1,6 @@
 use uuid::Uuid;
 use crate::manager::utils::image_task::ImageTask;
+use crate::manager::result_repository::ResultRepository;
 use crate::manager::utils::inference_type::InferenceType;
 
 #[derive(Debug, Copy, Clone)]
@@ -45,7 +46,16 @@ impl Task {
         self.status = status;
     }
 
-    pub fn panic(&mut self, error_message: String) {
+    pub async fn panic(&mut self, error_message: String) {
+        self.status = TaskStatus::Fail;
         self.error = Err(error_message);
+        ResultRepository::add_task(self.clone()).await;
+    }
+
+    pub async fn update_unprocessed(&mut self, unprocessed: Result<usize, String>) {
+        match unprocessed {
+            Ok(unprocessed) => self.unprocessed = unprocessed,
+            Err(err) => self.panic(err).await,
+        }
     }
 }

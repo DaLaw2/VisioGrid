@@ -165,9 +165,13 @@ impl Node {
             }
             match node.write().await.image_task.pop_back() {
                 Some(mut image_task) => {
-                    Node::transfer_task(node.clone(), image_task.clone()).await;
+                    if let Err(err) = Node::transfer_task(node.clone(), &image_task).await {
+                        Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
+                        TaskManager::handle_image_task(image_task, false).await;
+                        return;
+                    }
                     let mut success = false;
-                    let mut data_channel = true;
+                    let mut data_channel_available = true;
                     let mut timeout_timer = Instant::now();
                     let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
                     let mut polling_times = 0_u32;
@@ -176,6 +180,7 @@ impl Node {
                     loop {
                         if timeout_timer.elapsed() > timeout_duration {
                             Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timeout.".to_string()).await;
+                            TaskManager::handle_image_task(image_task, success).await;
                             Node::terminate(node.clone()).await;
                             return;
                         }
@@ -183,7 +188,7 @@ impl Node {
                             match &mut node.write().await.data_channel {
                                 Some(data_channel) => data_channel.send(StillProcessPacket::new()).await,
                                 None => {
-                                    data_channel = false;
+                                    data_channel_available = false;
                                     break;
                                 },
                             }
@@ -217,15 +222,16 @@ impl Node {
                                 }
                             },
                             None => {
-                                data_channel = false;
+                                data_channel_available = false;
                                 break;
                             },
                         }
                     }
-                    if !data_channel {
+                    if !data_channel_available {
                         Node::create_data_channel(node.clone()).await;
+                        success = false;
                     }
-                    TaskManager::handle_image_task(&image_task.task_uuid, success).await;
+                    TaskManager::handle_image_task(image_task, success).await;
                 },
                 None => {
                     match Node::steal_task(node.clone()).await {
@@ -235,7 +241,7 @@ impl Node {
                                 let mut node = node.write().await;
                                 node.idle_unused = node.realtime_usage.clone();
                             }
-                            let mut data_channel = true;
+                            let mut data_channel_available = true;
                             let timer = Instant::now();
                             let mut timeout_timer = Instant::now();
                             let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
@@ -255,7 +261,7 @@ impl Node {
                                     match &mut node.write().await.data_channel {
                                         Some(data_channel) => data_channel.send(AlivePacket::new()).await,
                                         None => {
-                                            data_channel = false;
+                                            data_channel_available = false;
                                             break;
                                         }
                                     }
@@ -274,12 +280,12 @@ impl Node {
                                         }
                                     },
                                     None => {
-                                        data_channel = false;
+                                        data_channel_available = false;
                                         break;
                                     },
                                 }
                             }
-                            if !data_channel {
+                            if !data_channel_available {
                                 Node::create_data_channel(node.clone()).await;
                             }
                         }
@@ -341,9 +347,7 @@ impl Node {
         Logger::append_node_log(node.uuid, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
     }
 
-    async fn transfer_task(node: Arc<RwLock<Node>>, image_task: ImageTask) {
-        let mut success = true;
-        let uuid = node.read().await.uuid;
+    async fn transfer_task(node: Arc<RwLock<Node>>, image_task: &ImageTask) -> Result<(), String> {
         if node.write().await.data_channel.is_some() {
             let should_transfer_model = if let Some(last_task) = &node.read().await.previous_task {
                 image_task.task_uuid != last_task.task_uuid
@@ -351,24 +355,15 @@ impl Node {
                 true
             };
             if should_transfer_model {
-                if let Err(err) = Node::transfer_task_info(node.clone(), &image_task).await {
-                    Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
-                    success = false;
-                }
-                if let Err(err) = Node::transfer_file(node.clone(), image_task.model_filename, image_task.model_filepath).await {
-                    Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
-                    success = false;
-                }
+                Node::transfer_task_info(node.clone(), &image_task).await?;
+                Node::transfer_file(node.clone(), &image_task.model_filename, &image_task.model_filepath).await?;
             }
-            if let Err(err) = Node::transfer_file(node.clone(), image_task.image_filename, image_task.image_filepath).await {
-                Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
-                success = false;
-            };
+            Node::transfer_file(node.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
             Node::create_data_channel(node).await;
-            success = false;
+            return Err("Node: Data Channel is not available.".to_string())
         }
-        TaskManager::handle_image_task(&image_task.task_uuid, success).await;
+        Ok(())
     }
 
     async fn transfer_task_info(node: Arc<RwLock<Node>>, image_task: &ImageTask) -> Result<(), String> {
@@ -391,7 +386,7 @@ impl Node {
                         reply = data_packet_channel.task_info_reply_packet.recv() => {
                             return match &reply {
                                 Some(_) => Ok(()),
-                                None => Err("Node: An error occurred while receive packet.".to_string()),
+                                None => return Err("Node: An error occurred while receive packet.".to_string()),
                             }
                         }
                         _ = sleep(Duration::from_millis(config.internal_timestamp as u64)) => continue,
@@ -403,7 +398,7 @@ impl Node {
         Err("Node: Task Info retransmission limit reached.".to_string())
     }
 
-    async fn transfer_file(node: Arc<RwLock<Node>>, filename: String, filepath: PathBuf) -> Result<(), String> {
+    async fn transfer_file(node: Arc<RwLock<Node>>, filename: &String, filepath: &PathBuf) -> Result<(), String> {
         let config = Config::now().await;
         let filesize = match fs::metadata(&filepath).await {
             Ok(metadata) => metadata.len(),
@@ -487,7 +482,7 @@ impl Node {
             if let Some(node) = NodeCluster::get_node(uuid).await {
                 let mut steal = false;
                 let mut cache = false;
-                let node = node.write().await;
+                let mut node = node.write().await;
                 match node.image_task.get(1) {
                     Some(image_task) => {
                         let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;

@@ -3,6 +3,16 @@
 version = 3
 
 [[package]]
+name = "Server"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "actix-web",
+ "library",
+ "tokio",
+]
+
+[[package]]
 name = "ab_glyph_rasterizer"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2229,16 +2239,6 @@ dependencies = [
  "redox_syscall",
  "rustix",
  "windows-sys",
-]
-
-[[package]]
-name = "test"
-version = "0.1.0"
-dependencies = [
- "actix-rt",
- "actix-web",
- "library",
- "tokio",
 ]
 
 [[package]]
