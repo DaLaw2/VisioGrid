@@ -22,6 +22,11 @@ async fn get_config() -> impl Responder {
 
 #[post("/update_config")]
 async fn update_config(config: web::Json<Config>) -> impl Responder {
-    Config::update(config.into_inner()).await;
-    HttpResponse::Ok().body("Configuration updated successfully.")
+    let config = config.into_inner();
+    if Config::validate(&config) {
+        Config::update(config).await;
+        HttpResponse::Ok().body("Configuration updated successfully.")
+    } else {
+        HttpResponse::BadRequest().body("Invalid configuration.")
+    }
 }

@@ -106,6 +106,7 @@ impl FileManager {
             match task {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PostProcessing);
+
                 },
                 None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await
             }
@@ -176,7 +177,7 @@ impl FileManager {
 
     fn media_preprocess(media_path: PathBuf) -> Result<(), String> {
         let saved_path = media_path.clone().with_extension("").to_path_buf();
-        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.png"));
+        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.jpeg"));
         let pipeline = match gstreamer::parse_launch(&pipeline_string) {
             Ok(pipeline) => pipeline,
             Err(_) => return Err("File Manager: GStreamer cannot parse pipeline.".to_string())
@@ -291,7 +292,7 @@ impl FileManager {
     }
 
     async fn draw_bounding_box() {
-
+        let config = Config::now().await;
     }
 
     async fn recombination_media(mut task: Task) {

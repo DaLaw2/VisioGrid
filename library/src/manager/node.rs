@@ -478,21 +478,41 @@ impl Node {
     }
 
     pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageTask> {
-        let vram = node.read().await.idle_unused.vram;
-        let filter_nodes = NodeCluster::filter_node_by_vram(vram).await;
-        let mut image_task = None;
-        for (uuid, _) in filter_nodes {
+        let nodes = NodeCluster::sorted_by_vram().await;
+        let (vram, ram) = {
+            let node = node.write().await;
+            (node.idle_unused.vram, node.idle_unused.ram)
+        };
+        for (uuid, _) in nodes {
             if let Some(node) = NodeCluster::get_node(uuid).await {
-                let mut node = node.write().await;
-                if node.image_task.len() < 1 {
-                    continue;
-                } else {
-                    image_task = node.image_task.pop_back();
-                    break;
+                let mut steal = false;
+                let mut cache = false;
+                let node = node.write().await;
+                match node.image_task.get(1) {
+                    Some(image_task) => {
+                        let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
+                        let estimate_ram = TaskManager::estimated_vram_usage(&image_task.image_filepath).await;
+                        if vram > estimate_vram && ram > estimate_ram * 0.7 {
+                            steal = true;
+                            if ram < estimate_ram {
+                                cache = true;
+                            }
+                        }
+                    }
+                    None => continue,
+                }
+                if steal {
+                    match node.image_task.remove(1) {
+                        Some(mut image_task) => {
+                            image_task.cache = cache;
+                            return Some(image_task);
+                        }
+                        None => continue,
+                    }
                 }
             }
         }
-        image_task
+        None
     }
 
     pub fn uuid(&self) -> Uuid {
