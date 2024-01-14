@@ -53,7 +53,7 @@ impl Node {
         let config = Config::now().await;
         let (mut control_channel, mut control_packet_channel) = ControlChannel::new(uuid, socket_stream);
         let time = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         while time.elapsed() < timeout_duration {
             let node = select! {
                 biased;
@@ -92,7 +92,7 @@ impl Node {
     }
 
     pub async fn add_task(node: Arc<RwLock<Node>>, image_task: ImageTask) {
-        node.write().await.image_task.push_back(image_task);
+        node.write().await.image_task.push_front(image_task);
     }
 
     pub async fn run(node: Arc<RwLock<Node>>) {
@@ -123,13 +123,13 @@ impl Node {
         let uuid = node.read().await.uuid;
         let config = Config::now().await;
         let mut timer = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         loop {
             if node.read().await.terminate {
                 return;
             }
             if timer.elapsed() > timeout_duration {
-                Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Control Channel timout.".to_string()).await;
+                Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Control Channel timeout.".to_string()).await;
                 Node::terminate(node).await;
                 return;
             }
@@ -163,19 +163,19 @@ impl Node {
             if node.read().await.terminate {
                 return;
             }
-            match node.write().await.image_task.pop_front() {
+            match node.write().await.image_task.pop_back() {
                 Some(mut image_task) => {
                     Node::transfer_task(node.clone(), image_task.clone()).await;
                     let mut success = false;
                     let mut data_channel = true;
                     let mut timeout_timer = Instant::now();
-                    let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+                    let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
                     let mut polling_times = 0_u32;
                     let polling_timer = Instant::now();
                     let polling_interval = Duration::from_millis(config.polling_interval as u64);
                     loop {
                         if timeout_timer.elapsed() > timeout_duration {
-                            Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timout.".to_string()).await;
+                            Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timeout.".to_string()).await;
                             Node::terminate(node.clone()).await;
                             return;
                         }
@@ -238,13 +238,13 @@ impl Node {
                             let mut data_channel = true;
                             let timer = Instant::now();
                             let mut timeout_timer = Instant::now();
-                            let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+                            let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
                             let idle_duration = Duration::from_secs(config.node_idle_duration as u64);
                             let mut polling_times = 0_u32;
                             let polling_interval = Duration::from_millis(config.polling_interval as u64);
                             loop {
                                 if timeout_timer.elapsed() > timeout_duration {
-                                    Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timout.".to_string()).await;
+                                    Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timeout.".to_string()).await;
                                     Node::terminate(node.clone()).await;
                                     return;
                                 }
@@ -308,7 +308,7 @@ impl Node {
             }
         };
         let timer = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval as u64);
         let (stream, address) = loop {
@@ -376,7 +376,7 @@ impl Node {
         let time = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval as u64);
-        let timeout_duration = Duration::from_secs(config.control_channel_timout as u64);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout as u64);
         while time.elapsed() < timeout_duration {
             if time.elapsed() > polling_interval * polling_times {
                 match &mut node.write().await.data_channel {
@@ -442,7 +442,7 @@ impl Node {
             Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
         }
         let time = Instant::now();
-        let timeout_duration = Duration::from_secs(config.file_transfer_timout as u64);
+        let timeout_duration = Duration::from_secs(config.file_transfer_timeout as u64);
         let mut require_resend = Vec::new();
         while time.elapsed() < timeout_duration {
             match &mut node.write().await.data_packet_channel {
@@ -478,21 +478,41 @@ impl Node {
     }
 
     pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageTask> {
-        let vram = node.read().await.idle_unused.vram;
-        let filter_nodes = NodeCluster::filter_node_by_vram(vram).await;
-        let mut image_task = None;
-        for (uuid, _) in filter_nodes {
+        let nodes = NodeCluster::sorted_by_vram().await;
+        let (vram, ram) = {
+            let node = node.write().await;
+            (node.idle_unused.vram, node.idle_unused.ram)
+        };
+        for (uuid, _) in nodes {
             if let Some(node) = NodeCluster::get_node(uuid).await {
-                let mut node = node.write().await;
-                if node.image_task.len() < 1 {
-                    continue;
-                } else {
-                    image_task = node.image_task.pop_back();
-                    break;
+                let mut steal = false;
+                let mut cache = false;
+                let node = node.write().await;
+                match node.image_task.get(1) {
+                    Some(image_task) => {
+                        let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
+                        let estimate_ram = TaskManager::estimated_vram_usage(&image_task.image_filepath).await;
+                        if vram > estimate_vram && ram > estimate_ram * 0.7 {
+                            steal = true;
+                            if ram < estimate_ram {
+                                cache = true;
+                            }
+                        }
+                    }
+                    None => continue,
+                }
+                if steal {
+                    match node.image_task.remove(1) {
+                        Some(mut image_task) => {
+                            image_task.cache = cache;
+                            return Some(image_task);
+                        }
+                        None => continue,
+                    }
                 }
             }
         }
-        image_task
+        None
     }
 
     pub fn uuid(&self) -> Uuid {

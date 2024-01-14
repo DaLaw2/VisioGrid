@@ -1,5 +1,5 @@
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
-#[folder = "static"]
+#[folder = "static/"]
 pub struct StaticFiles;

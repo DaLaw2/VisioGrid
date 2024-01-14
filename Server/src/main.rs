@@ -1,5 +1,6 @@
-use library::web::page::setting;
 use library::web::page::inference;
+use library::web::page::javascript;
+use library::web::page::configuration;
 use actix_web::{App, Error, HttpServer};
 use library::manager::file_manager::FileManager;
 
@@ -9,8 +10,9 @@ async fn main() -> Result<(), Error> {
     FileManager::run().await;
     HttpServer::new(|| {
         App::new()
-            .service(setting::initialize())
+            .service(configuration::initialize())
             .service(inference::initialize())
+            .service(javascript::initialize())
     })
         .bind("127.0.0.1:8080")?
         .run()

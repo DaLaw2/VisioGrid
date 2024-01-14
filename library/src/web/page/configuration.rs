@@ -3,15 +3,15 @@ use crate::utils::config::Config;
 use crate::utils::static_files::StaticFiles;
 
 pub fn initialize() -> Scope {
-    web::scope("/setting")
-        .service(setting)
+    web::scope("/configuration")
+        .service(configuration)
         .service(get_config)
         .service(update_config)
 }
 
 #[get("")]
-async fn setting() -> impl Responder {
-    let html = StaticFiles::get("setting.html").expect("File not found in static files.").data;
+async fn configuration() -> impl Responder {
+    let html = StaticFiles::get("configuration.html").expect("File not found in static files.").data;
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
@@ -22,6 +22,11 @@ async fn get_config() -> impl Responder {
 
 #[post("/update_config")]
 async fn update_config(config: web::Json<Config>) -> impl Responder {
-    Config::update(config.into_inner()).await;
-    HttpResponse::Ok().body("Configuration updated successfully.")
+    let config = config.into_inner();
+    if Config::validate(&config) {
+        Config::update(config).await;
+        HttpResponse::Ok().body("Configuration updated successfully.")
+    } else {
+        HttpResponse::BadRequest().body("Invalid configuration.")
+    }
 }
