@@ -56,7 +56,7 @@ async function submitForm() {
         dedicated_port_range: [parseInt(document.getElementById('dedicated_port_range_start').value), parseInt(document.getElementById('dedicated_port_range_end').value)],
         font_path: document.getElementById('font_path').value,
         border_width: parseInt(document.getElementById('border_width').value),
-        font_size: parseInt(document.getElementById('font_size').value),
+        font_size: parseFloat(document.getElementById('font_size').value),
         border_color: getRGBA('border_color'),
         text_color: getRGBA('text_color')
     };

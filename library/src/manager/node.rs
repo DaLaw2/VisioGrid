@@ -112,6 +112,10 @@ impl Node {
         let image_task = {
             let mut node = node.write().await;
             node.terminate = true;
+            node.control_channel.disconnect().await;
+            if let Some(data_channel) = &mut node.data_channel {
+                data_channel.disconnect().await;
+            }
             mem::take(&mut node.image_task)
         };
         NodeCluster::remove_node(uuid).await;

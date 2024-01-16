@@ -24,12 +24,12 @@ pub struct Config {
     pub control_channel_timeout: usize,
     pub data_channel_timeout: usize,
     pub file_transfer_timeout: usize,
-    pub dedicated_port_range: (usize, usize),
+    pub dedicated_port_range: [usize; 2],
     pub font_path: String,
-    pub border_width: usize,
-    pub font_size: usize,
-    pub border_color: (usize, usize, usize, usize),
-    pub text_color: (usize, usize, usize, usize),
+    pub border_width: u32,
+    pub font_size: f32,
+    pub border_color: [u8; 4],
+    pub text_color: [u8; 4],
 }
 
 impl Config {
@@ -37,10 +37,11 @@ impl Config {
         //Seriously, the program must be terminated.
         let toml_string = fs::read_to_string("./Config.toml").expect("No configuration found.");
         let config_table: ConfigTable = toml::from_str(&toml_string).expect("Unable parse configuration.");
-        if !Self::validate(&config_table.config) {
+        let config = config_table.config;
+        if !Self::validate(&config) {
             panic!("Invalid configuration.");
         }
-        config_table.config
+        config
     }
 
     pub async fn now() -> Config {
@@ -62,10 +63,8 @@ impl Config {
             && Config::validate_second(config.data_channel_timeout)
             && Config::validate_second(config.file_transfer_timeout)
             && Config::validate_port_range(config.dedicated_port_range)
-            && Config::validate_size(config.border_width)
-            && Config::validate_size(config.font_size)
-            && Config::validate_rgba(config.border_color)
-            && Config::validate_rgba(config.text_color)
+            && Config::validate_border_width(config.border_width)
+            && Config::validate_font_size(config.font_size)
     }
 
     fn validate_mini_second(second: usize) -> bool {
@@ -80,15 +79,19 @@ impl Config {
         port <= 65535
     }
 
-    fn validate_port_range(port: (usize, usize)) -> bool {
-        Self::validate_port(port.0) && Self::validate_port(port.1) && port.1 > port.0
+    fn validate_port_range(port: [usize; 2]) -> bool {
+        let (start, end) = match (port.get(0), port.get(1)) {
+            (Some(start), Some(end)) => (*start, *end),
+            _ => (0_usize, 0_usize),
+        };
+        Self::validate_port(start) && Self::validate_port(end) && end > start
     }
 
-    fn validate_size(size: usize) -> bool {
-        size >= 1
+    fn validate_border_width(width: u32) -> bool {
+        width > 0_u32
     }
 
-    fn validate_rgba(rgba: (usize, usize, usize, usize)) -> bool {
-        rgba.0 <= 255 && rgba.1 <= 255 && rgba.2 <= 255 && rgba.3 <= 255
+    fn validate_font_size(size: f32) -> bool {
+        size > 0_f32
     }
 }
