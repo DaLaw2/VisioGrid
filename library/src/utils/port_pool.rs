@@ -8,15 +8,15 @@ lazy_static! {
 }
 
 pub struct PortPool {
-    start: usize,
-    end: usize,
-    available: BTreeSet<usize>,
+    start: u16,
+    end: u16,
+    available: BTreeSet<u16>,
 }
 
 impl PortPool {
     fn new() -> Self {
         let [start, end] = Config::new().dedicated_port_range;
-        let available = (start..end).collect::<BTreeSet<usize>>();
+        let available = (start..end).collect::<BTreeSet<u16>>();
         Self {
             start,
             end,
@@ -24,7 +24,7 @@ impl PortPool {
         }
     }
 
-    pub async fn allocate_port() -> Option<usize> {
+    pub async fn allocate_port() -> Option<u16> {
         let mut port_pool = GLOBAL_PORT_POOL.lock().await;
         port_pool.available.iter().next().cloned().map(|port| {
             port_pool.available.remove(&port);
@@ -32,7 +32,7 @@ impl PortPool {
         })
     }
 
-    pub async fn free_port(port: usize) {
+    pub async fn free_port(port: u16) {
         let mut port_pool = GLOBAL_PORT_POOL.lock().await;
         if port >= port_pool.start && port < port_pool.end {
             port_pool.available.insert(port);

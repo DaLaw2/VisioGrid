@@ -70,7 +70,7 @@
         </div>
         <div class="form-group">
             <label for="font_size">Font Size (pt):</label>
-            <input type="number" class="form-control" id="font_size" name="font_size" min="1" step="0.01" required>
+            <input type="number" class="form-control" id="font_size" name="font_size" min="1" step="0.1" required>
         </div>
         <div class="form-group">
             <label>Border Color:</label>
@@ -81,8 +81,6 @@
                 <input type="number" class="form-control mx-1" id="border_color_g" min="0" max="255" required>
                 <label class="mx-2" for="border_color_b">B</label>
                 <input type="number" class="form-control mx-1" id="border_color_b" min="0" max="255" required>
-                <label class="mx-2" for="border_color_a">A</label>
-                <input type="number" class="form-control mx-1" id="border_color_a" min="0" max="255" required>
             </div>
         </div>
         <div class="form-group">
@@ -94,8 +92,6 @@
                 <input type="number" class="form-control mx-1" id="text_color_g" min="0" max="255" required>
                 <label class="mx-2" for="text_color_b">B</label>
                 <input type="number" class="form-control mx-1" id="text_color_b" min="0" max="255" required>
-                <label class="mx-2" for="text_color_a">A</label>
-                <input type="number" class="form-control mx-1" id="text_color_a" min="0" max="255" required>
             </div>
         </div>
         <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>

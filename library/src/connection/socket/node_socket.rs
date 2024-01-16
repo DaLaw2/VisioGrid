@@ -11,17 +11,16 @@ pub struct NodeSocket {
 
 impl NodeSocket {
     pub async fn new() -> Self {
-        let port = Config::now().await.node_listen_port;
-        let bind_retry_duration = Config::now().await.bind_retry_duration;
+        let config = Config::now().await;
         let listener = loop {
-            match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
+            match TcpListener::bind(format!("127.0.0.1:{}", config.node_listen_port)).await {
                 Ok(listener) => {
-                    Logger::append_system_log(LogLevel::INFO, format!("Node Socket: Port binding successful.\nOn port {}.", port)).await;
+                    Logger::append_system_log(LogLevel::INFO, format!("Node Socket: Port binding successful.\nOn port {}.", config.node_listen_port)).await;
                     break listener;
                 },
                 Err(_) => {
-                    Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nTry after {}s.", bind_retry_duration)).await;
-                    tokio::time::sleep(Duration::from_secs(bind_retry_duration as u64)).await;
+                    Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nTry after {}s.", config.bind_retry_duration)).await;
+                    tokio::time::sleep(Duration::from_secs(config.bind_retry_duration)).await;
                 }
             }
         };

@@ -9,7 +9,7 @@ pub struct DataChannelPortPacket {
 }
 
 impl DataChannelPortPacket {
-    pub fn new(port: usize) -> Self {
+    pub fn new(port: u16) -> Self {
         let port = port.to_string().as_bytes().to_vec();
         Self {
             length: length_to_byte(16 + port.len()),

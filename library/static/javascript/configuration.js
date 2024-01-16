@@ -20,11 +20,9 @@ async function loadCurrentConfig() {
             document.getElementById('border_color_r').value = configuration.border_color[0];
             document.getElementById('border_color_g').value = configuration.border_color[1];
             document.getElementById('border_color_b').value = configuration.border_color[2];
-            document.getElementById('border_color_a').value = configuration.border_color[3];
             document.getElementById('text_color_r').value = configuration.text_color[0];
             document.getElementById('text_color_g').value = configuration.text_color[1];
             document.getElementById('text_color_b').value = configuration.text_color[2];
-            document.getElementById('text_color_a').value = configuration.text_color[3];
         } else {
             console.error('Failed to fetch current configuration:', response.statusText);
         }
@@ -39,7 +37,6 @@ async function submitForm() {
             parseInt(document.getElementById(idPrefix + '_r').value),
             parseInt(document.getElementById(idPrefix + '_g').value),
             parseInt(document.getElementById(idPrefix + '_b').value),
-            parseFloat(document.getElementById(idPrefix + '_a').value)
         ];
     };
 

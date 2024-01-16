@@ -73,6 +73,6 @@ async fn save_files(mut payload: Multipart) -> Result<HttpResponse, Error> {
     }
     //Make sure no errors occur
     let new_task = Task::new(uuid, model_filename, media_filename, InferenceType::from_str(&*model_type).unwrap()).await;
-    FileManager::add_preprocess_task(new_task).await;
+    FileManager::add_pre_process_task(new_task).await;
     Ok(HttpResponse::Ok().json(OperationStatus::new(true, None)))
 }

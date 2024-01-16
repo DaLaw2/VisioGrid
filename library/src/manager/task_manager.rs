@@ -213,7 +213,7 @@ impl TaskManager {
         }
         if complete {
             if let Some(task) = task_manager.tasks.remove(&uuid) {
-                FileManager::add_postprocess_task(task).await;
+                FileManager::add_post_process_task(task).await;
             }
         }
     }

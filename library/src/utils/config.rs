@@ -15,21 +15,21 @@ struct ConfigTable {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    pub internal_timestamp: usize,
-    pub node_listen_port: usize,
-    pub http_server_bind_port: usize,
-    pub bind_retry_duration: usize,
-    pub node_idle_duration: usize,
-    pub polling_interval: usize,
-    pub control_channel_timeout: usize,
-    pub data_channel_timeout: usize,
-    pub file_transfer_timeout: usize,
-    pub dedicated_port_range: [usize; 2],
+    pub internal_timestamp: u64,
+    pub node_listen_port: u16,
+    pub http_server_bind_port: u16,
+    pub bind_retry_duration: u64,
+    pub node_idle_duration: u64,
+    pub polling_interval: u64,
+    pub control_channel_timeout: u64,
+    pub data_channel_timeout: u64,
+    pub file_transfer_timeout: u64,
+    pub dedicated_port_range: [u16; 2],
     pub font_path: String,
     pub border_width: u32,
     pub font_size: f32,
-    pub border_color: [u8; 4],
-    pub text_color: [u8; 4],
+    pub border_color: [u8; 3],
+    pub text_color: [u8; 3],
 }
 
 impl Config {
@@ -67,22 +67,22 @@ impl Config {
             && Config::validate_font_size(config.font_size)
     }
 
-    fn validate_mini_second(second: usize) -> bool {
+    fn validate_mini_second(second: u64) -> bool {
         second <= 60000
     }
 
-    fn validate_second(second: usize) -> bool {
+    fn validate_second(second: u64) -> bool {
         second <= 86400
     }
 
-    fn validate_port(port: usize) -> bool {
+    fn validate_port(port: u16) -> bool {
         port <= 65535
     }
 
-    fn validate_port_range(port: [usize; 2]) -> bool {
+    fn validate_port_range(port: [u16; 2]) -> bool {
         let (start, end) = match (port.get(0), port.get(1)) {
             (Some(start), Some(end)) => (*start, *end),
-            _ => (0_usize, 0_usize),
+            _ => (0_u16, 0_u16),
         };
         Self::validate_port(start) && Self::validate_port(end) && end > start
     }

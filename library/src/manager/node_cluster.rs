@@ -49,7 +49,7 @@ impl NodeCluster {
                     vram.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                     node_cluster.vram_sorting = vram;
                 }
-                sleep(Duration::from_millis(config.internal_timestamp as u64)).await;
+                sleep(Duration::from_millis(config.internal_timestamp)).await;
             }
         });
     }

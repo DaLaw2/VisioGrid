@@ -10,10 +10,15 @@ use zip::read::ZipArchive;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use image::{Rgb, RgbImage};
+use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
+use imageproc::rect::Rect;
+use rusttype::{Font, Scale};
 use tokio::task::{JoinError, spawn_blocking};
 use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
+use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::task::{Task, TaskStatus};
 
 lazy_static! {
@@ -21,15 +26,15 @@ lazy_static! {
 }
 
 pub struct FileManager {
-    preprocessing: VecDeque<Task>,
-    postprocessing: VecDeque<Task>
+    pre_processing: VecDeque<Task>,
+    post_processing: VecDeque<Task>
 }
 
 impl FileManager {
     fn new() -> Self {
         Self {
-            preprocessing: VecDeque::new(),
-            postprocessing: VecDeque::new()
+            pre_processing: VecDeque::new(),
+            post_processing: VecDeque::new()
         }
     }
 
@@ -59,67 +64,76 @@ impl FileManager {
 
     pub async fn run() {
         tokio::spawn(async {
-            Self::preprocessing().await
+            Self::pre_processing().await
         });
         tokio::spawn(async {
-            Self::postprocessing().await
+            Self::post_processing().await
         });
     }
 
-    pub async fn add_preprocess_task(task: Task) {
+    pub async fn add_pre_process_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
-        manager.preprocessing.push_front(task);
+        manager.pre_processing.push_front(task);
     }
 
-    pub async fn add_postprocess_task(task: Task) {
+    pub async fn add_post_process_task(task: Task) {
         let mut manager = GLOBAL_FILE_MANAGER.write().await;
-        manager.postprocessing.push_front(task);
+        manager.post_processing.push_front(task);
     }
 
-    async fn preprocessing() {
+    async fn pre_processing() {
         let config = Config::now().await;
         loop {
-            let task = GLOBAL_FILE_MANAGER.write().await.preprocessing.pop_back();
+            let task = GLOBAL_FILE_MANAGER.write().await.pre_processing.pop_back();
             match task {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PreProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
-                        Some("png") | Some("jpg") | Some("jpeg") => Self::handle_picture(task).await,
+                        Some("png") | Some("jpg") | Some("jpeg") => Self::picture_pre_processing(task).await,
                         Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::extract_media(task).await,
                         Some("zip") => Self::extract_zip(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
                             task.update_unprocessed(Err(error_message.clone())).await;
-                            Logger::append_system_log(LogLevel::INFO, error_message).await;
+                            Logger::append_system_log(LogLevel::ERROR, error_message).await;
                         },
                     }
                 },
-                None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await
+                None => sleep(Duration::from_millis(config.internal_timestamp)).await
             }
         }
     }
 
-    async fn postprocessing() {
+    async fn post_processing() {
         let config = Config::now().await;
         loop {
-            let task = GLOBAL_FILE_MANAGER.write().await.postprocessing.pop_back();
+            let task = GLOBAL_FILE_MANAGER.write().await.post_processing.pop_back();
             match task {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PostProcessing);
-
+                    match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
+                        Some("png") | Some("jpg") | Some("jpeg") => Self::picture_post_processing(task).await,
+                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::recombination_media(task).await,
+                        Some("zip") => Self::recombination_zip(task).await,
+                        _ => {
+                            let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
+                            task.update_unprocessed(Err(error_message.clone())).await;
+                            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                        },
+                    }
                 },
-                None => sleep(Duration::from_millis(config.internal_timestamp as u64)).await
+                None => sleep(Duration::from_millis(config.internal_timestamp)).await
             }
         }
     }
 
-    async fn handle_picture(mut task: Task) {
+    async fn picture_pre_processing(mut task: Task) {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         match fs::rename(source_path, destination_path).await {
             Ok(_) => {
                 task.update_unprocessed(Ok(1)).await;
-                Self::task_manager_process(task).await;
+                Self::forward_to_task_manager(task).await;
             },
             Err(_) => {
                 let error_message = format!("File Manager: Task {} failed because move image file failed.", task.uuid);
@@ -129,7 +143,7 @@ impl FileManager {
         }
     }
 
-    async fn extract_preprocessing(task: &mut Task, source_path: PathBuf, destination_path: &PathBuf, create_folder: &PathBuf)  {
+    async fn extract_pre_processing(task: &mut Task, source_path: PathBuf, destination_path: &PathBuf, create_folder: &PathBuf)  {
         if let Err(_) = fs::create_dir(&create_folder).await {
             let error_message = format!("File Manager: Cannot create {} folder.", create_folder.display());
             task.update_unprocessed(Err(error_message.clone())).await;
@@ -144,13 +158,13 @@ impl FileManager {
         }
     }
 
-    async fn extract_postprocessing(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
+    async fn extract_post_processing(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
         match result {
             Ok(Ok(_)) => {
                 match Self::file_count(&created_folder).await {
                     Ok(count) => {
                         task.update_unprocessed(Ok(count)).await;
-                        Self::task_manager_process(task).await;
+                        Self::forward_to_task_manager(task).await;
                     }
                     Err(_) => {
                         let error_message = format!("File Manager: An error occurred while reading folder {}.", created_folder.display());
@@ -175,15 +189,15 @@ impl FileManager {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
-        Self::extract_preprocessing(&mut task, source_path, &destination_path, &create_folder).await;
+        Self::extract_pre_processing(&mut task, source_path, &destination_path, &create_folder).await;
         let media_path = destination_path;
         let result = spawn_blocking(move || {
-            Self::media_preprocess(media_path)
+            Self::media_pre_process(media_path)
         }).await;
-        Self::extract_postprocessing(task, create_folder, result).await;
+        Self::extract_post_processing(task, create_folder, result).await;
     }
 
-    fn media_preprocess(media_path: PathBuf) -> Result<(), String> {
+    fn media_pre_process(media_path: PathBuf) -> Result<(), String> {
         let saved_path = media_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.jpeg"));
         let pipeline = match gstreamer::parse_launch(&pipeline_string) {
@@ -223,15 +237,15 @@ impl FileManager {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
-        Self::extract_preprocessing(&mut task, source_path, &destination_path, &create_folder).await;
+        Self::extract_pre_processing(&mut task, source_path, &destination_path, &create_folder).await;
         let zip_path = destination_path;
         let result = spawn_blocking(move || {
-            Self::zip_preprocess(&zip_path)
+            Self::zip_pre_process(&zip_path)
         }).await;
-        Self::extract_postprocessing(task, create_folder, result).await;
+        Self::extract_post_processing(task, create_folder, result).await;
     }
 
-    fn zip_preprocess(zip_path: &PathBuf) -> Result<(), String> {
+    fn zip_pre_process(zip_path: &PathBuf) -> Result<(), String> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = match File::open(&zip_path) {
             Ok(reader) => reader,
@@ -265,7 +279,42 @@ impl FileManager {
         Ok(())
     }
 
-    async fn draw_bounding_box() {
+    async fn draw_bounding_box(image_task: &mut ImageTask) -> Option<RgbImage>{
+        let config = Config::now().await;
+        let border_color = Rgb(config.border_color);
+        let text_color = Rgb(config.text_color);
+        let mut font_data = fs::read(config.font_path).await;
+        let image_path = image_task.image_filepath.clone();
+        match image::open(image_path) {
+            Ok(image) => {
+                let mut image = image.to_rgb8();
+                for bounding_box in &mut image_task.bounding_boxes {
+                    let base_rectangle = Rect::at(bounding_box.x1 as i32, bounding_box.y1 as i32).of_size(bounding_box.x2 - bounding_box.x1, bounding_box.y2 - bounding_box.y1);
+                    for i in 0..config.border_width {
+                        let offset_rect = Rect::at(base_rectangle.left() - i as i32, base_rectangle.top() - i as i32).of_size(base_rectangle.width() + 2 * i, base_rectangle.height() + 2 * i);
+                        draw_hollow_rect_mut(&mut image, offset_rect, border_color);
+                    }
+                    if let Ok(font_data) = &mut font_data {
+                        if let Some(font) = Font::try_from_bytes(font_data) {
+                            let scale = Scale::uniform(config.font_size);
+                            let text = format!("{}: {:2}%", bounding_box.name, bounding_box.confidence);
+                            let position_x = bounding_box.x1 as i32;
+                            let position_y = (bounding_box.y2 + config.border_width + 10) as i32;
+                            draw_text_mut(&mut image, text_color, position_x, position_y, scale, &font, &text);
+                        }
+                    }
+                }
+                Some(image)
+            }
+            Err(_) => None
+        }
+    }
+
+    async fn picture_post_processing(mut task: Task) {
+
+    }
+
+    async fn recombination_pre_processing() {
 
     }
 
@@ -288,7 +337,7 @@ impl FileManager {
         Ok(count)
     }
 
-    async fn task_manager_process(mut task: Task) {
+    async fn forward_to_task_manager(mut task: Task) {
         task.change_status(TaskStatus::Waiting);
         TaskManager::add_task(task).await;
     }
