@@ -7,20 +7,20 @@ use tokio::sync::RwLock;
 use std::time::Duration;
 use gstreamer::prelude::*;
 use zip::read::ZipArchive;
+use imageproc::rect::Rect;
+use image::{Rgb, RgbImage};
+use rusttype::{Font, Scale};
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use image::{Rgb, RgbImage};
-use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
-use imageproc::rect::Rect;
-use rusttype::{Font, Scale};
 use tokio::task::{JoinError, spawn_blocking};
-use crate::manager::result_repository::ResultRepository;
+use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
 use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::task::{Task, TaskStatus};
+use crate::manager::result_repository::ResultRepository;
 
 lazy_static! {
     static ref GLOBAL_FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager::new());
@@ -114,8 +114,8 @@ impl FileManager {
                     task.change_status(TaskStatus::PostProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => Self::picture_post_processing(task).await,
-                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::recombination_media(task).await,
-                        Some("zip") => Self::recombination_zip(task).await,
+                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::media_post_processing(task).await,
+                        Some("zip") => Self::zip_post_processing(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
                             task.update_unprocessed(Err(error_message.clone())).await;
@@ -280,7 +280,7 @@ impl FileManager {
         Ok(())
     }
 
-    async fn draw_bounding_box(image_task: &mut ImageTask) -> Result<RgbImage, String> {
+    async fn draw_bounding_box(image_task: &ImageTask) -> Result<RgbImage, String> {
         let config = Config::now().await;
         let border_color = Rgb(config.border_color);
         let text_color = Rgb(config.text_color);
@@ -289,7 +289,7 @@ impl FileManager {
         match image::open(image_path) {
             Ok(image) => {
                 let mut image = image.to_rgb8();
-                for bounding_box in &mut image_task.bounding_boxes {
+                for bounding_box in &image_task.bounding_boxes {
                     let base_rectangle = Rect::at(bounding_box.x1 as i32, bounding_box.y1 as i32).of_size(bounding_box.x2 - bounding_box.x1, bounding_box.y2 - bounding_box.y1);
                     for i in 0..config.border_width {
                         let offset_rect = Rect::at(base_rectangle.left() - i as i32, base_rectangle.top() - i as i32).of_size(base_rectangle.width() + 2 * i, base_rectangle.height() + 2 * i);
@@ -307,15 +307,22 @@ impl FileManager {
                 }
                 Ok(image)
             },
-            Err(_) => Err(format!("FileManager: Cannot read file {:?}.", image_path)),
+            Err(_) => Err(format!("FileManager: Cannot read file {:?}.", image_task.image_filepath.clone())),
         }
     }
 
     async fn picture_post_processing(mut task: Task) {
         match task.result.get(0) {
-            Some(task) => {
-                let source_path = task.image_filepath.clone();
-                let destination_path = Path::new(".").join("PostProcessing").join(task.image_filename.clone())
+            Some(image_task) => {
+                let destination_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
+                match Self::draw_bounding_box(image_task).await {
+                    Ok(image) => {
+                        if let Err(err) = image.save(destination_path) {
+                            Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.", err)).await;
+                        }
+                    }
+                    Err(err) => Logger::append_system_log(LogLevel::ERROR, err).await,
+                }
             },
             None => {
                 Logger::append_system_log(LogLevel::ERROR, "FileManager: Image Task disappeared.".to_string()).await;
