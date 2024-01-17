@@ -118,8 +118,8 @@ impl Node {
             }
             mem::take(&mut node.image_task)
         };
-        NodeCluster::remove_node(uuid).await;
         TaskManager::redistribute_task(image_task).await;
+        NodeCluster::remove_node(uuid).await;
         Logger::append_node_log(uuid, LogLevel::INFO, "Node: Terminating node.".to_string()).await;
     }
 
@@ -172,7 +172,7 @@ impl Node {
                     if let Err(err) = Node::transfer_task(node.clone(), &image_task).await {
                         Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
                         TaskManager::handle_image_task(image_task, false).await;
-                        return;
+                        continue;
                     }
                     let mut success = false;
                     let mut data_channel_available = true;
