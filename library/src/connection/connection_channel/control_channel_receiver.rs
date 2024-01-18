@@ -6,14 +6,14 @@ use crate::connection::packet::definition::PacketType;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::connection_channel::control_packet_channel::PacketSender;
 
-pub struct ReceiveThread {
+pub struct Receiver {
     node_id: Uuid,
     socket: ReadHalf,
     stop_signal: oneshot::Receiver<()>,
     control_packet_channel: PacketSender,
 }
 
-impl ReceiveThread {
+impl Receiver {
     pub fn new(node_id: Uuid, socket: ReadHalf, stop_signal: oneshot::Receiver<()>, control_packet_channel: PacketSender) -> Self {
         Self {
             node_id,

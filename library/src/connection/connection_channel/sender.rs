@@ -4,13 +4,13 @@ use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::definition::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 
-pub struct SendThread {
+pub struct Sender {
     node_id: Uuid,
     socket: WriteHalf,
     receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>
 }
 
-impl SendThread {
+impl Sender {
     pub fn new(node_id: Uuid, socket: WriteHalf, receiver: mpsc::UnboundedReceiver<Option<Box<dyn Packet + Send>>>) -> Self {
         Self {
             node_id,

@@ -49,7 +49,7 @@ impl Task {
     pub async fn panic(&mut self, error_message: String) {
         self.status = TaskStatus::Fail;
         self.error = Err(error_message);
-        ResultRepository::add_task(self.clone()).await;
+        ResultRepository::task_failed(self.clone()).await;
     }
 
     pub async fn update_unprocessed(&mut self, unprocessed: Result<usize, String>) {

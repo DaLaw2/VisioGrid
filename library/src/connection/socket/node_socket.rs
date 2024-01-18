@@ -1,3 +1,4 @@
+use tokio::time::sleep;
 use std::time::Duration;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -14,13 +15,10 @@ impl NodeSocket {
         let config = Config::now().await;
         let listener = loop {
             match TcpListener::bind(format!("127.0.0.1:{}", config.node_listen_port)).await {
-                Ok(listener) => {
-                    Logger::append_system_log(LogLevel::INFO, format!("Node Socket: Port binding successful.\nOn port {}.", config.node_listen_port)).await;
-                    break listener;
-                },
-                Err(_) => {
-                    Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nTry after {}s.", config.bind_retry_duration)).await;
-                    tokio::time::sleep(Duration::from_secs(config.bind_retry_duration)).await;
+                Ok(listener) => break listener,
+                Err(err) => {
+                    Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nReason: {}.", err)).await;
+                    sleep(Duration::from_secs(config.bind_retry_duration)).await;
                 }
             }
         };

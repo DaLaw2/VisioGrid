@@ -159,7 +159,7 @@ impl FileManager {
         }
     }
 
-    async fn extract_post_processing(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
+    async fn extract_process_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
         match result {
             Ok(Ok(_)) => {
                 match Self::file_count(&created_folder).await {
@@ -195,12 +195,12 @@ impl FileManager {
         let result = spawn_blocking(move || {
             Self::extract_media(media_path)
         }).await;
-        Self::extract_post_processing(task, create_folder, result).await;
+        Self::extract_process_result(task, create_folder, result).await;
     }
 
     fn extract_media(media_path: PathBuf) -> Result<(), String> {
         let saved_path = media_path.clone().with_extension("").to_path_buf();
-        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", media_path, saved_path.join("%d.jpeg"));
+        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! jpegenc ! multifilesink location={:?}", media_path, saved_path.join("%d.jpeg"));
         let pipeline = match gstreamer::parse_launch(&pipeline_string) {
             Ok(pipeline) => pipeline,
             Err(_) => return Err("File Manager: GStreamer cannot parse pipeline.".to_string())
@@ -243,7 +243,7 @@ impl FileManager {
         let result = spawn_blocking(move || {
             Self::extract_zip(&zip_path)
         }).await;
-        Self::extract_post_processing(task, create_folder, result).await;
+        Self::extract_process_result(task, create_folder, result).await;
     }
 
     fn extract_zip(zip_path: &PathBuf) -> Result<(), String> {
@@ -325,14 +325,18 @@ impl FileManager {
                 }
             },
             None => {
-                Logger::append_system_log(LogLevel::ERROR, "FileManager: Image Task disappeared.".to_string()).await;
-                ResultRepository::add_task(task).await;
+                //Impossible, it means that an ImageTask is missing.
+                Logger::append_system_log(LogLevel::ERROR, "FileManager: Internal Server Error".to_string()).await;
+                ResultRepository::task_failed(task).await;
             }
         }
     }
 
-    async fn recombination_pre_processing() {
+    async fn recombination_pre_processing(mut task: Task) {
+        let create_folder = Path::new(".").join("PostProcessing").join(task.media_filename).with_extension("");
+        for image_task in &mut task.result {
 
+        }
     }
 
     async fn media_post_processing(mut task: Task) {

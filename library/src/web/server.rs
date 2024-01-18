@@ -10,11 +10,10 @@ pub struct Server {
 
 impl Server {
     async fn new() -> Self {
-        let server = Self {
-            node_socket: NodeSocket::new().await,
-        };
         Logger::append_system_log(LogLevel::INFO, "Server online.".to_string()).await;
-        server
+        Self {
+            node_socket: NodeSocket::new().await,
+        }
     }
 
     pub fn run(mut self) {

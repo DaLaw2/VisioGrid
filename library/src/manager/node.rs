@@ -52,43 +52,37 @@ impl Node {
     pub async fn new(uuid: Uuid, socket_stream: SocketStream) -> Option<Self> {
         let config = Config::now().await;
         let (mut control_channel, mut control_packet_channel) = ControlChannel::new(uuid, socket_stream);
-        let timer = Instant::now();
-        let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-        while timer.elapsed() < timeout_duration {
-            let node = select! {
-                biased;
-                reply = control_packet_channel.node_information_packet.recv() => {
-                    match &reply {
-                        Some(packet) => {
-                            match serde_json::from_slice::<NodeInformation>(&packet.as_data_byte()) {
-                                Ok(information) => {
-                                    control_channel.send(ConfirmPacket::new()).await;
-                                    let node = Self {
-                                        uuid,
-                                        information,
-                                        terminate: false,
-                                        idle_unused: Performance::default(),
-                                        realtime_usage: Performance::default(),
-                                        image_task: VecDeque::new(),
-                                        previous_task: None,
-                                        control_channel,
-                                        data_channel: None,
-                                        control_packet_channel,
-                                        data_packet_channel: None,
-                                    };
-                                    Some(node)
-                                },
-                                Err(_) => None,
-                            }
-                        },
-                        None => None,
-                    }
-                },
-                _ = sleep(Duration::from_secs(config.internal_timestamp)) => continue,
-            };
-            return node;
+        select! {
+            biased;
+            reply = control_packet_channel.node_information_packet.recv() => {
+                match &reply {
+                    Some(packet) => {
+                        match serde_json::from_slice::<NodeInformation>(&packet.as_data_byte()) {
+                            Ok(information) => {
+                                control_channel.send(ConfirmPacket::new()).await;
+                                let node = Self {
+                                    uuid,
+                                    information,
+                                    terminate: false,
+                                    idle_unused: Performance::default(),
+                                    realtime_usage: Performance::default(),
+                                    image_task: VecDeque::new(),
+                                    previous_task: None,
+                                    control_channel,
+                                    data_channel: None,
+                                    control_packet_channel,
+                                    data_packet_channel: None,
+                                };
+                                Some(node)
+                            },
+                            Err(_) => None,
+                        }
+                    },
+                    None => None,
+                }
+            },
+            _ = sleep(Duration::from_secs(config.control_channel_timeout)) => None,
         }
-        None
     }
 
     pub async fn add_task(node: Arc<RwLock<Node>>, image_task: ImageTask) {
@@ -171,7 +165,7 @@ impl Node {
                 Some(mut image_task) => {
                     if let Err(err) = Node::transfer_task(node.clone(), &image_task).await {
                         Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
-                        TaskManager::handle_image_task(image_task, false).await;
+                        TaskManager::submit_image_task(image_task, false).await;
                         continue;
                     }
                     let mut success = false;
@@ -184,7 +178,7 @@ impl Node {
                     loop {
                         if timeout_timer.elapsed() > timeout_duration {
                             Logger::append_node_log(uuid, LogLevel::WARNING, "Node: Data Channel timeout.".to_string()).await;
-                            TaskManager::handle_image_task(image_task, success).await;
+                            TaskManager::submit_image_task(image_task, false).await;
                             Node::terminate(node.clone()).await;
                             return;
                         }
@@ -202,11 +196,17 @@ impl Node {
                             Some(data_packet_channel) => {
                                 select! {
                                     biased;
+                                    reply = data_packet_channel.still_process_reply_packet.recv() => {
+                                        match &reply {
+                                            Some(_) => timeout_timer = Instant::now(),
+                                            None => continue,
+                                        }
+                                    },
                                     reply = data_packet_channel.result_packet.recv() => {
                                         match &reply {
                                             Some(reply_packet) => {
                                                 if let Ok(task_result) = serde_json::from_slice::<TaskResult>(reply_packet.as_data_byte()) {
-                                                    if let Ok(bounding_box) = task_result.result {
+                                                    if let Ok(bounding_box) = task_result.into() {
                                                         image_task.bounding_boxes = bounding_box;
                                                         success = true;
                                                     }
@@ -214,12 +214,6 @@ impl Node {
                                                 break;
                                             },
                                             None => break,
-                                        }
-                                    },
-                                    reply = data_packet_channel.still_process_reply_packet.recv() => {
-                                        match &reply {
-                                            Some(_) => timeout_timer = Instant::now(),
-                                            None => continue,
                                         }
                                     },
                                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
@@ -235,7 +229,7 @@ impl Node {
                         Node::create_data_channel(node.clone()).await;
                         success = false;
                     }
-                    TaskManager::handle_image_task(image_task, success).await;
+                    TaskManager::submit_image_task(image_task, success).await;
                 },
                 None => {
                     match Node::steal_task(node.clone()).await {
@@ -274,6 +268,7 @@ impl Node {
                                 match &mut node.write().await.data_packet_channel {
                                     Some(data_packet_channel) => {
                                         select! {
+                                            biased;
                                             reply = data_packet_channel.alive_reply_packet.recv() => {
                                                 match &reply {
                                                     Some(_) => timeout_timer = Instant::now(),
@@ -305,14 +300,17 @@ impl Node {
             let port = match PortPool::allocate_port().await {
                 Some(port) => port,
                 None => {
-                    sleep(Duration::from_millis(config.internal_timestamp)).await;
+                    let uuid = node.read().await.uuid;
+                    Logger::append_node_log(uuid, LogLevel::WARNING, "Node: No available port for Data Channel".to_string()).await;
+                    sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
             };
             match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
                 Ok(listener) => break (listener, port),
-                Err(_) => {
-                    sleep(Duration::from_millis(config.internal_timestamp)).await;
+                Err(err) => {
+                    Logger::append_system_log(LogLevel::ERROR, format!("Node: Port binding failed.\nReason: {}.\n", err)).await;
+                    sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
             }
@@ -406,7 +404,7 @@ impl Node {
         let config = Config::now().await;
         let filesize = match fs::metadata(&filepath).await {
             Ok(metadata) => metadata.len(),
-            Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
+            Err(err) => return Err(format!("Node: Cannot read file {}.\nReason: {}", filepath.display(), err)),
         };
         match &mut node.write().await.data_channel {
             Some(data_channel) => data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await,
@@ -438,7 +436,7 @@ impl Node {
                     }
                 }
             },
-            Err(_) => return Err(format!("Node: Cannot read file {}.", filepath.display())),
+            Err(err) => return Err(format!("Node: Cannot read file {}.\nReason: {}", filepath.display(), err)),
         }
         let time = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);
@@ -473,7 +471,7 @@ impl Node {
                 }
             }
         }
-        Err("Node: File retransmission limit reached.".to_string())
+        Err("Node: File transfer timeout.".to_string())
     }
 
     pub async fn steal_task(node: Arc<RwLock<Node>>) -> Option<ImageTask> {

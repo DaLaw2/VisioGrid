@@ -90,7 +90,7 @@ impl TaskManager {
                 }
                 if !assigned {
                     Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be assigned to any node.", image_task.task_uuid)).await;
-                    Self::handle_image_task(image_task, false).await;
+                    Self::submit_image_task(image_task, false).await;
                 }
             }
             Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
@@ -136,7 +136,7 @@ impl TaskManager {
                     }
                     if !assigned {
                         Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be assigned to any node.", image_task.task_uuid)).await;
-                        Self::handle_image_task(image_task, false).await;
+                        Self::submit_image_task(image_task, false).await;
                     }
                     image_id += 1;
                 }
@@ -180,7 +180,7 @@ impl TaskManager {
             }
             if !assigned {
                 Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {} cannot be reassigned to any node.", image_task.task_uuid)).await;
-                Self::handle_image_task(image_task, false).await;
+                Self::submit_image_task(image_task, false).await;
             }
         }
     }
@@ -192,7 +192,7 @@ impl TaskManager {
         }
     }
 
-    pub async fn handle_image_task(image_task: ImageTask, success: bool) {
+    pub async fn submit_image_task(image_task: ImageTask, success: bool) {
         let uuid = image_task.task_uuid;
         let mut complete = false;
         let mut task_manager = Self::instance_mut().await;
