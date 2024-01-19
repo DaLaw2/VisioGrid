@@ -27,7 +27,7 @@ impl Logger {
         let log_entry = format!("{} [{}] {}", timestamp, "INFO", "Log enable.");
         Self {
             system_log: log_entry,
-            node_log: HashMap::new()
+            node_log: HashMap::new(),
         }
     }
 

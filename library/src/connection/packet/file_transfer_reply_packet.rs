@@ -14,7 +14,7 @@ impl FileTransferReplyPacket {
             length: length_to_byte(16),
             id: PacketType::FileTransferReplyPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::FileTransferReplyPacket
+            packet_type: PacketType::FileTransferReplyPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl FileTransferReplyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::FileTransferReplyPacket
+            packet_type: PacketType::FileTransferReplyPacket,
         }
     }
 }

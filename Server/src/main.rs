@@ -6,7 +6,6 @@ use library::manager::file_manager::FileManager;
 
 #[actix_web::main]
 async fn main() -> Result<(), Error> {
-    FileManager::initialize().await;
     FileManager::run().await;
     HttpServer::new(|| {
         App::new()
@@ -17,6 +16,6 @@ async fn main() -> Result<(), Error> {
         .bind("127.0.0.1:8080")?
         .run()
         .await?;
-    FileManager::cleanup().await;
+    FileManager::terminate().await;
     Ok(())
 }

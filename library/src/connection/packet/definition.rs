@@ -58,7 +58,7 @@ impl PacketType {
             14 => PacketType::StillProcessReplyPacket,
             15 => PacketType::TaskInfoPacket,
             16 => PacketType::TaskInfoReplyPacket,
-            _ => PacketType::BasePacket
+            _ => PacketType::BasePacket,
         }
     }
 }

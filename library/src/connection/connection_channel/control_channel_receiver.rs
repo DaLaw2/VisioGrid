@@ -37,7 +37,7 @@ impl Receiver {
                                 _ => {
                                     Logger::append_node_log(self.node_id, LogLevel::WARNING, "Control Channel Receiver: Receive unknown packet.".to_string()).await;
                                     Ok(())
-                                }
+                                },
                             };
                             if result.is_err() {
                                 Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel Receiver: Client disconnect.".to_string()).await;
@@ -47,10 +47,10 @@ impl Receiver {
                         Err(_) => {
                             Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel Receiver: Client disconnect.".to_string()).await;
                             break;
-                        }
+                        },
                     }
-                }
-                _ = &mut self.stop_signal => break
+                },
+                _ = &mut self.stop_signal => break,
             }
         }
     }

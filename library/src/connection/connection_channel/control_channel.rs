@@ -30,7 +30,7 @@ impl ControlChannel {
         let control_channel = Self {
             node_id,
             sender: sender_tx,
-            stop_signal: Some(stop_signal_tx)
+            stop_signal: Some(stop_signal_tx),
         };
         (control_channel, control_packet_channel_rx)
     }
@@ -38,21 +38,21 @@ impl ControlChannel {
     pub async fn disconnect(&mut self) {
         match self.sender.send(None) {
             Ok(_) => Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel: Destroyed Sender successfully.".to_string()).await,
-            Err(_) => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await
+            Err(err) => Logger::append_node_log(self.node_id, LogLevel::ERROR, format!("Control Channel: Failed to destroy Sender.\nReason: {}.", err)).await,
         }
         match self.stop_signal.take() {
             Some(stop_signal) => {
                 let _ = stop_signal.send(());
                 Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await;
             },
-            None => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await
+            None => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await,
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if let Err(err) = self.sender.send(Some(packet)) {
-            Logger::append_node_log(self.node_id, LogLevel::ERROR, format!("Control Channel: Failed to send packet to client.\nReason: {}", err)).await;
+            Logger::append_node_log(self.node_id, LogLevel::ERROR, format!("Control Channel: Failed to send packet to client.\nReason: {}.", err)).await;
         }
     }
 }

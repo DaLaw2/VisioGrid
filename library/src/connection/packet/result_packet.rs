@@ -14,7 +14,7 @@ impl ResultPacket {
             length: length_to_byte(16),
             id: PacketType::ResultPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::ResultPacket
+            packet_type: PacketType::ResultPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl ResultPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::ResultPacket
+            packet_type: PacketType::ResultPacket,
         }
     }
 }

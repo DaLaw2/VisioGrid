@@ -48,13 +48,13 @@ impl SocketStream {
 }
 
 pub struct WriteHalf {
-    write_half: OwnedWriteHalf
+    write_half: OwnedWriteHalf,
 }
 
 impl WriteHalf {
     pub fn new(write_half: OwnedWriteHalf) -> Self {
         Self {
-            write_half
+            write_half,
         }
     }
 
@@ -77,13 +77,13 @@ impl WriteHalf {
 }
 
 pub struct ReadHalf {
-    read_half: OwnedReadHalf
+    read_half: OwnedReadHalf,
 }
 
 impl ReadHalf {
     pub fn new(read_half: OwnedReadHalf) -> Self {
         Self {
-            read_half
+            read_half,
         }
     }
 

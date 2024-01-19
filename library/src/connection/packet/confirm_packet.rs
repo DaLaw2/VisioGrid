@@ -14,7 +14,7 @@ impl ConfirmPacket {
             length: length_to_byte(16),
             id: PacketType::ConfirmPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::ConfirmPacket
+            packet_type: PacketType::ConfirmPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl ConfirmPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::ConfirmPacket
+            packet_type: PacketType::ConfirmPacket,
         }
     }
 }

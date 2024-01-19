@@ -15,7 +15,7 @@ impl DataChannelPortPacket {
             length: length_to_byte(16 + port.len()),
             id: PacketType::DataChannelPortPacket.as_id_byte(),
             data: port,
-            packet_type: PacketType::DataChannelPortPacket
+            packet_type: PacketType::DataChannelPortPacket,
         }
     }
 
@@ -24,7 +24,7 @@ impl DataChannelPortPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::DataChannelPortPacket
+            packet_type: PacketType::DataChannelPortPacket,
         }
     }
 }

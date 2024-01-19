@@ -91,13 +91,13 @@ impl Node {
 
     pub async fn run(node: Arc<RwLock<Node>>) {
         Node::create_data_channel(node.clone()).await;
-        let node_for_performance = node.clone();
+        let for_performance = node.clone();
+        let for_task_management = node;
         tokio::spawn(async move {
-            Node::update_performance(node_for_performance).await;
+            Node::update_performance(for_performance).await;
         });
-        let node_for_task_management = node;
         tokio::spawn(async move {
-            Node::task_management(node_for_task_management).await;
+            Node::task_management(for_task_management).await;
         });
     }
 
@@ -261,7 +261,7 @@ impl Node {
                                         None => {
                                             data_channel_available = false;
                                             break;
-                                        }
+                                        },
                                     }
                                     polling_times += 1;
                                 }
@@ -335,7 +335,7 @@ impl Node {
                         Err(_) => {
                             node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
                             continue;
-                        }
+                        },
                     }
                 },
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
@@ -495,7 +495,7 @@ impl Node {
                                 cache = true;
                             }
                         }
-                    }
+                    },
                     None => continue,
                 }
                 if steal {
@@ -503,7 +503,7 @@ impl Node {
                         Some(mut image_task) => {
                             image_task.cache = cache;
                             return Some(image_task);
-                        }
+                        },
                         None => continue,
                     }
                 }

@@ -14,7 +14,7 @@ impl TaskInfoReplyPacket {
             length: length_to_byte(16),
             id: PacketType::TaskInfoReplyPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::TaskInfoReplyPacket
+            packet_type: PacketType::TaskInfoReplyPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl TaskInfoReplyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::TaskInfoReplyPacket
+            packet_type: PacketType::TaskInfoReplyPacket,
         }
     }
 }

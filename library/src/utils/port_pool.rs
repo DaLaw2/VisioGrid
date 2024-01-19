@@ -20,7 +20,7 @@ impl PortPool {
         Self {
             start,
             end,
-            available
+            available,
         }
     }
 

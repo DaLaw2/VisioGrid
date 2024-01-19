@@ -14,7 +14,7 @@ impl AliveReplyPacket {
             length: length_to_byte(16),
             id: PacketType::AliveReplyPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::AliveReplyPacket
+            packet_type: PacketType::AliveReplyPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl AliveReplyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::AliveReplyPacket
+            packet_type: PacketType::AliveReplyPacket,
         }
     }
 }

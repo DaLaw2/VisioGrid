@@ -92,7 +92,7 @@ impl NodeCluster {
     pub async fn filter_node_by_vram(vram_threshold: f64) -> Vec<(Uuid, f64)> {
         let node_cluster = GLOBAL_CLUSTER.read().await;
         let nodes = node_cluster.vram_sorting.clone();
-        let mut filtered_nodes: Vec<_> = nodes.into_iter()
+        let mut filtered_nodes = nodes.into_iter()
             .filter(|&(_, node_vram)| {
                 let vram = if node_vram.is_nan() { 0.0 } else { node_vram };
                 vram >= vram_threshold

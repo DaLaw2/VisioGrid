@@ -45,7 +45,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
         }
         let (field_name, mut file_name) = match (content_disposition.get_name(), content_disposition.get_filename()) {
             (Some(field_name), Some(file_name)) => (field_name, sanitize(file_name)),
-            _ => continue
+            _ => continue,
         };
         if file_name.is_empty() {
             return HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid filename.".to_string()))));
@@ -61,7 +61,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
                 media_filename = file_name.clone();
                 Path::new(".").join("SavedFile").join(file_name)
             },
-            _ => return HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string()))))
+            _ => return HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))),
         };
         match File::create(&file_path).await {
             Ok(mut file) => {
@@ -72,11 +72,11 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
                                 return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
                             }
                         },
-                        Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
+                        Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None))),
                     }
                 }
             }
-            Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
+            Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None))),
         }
     }
     match InferenceType::from_str(&*model_type) {
@@ -84,7 +84,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
             let new_task = Task::new(uuid, model_filename, media_filename, inference_type).await;
             FileManager::add_pre_process_task(new_task).await;
             HttpResponse::Ok().json(OperationStatus::new(true, None))
-        }
-        Err(_) => HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid inference type.".to_string()))))
+        },
+        Err(_) => HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid inference type.".to_string())))),
     }
 }

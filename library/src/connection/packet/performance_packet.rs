@@ -14,7 +14,7 @@ impl PerformancePacket {
             length: length_to_byte(16 + data.len()),
             id: PacketType::PerformancePacket.as_id_byte(),
             data,
-            packet_type: PacketType::PerformancePacket
+            packet_type: PacketType::PerformancePacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl PerformancePacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::PerformancePacket
+            packet_type: PacketType::PerformancePacket,
         }
     }
 }

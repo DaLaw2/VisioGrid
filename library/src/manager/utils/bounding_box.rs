@@ -7,5 +7,5 @@ pub struct BoundingBox {
     pub x2: u32,
     pub y1: u32,
     pub y2: u32,
-    pub confidence: f64
+    pub confidence: f64,
 }

@@ -14,7 +14,7 @@ impl StillProcessReplyPacket {
             length: length_to_byte(16),
             id: PacketType::AlivePacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::AlivePacket
+            packet_type: PacketType::StillProcessReplyPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl StillProcessReplyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::AlivePacket
+            packet_type: PacketType::StillProcessReplyPacket,
         }
     }
 }

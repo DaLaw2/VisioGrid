@@ -24,7 +24,7 @@ impl DataPacketChannel {
                 result_packet: result_packet_rx,
                 still_process_reply_packet: still_process_reply_packet_rx,
                 task_info_reply_packet: task_info_reply_packet_rx,
-            }
+            },
         )
     }
 }

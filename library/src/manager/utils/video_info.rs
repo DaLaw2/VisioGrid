@@ -20,7 +20,7 @@ pub struct VideoInfo {
 
 impl VideoInfo {
     pub fn default() -> Self {
-        VideoInfo {
+        Self {
             format: String::new(),
             stream_format: String::new(),
             alignment: String::new(),

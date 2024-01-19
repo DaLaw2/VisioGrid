@@ -7,7 +7,7 @@ use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct NodeSocket {
-    listener: TcpListener
+    listener: TcpListener,
 }
 
 impl NodeSocket {
@@ -19,11 +19,11 @@ impl NodeSocket {
                 Err(err) => {
                     Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nReason: {}.", err)).await;
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
-                }
+                },
             }
         };
         Self {
-            listener
+            listener,
         }
     }
 

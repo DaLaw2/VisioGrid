@@ -14,7 +14,7 @@ impl FileBodyPacket {
             length: length_to_byte(16 + data.len()),
             id: PacketType::FileBodyPacket.as_id_byte(),
             data,
-            packet_type: PacketType::FileBodyPacket
+            packet_type: PacketType::FileBodyPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl FileBodyPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::FileBodyPacket
+            packet_type: PacketType::FileBodyPacket,
         }
     }
 }

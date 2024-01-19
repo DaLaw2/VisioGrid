@@ -10,7 +10,7 @@ impl OperationStatus {
     pub fn new(success: bool, error: Option<String>) -> Self {
         Self {
             success,
-            error
+            error,
         }
     }
 }

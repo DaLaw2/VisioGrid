@@ -27,7 +27,7 @@ impl Sender {
                         Logger::append_node_log(self.node_id, LogLevel::ERROR, "Sender: Failed to send packet.".to_string()).await;
                     }
                 },
-                None => break
+                None => break,
             }
         }
     }

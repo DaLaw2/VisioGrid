@@ -14,7 +14,7 @@ impl ControlPacket {
             length: length_to_byte(16),
             id: PacketType::ControlPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::ControlPacket
+            packet_type: PacketType::ControlPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl ControlPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::ControlPacket
+            packet_type: PacketType::ControlPacket,
         }
     }
 }

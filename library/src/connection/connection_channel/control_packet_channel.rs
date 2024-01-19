@@ -18,7 +18,7 @@ impl ControlPacketChannel {
                 control_reply_packet: control_reply_packet_rx,
                 node_information_packet: node_information_packet_rx,
                 performance_packet: performance_packet_rx,
-            }
+            },
         )
     }
 }

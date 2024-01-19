@@ -12,6 +12,6 @@ async fn javascript(info: web::Path<(String,)>) -> impl Responder {
     let path = format!("javascript/{}", filename);
     match StaticFiles::get(&path) {
         Some(file) => HttpResponse::Ok().content_type("application/javascript").body(file.data),
-        None => HttpResponse::NotFound().body("Not Found")
+        None => HttpResponse::NotFound().body("Not Found"),
     }
 }

@@ -15,7 +15,7 @@ impl FileHeaderPacket {
             length: length_to_byte(16 + data.len()),
             id: PacketType::FileHeaderPacket.as_id_byte(),
             data: data.as_bytes().to_vec(),
-            packet_type: PacketType::FileHeaderPacket
+            packet_type: PacketType::FileHeaderPacket,
         }
     }
 
@@ -24,7 +24,7 @@ impl FileHeaderPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::FileHeaderPacket
+            packet_type: PacketType::FileHeaderPacket,
         }
     }
 }

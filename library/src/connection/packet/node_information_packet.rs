@@ -14,7 +14,7 @@ impl NodeInformationPacket {
             length: length_to_byte(16),
             id: PacketType::NodeInformationPacket.as_id_byte(),
             data: Vec::new(),
-            packet_type: PacketType::NodeInformationPacket
+            packet_type: PacketType::NodeInformationPacket,
         }
     }
 
@@ -23,7 +23,7 @@ impl NodeInformationPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::NodeInformationPacket
+            packet_type: PacketType::NodeInformationPacket,
         }
     }
 }

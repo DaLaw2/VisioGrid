@@ -15,7 +15,7 @@ impl TaskInfoPacket {
             length: length_to_byte(16),
             id: PacketType::TaskInfoPacket.as_id_byte(),
             data: Vec::from(task_info.to_string().as_bytes()),
-            packet_type: PacketType::TaskInfoPacket
+            packet_type: PacketType::TaskInfoPacket,
         }
     }
 
@@ -24,7 +24,7 @@ impl TaskInfoPacket {
             length: base_packet.length,
             id: base_packet.id,
             data: base_packet.data,
-            packet_type: PacketType::TaskInfoPacket
+            packet_type: PacketType::TaskInfoPacket,
         }
     }
 }

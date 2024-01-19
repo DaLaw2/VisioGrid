@@ -10,7 +10,6 @@ use crate::manager::file_manager::FileManager;
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::task::{Task, TaskStatus};
-use crate::manager::result_repository::ResultRepository;
 
 lazy_static! {
     static ref GLOBAL_TASK_MANAGER: RwLock<TaskManager> = RwLock::new(TaskManager::new());
@@ -118,7 +117,7 @@ impl TaskManager {
                         let node_ram = match NodeCluster::get_node(node_id).await {
                             Some(node) => node.read().await.idle_unused().ram,
                             None => {
-                                Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
+                                Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Node {} does not exist.", node_id)).await;
                                 0.0
                             }
                         };
@@ -165,7 +164,7 @@ impl TaskManager {
                 let node_ram = match NodeCluster::get_node(node_id).await {
                     Some(node) => node.read().await.idle_unused().ram,
                     None => {
-                        Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Node {} does not exist.", node_id)).await;
+                        Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Node {} does not exist.", node_id)).await;
                         continue;
                     }
                 };

@@ -1,11 +1,7 @@
 use tokio::sync::RwLock;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
-use std::ffi::OsStr;
-use tokio::fs;
-use std::path::Path;
 use crate::manager::utils::task::Task;
-use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {
     static ref GLOBAL_RESULT_REPOSITORY: RwLock<ResultRepository> = RwLock::new(ResultRepository::new());
