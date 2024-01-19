@@ -8,3 +8,4 @@ pub mod performance;
 pub mod task;
 pub mod task_info;
 pub mod task_result;
+pub mod video_info;

@@ -54,8 +54,6 @@ impl Config {
 
     pub fn validate(config: &Config) -> bool {
         Config::validate_mini_second(config.internal_timestamp)
-            && Config::validate_port(config.node_listen_port)
-            && Config::validate_port(config.http_server_bind_port)
             && Config::validate_second(config.bind_retry_duration)
             && Config::validate_second(config.node_idle_duration)
             && Config::validate_mini_second(config.polling_interval)
@@ -75,16 +73,12 @@ impl Config {
         second <= 86400
     }
 
-    fn validate_port(port: u16) -> bool {
-        port <= 65535
-    }
-
     fn validate_port_range(port: [u16; 2]) -> bool {
         let (start, end) = match (port.get(0), port.get(1)) {
             (Some(start), Some(end)) => (*start, *end),
             _ => (0_u16, 0_u16),
         };
-        Self::validate_port(start) && Self::validate_port(end) && end > start
+        end > start
     }
 
     fn validate_border_width(width: u32) -> bool {

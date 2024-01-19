@@ -25,17 +25,7 @@ impl ResultRepository {
     }
 
     async fn cleanup(task: &Task) {
-        // let model_filepath = Path::new(".").join("SavedModel").join(&task.media_filename);
-        // let result_filepath = Path::new(".").join("PostProcessing").join()
-        // if let Err(_) = fs::remove_file(model_filepath).await {
-        //     Logger::append_system_log(LogLevel::WARNING, format!("Result Repository: Unable to clear model files for task {}.\nReason: {}", task.uuid, err)).await;
-        // }
-        // match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
-        //     Some("png") | Some("jpg") | Some("jpeg") => {},
-        //     _ => {
-        //
-        //     },
-        // }
+
     }
 
     pub async fn task_failed(task: Task) {

@@ -13,6 +13,10 @@ use rusttype::{Font, Scale};
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::io::Write;
+use futures::TryFutureExt;
+use gstreamer::glib::PropertyGet;
+use gstreamer_pbutils::{self, prelude::*, Discoverer};
 use tokio::task::{JoinError, spawn_blocking};
 use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
 use crate::utils::config::Config;
@@ -21,6 +25,7 @@ use crate::manager::task_manager::TaskManager;
 use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::task::{Task, TaskStatus};
 use crate::manager::result_repository::ResultRepository;
+use crate::manager::utils::video_info::VideoInfo;
 
 lazy_static! {
     static ref GLOBAL_FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager::new());
@@ -91,7 +96,7 @@ impl FileManager {
                     task.change_status(TaskStatus::PreProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => Self::picture_pre_processing(task).await,
-                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::media_pre_process(task).await,
+                        Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::video_pre_process(task).await,
                         Some("zip") => Self::zip_pre_process(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
@@ -114,7 +119,7 @@ impl FileManager {
                     task.change_status(TaskStatus::PostProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => Self::picture_post_processing(task).await,
-                        Some("gif") | Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::media_post_processing(task).await,
+                        Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::video_post_processing(task).await,
                         Some("zip") => Self::zip_post_processing(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
@@ -145,13 +150,13 @@ impl FileManager {
     }
 
     async fn extract_pre_processing(task: &mut Task, source_path: PathBuf, destination_path: &PathBuf, create_folder: &PathBuf)  {
-        if let Err(_) = fs::create_dir(&create_folder).await {
+        if fs::create_dir(&create_folder).await.is_err() {
             let error_message = format!("File Manager: Cannot create {} folder.", create_folder.display());
             task.update_unprocessed(Err(error_message.clone())).await;
             Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
-        if let Err(_) = fs::rename(&source_path, &destination_path).await {
+        if fs::rename(&source_path, &destination_path).await.is_err() {
             let error_message = format!("File Manager: Cannot to move file from {} to {}.", source_path.display(), destination_path.display());
             task.update_unprocessed(Err(error_message.clone())).await;
             Logger::append_system_log(LogLevel::INFO, error_message).await;
@@ -186,51 +191,82 @@ impl FileManager {
         }
     }
 
-    async fn media_pre_process(mut task: Task) {
+    async fn video_pre_process(mut task: Task) {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
         Self::extract_pre_processing(&mut task, source_path, &destination_path, &create_folder).await;
-        let media_path = destination_path;
+        let video_path = destination_path;
+        if let Err(err) = Self::extract_video_info(video_path.clone()).await {
+            Logger::append_system_log(LogLevel::ERROR, err).await;
+        }
         let result = spawn_blocking(move || {
-            Self::extract_media(media_path)
+            Self::extract_video(video_path)
         }).await;
         Self::extract_process_result(task, create_folder, result).await;
     }
 
-    fn extract_media(media_path: PathBuf) -> Result<(), String> {
-        let saved_path = media_path.clone().with_extension("").to_path_buf();
-        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! jpegenc ! multifilesink location={:?}", media_path, saved_path.join("%d.jpeg"));
-        let pipeline = match gstreamer::parse_launch(&pipeline_string) {
-            Ok(pipeline) => pipeline,
-            Err(_) => return Err("File Manager: GStreamer cannot parse pipeline.".to_string())
-        };
-        let bus = match pipeline.bus() {
-            Some(bus) => bus,
-            None => return Err("File Manager: Unable to get pipeline bus.".to_string())
-        };
-        if let Err(_) = pipeline.set_state(gstreamer::State::Playing) {
-            return Err("File Manager: Unable to set pipeline to playing.".to_string());
+    async fn extract_video_info(video_path: PathBuf) -> Result<(), String> {
+        let absolute_path = video_path.canonicalize().map_err(|_| "File Manager: Unable to get absolute path".to_string())?;
+        let clean_path = absolute_path.to_string_lossy().trim_start_matches(r"\\?\").replace("\\", "/");
+        let discoverer = Discoverer::new(gstreamer::ClockTime::from_seconds(5))
+            .map_err(|_| "File Manager: Failed to create Discoverer element.")?;
+        let info = discoverer.discover_uri(&*format!("file:///{}", clean_path))
+            .map_err(|_| "File Manager: Failed to get video info.")?;
+        let mut video_info = VideoInfo::default();
+        if let Some(stream) = info.video_streams().get(0) {
+            if let Some(caps) = stream.caps() {
+                if let Some(structure) = caps.structure(0) {
+                    video_info.format = structure.name().to_string();
+                    for field in structure.fields() {
+                        match field.as_str() {
+                            "stream-format" => video_info.stream_format = structure.get::<String>(field).unwrap_or_default(),
+                            "alignment" => video_info.alignment = structure.get::<String>(field).unwrap_or_default(),
+                            "level" => video_info.level = structure.get::<String>(field).unwrap_or_default(),
+                            "profile" => video_info.profile = structure.get::<String>(field).unwrap_or_default(),
+                            "width" => video_info.width = structure.get::<i32>(field).unwrap_or_default(),
+                            "height" => video_info.height = structure.get::<i32>(field).unwrap_or_default(),
+                            "framerate" => video_info.framerate = structure.get::<gstreamer::Fraction>(field).map_or_else(|_| "0/1".to_string(), |f| f.to_string()),
+                            "pixel-aspect-ratio" => video_info.pixel_aspect_ratio = structure.get::<gstreamer::Fraction>(field).map_or_else(|_| "1/1".to_string(), |f| f.to_string()),
+                            "coded-picture-structure" => video_info.coded_picture_structure = structure.get::<String>(field).unwrap_or_default(),
+                            "chroma-format" => video_info.chroma_format = structure.get::<String>(field).unwrap_or_default(),
+                            "bit-depth-luma" => video_info.bit_depth_luma = structure.get::<u32>(field).unwrap_or_default(),
+                            "bit-depth-chroma" => video_info.bit_depth_chroma = structure.get::<u32>(field).unwrap_or_default(),
+                            "colorimetry" => video_info.colorimetry = structure.get::<String>(field).unwrap_or_default(),
+                            _ => (),
+                        }
+                    }
+                }
+            }
         }
-        for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
-            use gstreamer::MessageView;
+        let toml_string = toml::to_string(&video_info).map_err(|_| "File Manager: Unable to serialize video info.".to_string())?;
+        let toml_path = video_path.with_extension("toml");
+        fs::write(&toml_path, toml_string).await.map_err(|_| "File Manager: Unable to write video info to TOML file.".to_string())?;
+        Ok(())
+    }
 
+    fn extract_video(video_path: PathBuf) -> Result<(), String> {
+        let saved_path = video_path.clone().with_extension("").to_path_buf();
+        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%d.png"));
+        let pipeline = gstreamer::parse_launch(&pipeline_string)
+            .map_err(|_| "File Manager: GStreamer cannot parse pipeline.".to_string())?;
+        let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
+        pipeline.set_state(gstreamer::State::Playing).map_err(|_| "File Manager: Unable to set pipeline to playing.".to_string())?;
+        for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
             match message.view() {
-                MessageView::Eos(..) => break,
-                MessageView::Error(_) => {
+                gstreamer::MessageView::Eos(..) => break,
+                gstreamer::MessageView::Error(_) => {
                     return if let Some(src) = message.src() {
                         let path = src.path_string();
-                        Err(format!("File Manager: Error from {}.", path))
+                        Err(format!("File Manager: An error occurred in gstreamer.\nError from {}.", path))
                     } else {
-                        Err("File Manager: Error from an unknown source.".to_string())
+                        Err("File Manager: An unknown error occurred in gstreamer.".to_string())
                     }
                 },
                 _ => (),
             }
         }
-        if let Err(_) = pipeline.set_state(gstreamer::State::Null) {
-            return Err("File Manager: Unable to set pipeline to null".to_string());
-        }
+        pipeline.set_state(gstreamer::State::Null).map_err(|_| "File Manager: Unable to set pipeline to null".to_string())?;
         Ok(())
     }
 
@@ -248,28 +284,16 @@ impl FileManager {
 
     fn extract_zip(zip_path: &PathBuf) -> Result<(), String> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
-        let reader = match File::open(&zip_path) {
-            Ok(reader) => reader,
-            Err(_) => return Err(format!("File Manager: Unable to open ZIP file {}.", zip_path.display())),
-        };
-        let mut archive = match ZipArchive::new(reader) {
-            Ok(archive) => archive,
-            Err(_) => return Err(format!("File Manager: Unable to read {} archive.", zip_path.display())),
-        };
+        let reader = File::open(&zip_path).map_err(|_| format!("File Manager: Unable to open ZIP file {}.", zip_path.display()))?;
+        let mut archive = ZipArchive::new(reader).map_err(|_| format!("File Manager: Unable to read {} archive.", zip_path.display()))?;
         let output_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
-            let mut file = match archive.by_index(i) {
-                Ok(file) => file,
-                Err(_) => return Err(format!("File Manager: Unable to access {} entry by index.", zip_path.display())),
-            };
+            let mut file = archive.by_index(i).map_err(|_| format!("File Manager: Unable to access {} entry by index.", zip_path.display()))?;
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
                     if allowed_extensions.contains(&extension.to_str().unwrap_or("")) {
                         let output_filepath = output_folder.join(enclosed_path.file_name().unwrap_or_default());
-                        let mut output_file = match File::create(&output_filepath) {
-                            Ok(file) => file,
-                            Err(_) => return Err(format!("File Manager: Cannot create output file {}: ", output_filepath.display())),
-                        };
+                        let mut output_file = File::create(&output_filepath).map_err(|_| format!("File Manager: Cannot create output file {}: ", output_filepath.display()))?;
                         if let Err(err) = std::io::copy(&mut file, &mut output_file) {
                             return Err(format!("File Manager: Unable to write to output file {}.", err));
                         }
@@ -339,11 +363,11 @@ impl FileManager {
         }
     }
 
-    async fn media_post_processing(mut task: Task) {
+    async fn video_post_processing(mut task: Task) {
 
     }
 
-    async fn recombination_media() {
+    async fn recombination_video() {
 
     }
 
