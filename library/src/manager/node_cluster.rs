@@ -17,6 +17,7 @@ pub struct NodeCluster {
     size: usize,
     nodes: HashMap<Uuid, Arc<RwLock<Node>>>,
     vram_sorting: Vec<(Uuid, f64)>,
+    terminate: bool,
 }
 
 impl NodeCluster {
@@ -25,6 +26,7 @@ impl NodeCluster {
             size: 0_usize,
             nodes: HashMap::new(),
             vram_sorting: Vec::new(),
+            terminate: false,
         }
     }
 
@@ -36,12 +38,19 @@ impl NodeCluster {
         GLOBAL_CLUSTER.write().await
     }
 
+    pub async fn terminate() {
+        Self::instance_mut().await.terminate = true;
+    }
+
     pub async fn run() {
         tokio::spawn(async {
             let config = Config::now().await;
             loop {
                 {
-                    let mut node_cluster = GLOBAL_CLUSTER.write().await;
+                    let mut node_cluster = Self::instance_mut().await;
+                    if node_cluster.terminate {
+                        return;
+                    }
                     let mut vram: Vec<(Uuid, f64)> = stream::iter(&node_cluster.nodes)
                         .then(|(&key, node)| async move {
                             (key, node.read().await.idle_unused().vram)
@@ -55,7 +64,7 @@ impl NodeCluster {
     }
 
     pub async fn add_node(node: Node) {
-        let mut node_cluster = GLOBAL_CLUSTER.write().await;
+        let mut node_cluster = Self::instance_mut().await;
         let node_id = node.uuid();
         if node_cluster.nodes.contains_key(&node_id) {
             return;
@@ -67,7 +76,7 @@ impl NodeCluster {
     }
 
     pub async fn remove_node(node_id: Uuid) -> Option<Arc<RwLock<Node>>> {
-        let mut node_cluster = GLOBAL_CLUSTER.write().await;
+        let mut node_cluster = Self::instance_mut().await;
         let node = node_cluster.nodes.remove(&node_id);
         if node.is_some() {
             node_cluster.size -= 1;
@@ -76,7 +85,7 @@ impl NodeCluster {
     }
 
     pub async fn get_node(node_id: Uuid) -> Option<Arc<RwLock<Node>>> {
-        let node_cluster = GLOBAL_CLUSTER.read().await;
+        let node_cluster = Self::instance().await;
         let node = node_cluster.nodes.get(&node_id);
         match node {
             Some(node) => Some(node.clone()),
@@ -85,14 +94,14 @@ impl NodeCluster {
     }
 
     pub async fn sorted_by_vram() -> Vec<(Uuid, f64)> {
-        let node_cluster = GLOBAL_CLUSTER.read().await;
+        let node_cluster = Self::instance().await;
         node_cluster.vram_sorting.clone()
     }
 
     pub async fn filter_node_by_vram(vram_threshold: f64) -> Vec<(Uuid, f64)> {
-        let node_cluster = GLOBAL_CLUSTER.read().await;
+        let node_cluster = Self::instance().await;
         let nodes = node_cluster.vram_sorting.clone();
-        let mut filtered_nodes = nodes.into_iter()
+        let mut filtered_nodes: Vec<_> = nodes.into_iter()
             .filter(|&(_, node_vram)| {
                 let vram = if node_vram.is_nan() { 0.0 } else { node_vram };
                 vram >= vram_threshold
@@ -103,7 +112,7 @@ impl NodeCluster {
     }
 
     pub async fn size() -> usize {
-        let node_cluster = GLOBAL_CLUSTER.read().await;
+        let node_cluster = Self::instance().await;
         node_cluster.size
     }
 }
