@@ -57,7 +57,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
                 model_filename = file_name.clone();
                 Path::new(".").join("SavedModel").join(file_name)
             },
-            ("yoloInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "mp4" | "wav" | "avi" | "mkv" | "zip") => {
+            ("yoloInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "mp4" | "avi" | "mkv" | "zip") => {
                 media_filename = file_name.clone();
                 Path::new(".").join("SavedFile").join(file_name)
             },

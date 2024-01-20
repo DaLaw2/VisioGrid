@@ -92,7 +92,7 @@ impl TaskManager {
                     Self::submit_image_task(image_task, false).await;
                 }
             }
-            Some("mp4") | Some("wav") | Some("avi") | Some("mkv") | Some("zip") => {
+            Some("mp4") | Some("avi") | Some("mkv") | Some("zip") => {
                 let image_folder = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("");
                 let mut image_folder = match fs::read_dir(&image_folder).await {
                     Ok(image_folder) => image_folder,

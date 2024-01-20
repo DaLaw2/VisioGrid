@@ -1,19 +1,22 @@
+use tokio::fs;
 use std::fs::File;
-use std::io::Error;
+use zip::ZipWriter;
 use std::ffi::OsStr;
-use tokio::{fs, io};
 use tokio::time::sleep;
 use std::time::Duration;
 use gstreamer::prelude::*;
 use zip::read::ZipArchive;
 use imageproc::rect::Rect;
+use futures::TryFutureExt;
 use image::{Rgb, RgbImage};
+use zip::write::FileOptions;
 use rusttype::{Font, Scale};
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use gstreamer_pbutils::prelude::*;
 use gstreamer_pbutils::Discoverer;
+use std::io::{Error, Read, Write};
 use tokio::task::{JoinError, spawn_blocking};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
@@ -111,7 +114,7 @@ impl FileManager {
                     task.change_status(TaskStatus::PreProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => Self::picture_pre_processing(task).await,
-                        Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::video_pre_process(task).await,
+                        Some("mp4") | Some("avi") | Some("mkv") => Self::video_pre_process(task).await,
                         Some("zip") => Self::zip_pre_process(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
@@ -137,7 +140,7 @@ impl FileManager {
                     task.change_status(TaskStatus::PostProcessing);
                     match Path::new(&task.media_filename).extension().and_then(OsStr::to_str) {
                         Some("png") | Some("jpg") | Some("jpeg") => Self::picture_post_processing(task).await,
-                        Some("mp4") | Some("wav") | Some("avi") | Some("mkv") => Self::video_post_processing(task).await,
+                        Some("mp4") | Some("avi") | Some("mkv") => Self::video_post_processing(task).await,
                         Some("zip") => Self::zip_post_processing(task).await,
                         _ => {
                             let error_message = format!("File Manager: Task {} failed because the file extension is not supported.", task.uuid);
@@ -182,33 +185,6 @@ impl FileManager {
         }
     }
 
-    async fn extract_process_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
-        match result {
-            Ok(Ok(_)) => {
-                match Self::file_count(&created_folder).await {
-                    Ok(count) => {
-                        task.update_unprocessed(Ok(count)).await;
-                        Self::forward_to_task_manager(task).await;
-                    }
-                    Err(err) => {
-                        let error_message = format!("File Manager: An error occurred while reading folder {}.\nReason: {}.", created_folder.display(), err);
-                        task.update_unprocessed(Err(error_message.clone())).await;
-                        Logger::append_system_log(LogLevel::INFO, error_message).await;
-                    }
-                }
-            }
-            Ok(Err(err)) => {
-                task.update_unprocessed(Err(err.clone())).await;
-                Logger::append_system_log(LogLevel::INFO, err).await;
-            }
-            Err(err) => {
-                let error_message = format!("File Manager: Task {} panic.\nReason: {}.", task.uuid, err);
-                task.update_unprocessed(Err(error_message.clone())).await;
-                Logger::append_system_log(LogLevel::ERROR, error_message).await;
-            }
-        }
-    }
-
     async fn video_pre_process(mut task: Task) {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
@@ -221,7 +197,7 @@ impl FileManager {
         let result = spawn_blocking(move || {
             Self::extract_video(video_path)
         }).await;
-        Self::extract_process_result(task, create_folder, result).await;
+        Self::process_extract_result(task, create_folder, result).await;
     }
 
     async fn extract_video_info(video_path: PathBuf) -> Result<(), String> {
@@ -239,20 +215,8 @@ impl FileManager {
                     video_info.format = structure.name().to_string();
                     for field in structure.fields() {
                         match field.as_str() {
-                            "stream-format" => video_info.stream_format = structure.get::<String>(field).unwrap_or_default(),
-                            "alignment" => video_info.alignment = structure.get::<String>(field).unwrap_or_default(),
-                            "level" => video_info.level = structure.get::<String>(field).unwrap_or_default(),
-                            "profile" => video_info.profile = structure.get::<String>(field).unwrap_or_default(),
-                            "width" => video_info.width = structure.get::<i32>(field).unwrap_or_default(),
-                            "height" => video_info.height = structure.get::<i32>(field).unwrap_or_default(),
-                            "framerate" => video_info.framerate = structure.get::<gstreamer::Fraction>(field).map_or_else(|_| "0/1".to_string(), |f| f.to_string()),
-                            "pixel-aspect-ratio" => video_info.pixel_aspect_ratio = structure.get::<gstreamer::Fraction>(field).map_or_else(|_| "1/1".to_string(), |f| f.to_string()),
-                            "coded-picture-structure" => video_info.coded_picture_structure = structure.get::<String>(field).unwrap_or_default(),
-                            "chroma-format" => video_info.chroma_format = structure.get::<String>(field).unwrap_or_default(),
-                            "bit-depth-luma" => video_info.bit_depth_luma = structure.get::<u32>(field).unwrap_or_default(),
-                            "bit-depth-chroma" => video_info.bit_depth_chroma = structure.get::<u32>(field).unwrap_or_default(),
-                            "colorimetry" => video_info.colorimetry = structure.get::<String>(field).unwrap_or_default(),
-                            _ => (),
+                            "framerate" => video_info.framerate = structure.get::<gstreamer::Fraction>(field).map_or_else(|_| "30/1".to_string(), |f| format!("{}/{}", f.numer(), f.denom())),
+                            _ => {},
                         }
                     }
                 }
@@ -268,7 +232,7 @@ impl FileManager {
 
     fn extract_video(video_path: PathBuf) -> Result<(), String> {
         let saved_path = video_path.clone().with_extension("").to_path_buf();
-        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%d.png"));
+        let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%010d.png"));
         let pipeline = gstreamer::parse_launch(&pipeline_string)
             .map_err(|err| format!("File Manager: GStreamer cannot parse pipeline.\nReason: {}.", err))?;
         let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
@@ -278,6 +242,8 @@ impl FileManager {
             match message.view() {
                 gstreamer::MessageView::Eos(..) => break,
                 gstreamer::MessageView::Error(_) => {
+                    pipeline.set_state(gstreamer::State::Null)
+                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
                     return if let Some(src) = message.src() {
                         let path = src.path_string();
                         Err(format!("File Manager: An error occurred in gstreamer.\nError from {}.", path))
@@ -302,7 +268,7 @@ impl FileManager {
         let result = spawn_blocking(move || {
             Self::extract_zip(&zip_path)
         }).await;
-        Self::extract_process_result(task, create_folder, result).await;
+        Self::process_extract_result(task, create_folder, result).await;
     }
 
     fn extract_zip(zip_path: &PathBuf) -> Result<(), String> {
@@ -330,7 +296,34 @@ impl FileManager {
         Ok(())
     }
 
-    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font_data: &io::Result<Vec<u8>>) -> Result<RgbImage, String> {
+    async fn process_extract_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
+        match result {
+            Ok(Ok(_)) => {
+                match Self::file_count(&created_folder).await {
+                    Ok(count) => {
+                        task.update_unprocessed(Ok(count)).await;
+                        Self::forward_to_task_manager(task).await;
+                    }
+                    Err(err) => {
+                        let error_message = format!("File Manager: An error occurred while reading folder {}.\nReason: {}.", created_folder.display(), err);
+                        task.update_unprocessed(Err(error_message.clone())).await;
+                        Logger::append_system_log(LogLevel::INFO, error_message).await;
+                    }
+                }
+            }
+            Ok(Err(err)) => {
+                task.update_unprocessed(Err(err.clone())).await;
+                Logger::append_system_log(LogLevel::INFO, err).await;
+            }
+            Err(err) => {
+                let error_message = format!("File Manager: Task {} panic.\nReason: {}.", task.uuid, err);
+                task.update_unprocessed(Err(error_message.clone())).await;
+                Logger::append_system_log(LogLevel::ERROR, error_message).await;
+            }
+        }
+    }
+
+    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &Option<Font<'_>>) -> Result<RgbImage, String> {
         let border_color = Rgb(config.border_color);
         let text_color = Rgb(config.text_color);
         let image_path = image_task.image_filepath.clone();
@@ -343,14 +336,12 @@ impl FileManager {
                 let offset_rect = Rect::at(base_rectangle.left() - i as i32, base_rectangle.top() - i as i32).of_size(base_rectangle.width() + 2 * i, base_rectangle.height() + 2 * i);
                 draw_hollow_rect_mut(&mut image, offset_rect, border_color);
             }
-            if let Ok(font_data) = &font_data {
-                if let Some(font) = Font::try_from_bytes(font_data) {
-                    let scale = Scale::uniform(config.font_size);
-                    let text = format!("{}: {:2}%", bounding_box.name, bounding_box.confidence);
-                    let position_x = bounding_box.x1 as i32;
-                    let position_y = (bounding_box.y2 + config.border_width + 10) as i32;
-                    draw_text_mut(&mut image, text_color, position_x, position_y, scale, &font, &text);
-                }
+            if let Some(font) = font {
+                let scale = Scale::uniform(config.font_size);
+                let text = format!("{}: {:2}%", bounding_box.name, bounding_box.confidence);
+                let position_x = bounding_box.x1 as i32;
+                let position_y = (bounding_box.y2 + config.border_width + 10) as i32;
+                draw_text_mut(&mut image, text_color, position_x, position_y, scale, &font, &text);
             }
         }
         Ok(image)
@@ -360,13 +351,15 @@ impl FileManager {
         match task.result.get(0) {
             Some(image_task) => {
                 let config = Config::now().await;
-                let font_data = fs::read(&config.font_path).await;
+                let font_data = fs::read(&config.font_path).await.unwrap_or_default();
+                let font = Font::try_from_bytes(&font_data);
                 let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
-                match Self::draw_bounding_box(image_task, &config, &font_data).await {
+                match Self::draw_bounding_box(image_task, &config, &font).await {
                     Ok(image) => {
                         if let Err(err) = image.save(&saved_path) {
                             Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.\nReason: {}.", saved_path.display(), err)).await;
                         }
+                        unimplemented!("Commit");
                     }
                     Err(err) => Logger::append_system_log(LogLevel::ERROR, err).await,
                 }
@@ -379,42 +372,127 @@ impl FileManager {
         }
     }
 
-    async fn recombination_pre_processing(task: &mut Task, create_folder: PathBuf) {
+    async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) {
         if let Err(err) = fs::create_dir(&create_folder).await {
             let error_message = format!("File Manager: Cannot create {} folder.\nReason: {}.", create_folder.display(), err);
             task.panic(error_message.clone()).await;
             Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
+        let config = Config::now().await;
+        let font_data = fs::read(&config.font_path).await.unwrap_or_default();
+        let font = Font::try_from_bytes(&font_data);
         for image_task in &task.result {
-            let config = Config::now().await;
-            let font_data = fs::read(&config.font_path).await;
             let saved_path = create_folder.join(image_task.image_filename.clone());
-            match Self::draw_bounding_box(image_task, &config, &font_data).await {
+            match Self::draw_bounding_box(image_task, &config, &font).await {
                 Ok(image) => {
                     if let Err(err) = image.save(&saved_path) {
                         Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.\nReason: {}.", saved_path.display(), err)).await;
                     }
-                }
+                },
                 Err(err) => Logger::append_system_log(LogLevel::ERROR, err).await,
             }
         }
     }
 
     async fn video_post_processing(mut task: Task) {
-
+        let video_info_path = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("toml");
+        let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
+        let create_folder = target_path.with_extension("");
+        Self::recombination_pre_processing(&mut task, &create_folder).await;
+        let result = spawn_blocking(move || {
+            Self::recombination_video(video_info_path, create_folder, target_path)
+        }).await;
+        Self::process_recombination_result(task, result).await;
     }
 
-    async fn recombination_video() {
-
+    fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, target_path: PathBuf) -> Result<(), String> {
+        let toml_str = std::fs::read_to_string(video_info_path).map_err(|err| format!("File Manager: Unable to read video info file.\nReason: {}", err))?;
+        let video_info: VideoInfo = toml::from_str(&toml_str).unwrap_or_default();
+        let encoder = match video_info.format.as_str() {
+            "video/x-h265" => "x265enc bitrate=500000",
+            "video/x-h264" => "x264enc bitrate=500000",
+            "video/x-vp9" => "vp9enc target-bitrate=500000",
+            "video/x-vp8" => "vp8enc target-bitrate=500000",
+            _ => "x265enc bitrate=500000",
+        };
+        let muxer = match target_path.extension().and_then(OsStr::to_str) {
+            Some("mp4") => "mp4mux",
+            Some("avi") => "avimux",
+            Some("mkv") => "matroskamux",
+            _ => "mp4mux",
+        };
+        let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, target_path);
+        let pipeline = gstreamer::parse_launch(&pipeline_string).map_err(|err| format!("File Manager: Unable to create GStreamer pipeline.\nReason: {}.", err))?;
+        let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
+        pipeline.set_state(gstreamer::State::Playing)
+            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {}.", err))?;
+        for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
+            match message.view() {
+                gstreamer::MessageView::Eos(..) => break,
+                gstreamer::MessageView::Error(_) => {
+                    pipeline.set_state(gstreamer::State::Null)
+                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
+                    return if let Some(src) = message.src() {
+                        let path = src.path_string();
+                        Err(format!("File Manager: An error occurred in gstreamer.\nError from {}.", path))
+                    } else {
+                        Err("File Manager: An unknown error occurred in gstreamer.".to_string())
+                    };
+                },
+                _ => {},
+            }
+        }
+        pipeline.set_state(gstreamer::State::Null)
+            .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
+        Ok(())
     }
 
     async fn zip_post_processing(mut task: Task) {
-
+        let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
+        let create_folder = target_path.with_extension("");
+        Self::recombination_pre_processing(&mut task, &create_folder).await;
+        let result = spawn_blocking(move || {
+            Self::recombination_zip(create_folder, target_path)
+        }).await;
+        Self::process_recombination_result(task, result).await;
     }
 
-    async fn recombination_zip() {
+    fn recombination_zip(source_folder: PathBuf, target_path: PathBuf) -> Result<(), String> {
+        let file = File::create(&target_path)
+            .map_err(|err| format!("File Manager: Unable to create ZIP file.\nReason: {}.", err))?;
+        let mut zip = ZipWriter::new(file);
+        let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        for entry in std::fs::read_dir(&source_folder).map_err(|e| format!("File Manager: Unable to read source directory.\nReason: {}.", e))? {
+            let entry = entry.map_err(|err| format!("File Manager: Unable to process directory entry.\nReason: {}.", err))?;
+            let path = entry.path();
+            let file_name = path.file_name().ok_or("File Manager: Unable to get file name.")?.to_string_lossy();
+            zip.start_file(file_name, options)
+                .map_err(|err| format!("File Manager: Error starting a new file in ZIP.\nReason: {}.", err))?;
+            let mut file_contents = Vec::new();
+            File::open(&path)
+                .map_err(|err| format!("File Manager: Error opening file for reading.\nReason: {}.", err))?
+                .read_to_end(&mut file_contents)
+                .map_err(|err| format!("File Manager: Error reading file contents.\nReason: {}.", err))?;
+            zip.write_all(&file_contents)
+                .map_err(|err| format!("File Manager: Error writing file contents to ZIP.\nReason: {}.", err))?;
+        }
+        zip.finish().map_err(|e| format!("File Manager: Error finishing ZIP file.\nReason: {}.", e))?;
+        Ok(())
+    }
 
+    async fn process_recombination_result(mut task: Task, result: Result<Result<(), String>, JoinError>) {
+        match result {
+            Ok(Ok(_)) => Self::forward_to_repository(task, true),
+            Ok(Err(err)) => {
+                Logger::append_system_log(LogLevel::ERROR, err).await;
+                Self::forward_to_repository(task, false).await;
+            },
+            Err(err) => {
+                Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Task {} panic.\nReason: {}.", task.uuid, err)).await;
+                Self::forward_to_repository(task, false).await;
+            },
+        }
     }
 
     async fn file_count(path: &PathBuf) -> Result<usize, Error> {
@@ -431,5 +509,13 @@ impl FileManager {
     async fn forward_to_task_manager(mut task: Task) {
         task.change_status(TaskStatus::Waiting);
         TaskManager::add_task(task).await;
+    }
+
+    async fn forward_to_repository(task: Task,　success: bool) {
+        if success {
+            ResultRepository::task_success(task).await
+        } else {
+            ResultRepository::task_failed(task).await,
+        }
     }
 }
