@@ -30,7 +30,7 @@ pub struct LogEntry {
 impl Logger {
     fn new() -> Self {
         let mut system_log = VecDeque::new();
-        let log_entry = LogEntry::new(LogLevel::INFO, "Log enable.".to_string());
+        let log_entry = LogEntry::new(LogLevel::INFO, "Logger: Log enable.".to_string());
         system_log.push_back(log_entry);
         Self {
             system_log,

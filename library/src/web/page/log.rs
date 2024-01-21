@@ -1,14 +1,22 @@
 use uuid::Uuid;
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
-use actix_web::{get, post, web, Scope, Responder, HttpResponse};
+use actix_web::{get, web, Scope, Responder, HttpResponse};
 use crate::utils::logger::Logger;
+use crate::utils::static_files::StaticFiles;
 
 pub fn initialize() -> Scope {
     web::scope("/log")
+        .service(log)
         .service(system_log)
         .service(update_system_log)
         .service(node_log)
         .service(node_log_update)
+}
+
+#[get("")]
+async fn log() -> impl Responder {
+    let html = StaticFiles::get("log.html").expect("File not found in static files.").data;
+    HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 #[get("/system_log")]
@@ -18,12 +26,12 @@ async fn system_log() -> impl Responder {
     HttpResponse::Ok().body(system_log_string)
 }
 
-#[post("/system_log/update/{since}")]
+#[get("/system_log/update/{since}")]
 async fn update_system_log(path: web::Path<String>) -> impl Responder {
     match parse_datetime(&path.into_inner()) {
         Ok(since_time) => {
-            let log = Logger::get_system_logs_since(since_time).await;
-            let log_string = Logger::format_logs(&log);
+            let logs = Logger::get_system_logs_since(since_time).await;
+            let log_string = Logger::format_logs(&logs);
             HttpResponse::Ok().body(log_string)
         },
         Err(_) => HttpResponse::BadRequest().body("Invalid datetime format.")
@@ -33,22 +41,22 @@ async fn update_system_log(path: web::Path<String>) -> impl Responder {
 #[get("/{node_id}")]
 async fn node_log(node_id: web::Path<Uuid>) -> impl Responder {
     match Logger::get_node_logs(node_id.into_inner()).await {
-        Some(log) => {
-            let log_string = Logger::format_logs(&log);
+        Some(logs) => {
+            let log_string = Logger::format_logs(&logs);
             HttpResponse::Ok().body(log_string)
         }
         None => HttpResponse::BadRequest().body("Node not found.")
     }
 }
 
-#[post("/{node_id}/update/{since}")]
+#[get("/{node_id}/update/{since}")]
 async fn node_log_update(path: web::Path<(Uuid, String)>) -> impl Responder {
     let (node_id, since_str) = path.into_inner();
     match parse_datetime(&since_str) {
         Ok(since_time) => {
             match Logger::get_node_logs_since(node_id, since_time).await {
-                Some(log) => {
-                    let log_string = Logger::format_logs(&log);
+                Some(logs) => {
+                    let log_string = Logger::format_logs(&logs);
                     HttpResponse::Ok().body(log_string)
                 }
                 None => HttpResponse::BadRequest().body("Node not found.")

@@ -1,21 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inference</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="/javascript/inference.js"></script>
 </head>
-
 <body>
-
-<style>
-    .upload-option {
-        display: none;
-    }
-</style>
-
+<style>.upload-option {display: none;}</style>
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
@@ -30,7 +26,6 @@
                         <label class="form-check-label" for="onnxRadio">ONNX</label>
                     </div>
                 </div>
-
                 <div id="YOLO" class="upload-option">
                     <div class="form-group">
                         <label for="ptFile">YOLO Model</label>
@@ -41,7 +36,6 @@
                         <input type="file" class="form-control-file" name="yoloInferenceFile" id="yoloInferenceFile" required>
                     </div>
                 </div>
-
                 <div id="ONNX" class="upload-option">
                     <div class="form-group">
                         <label for="onnxFile">ONNX Model</label>
@@ -57,61 +51,5 @@
         </div>
     </div>
 </div>
-
-<script>
-    const originalContent = {
-        'YOLO': document.getElementById('YOLO').innerHTML,
-        'ONNX': document.getElementById('ONNX').innerHTML,
-    };
-
-    function showUploadOptions(option) {
-        const options = ['YOLO', 'ONNX', 'Default'];
-        for (const opt of options) {
-            const container = document.getElementById(opt);
-            if (opt === option) {
-                container.style.display = 'block';
-                if (!container.innerHTML) {
-                    container.innerHTML = originalContent[opt];
-                }
-            } else {
-                container.style.display = 'none';
-                container.innerHTML = '';
-            }
-        }
-    }
-
-    function submitForm() {
-        const originalFormData = new FormData(document.getElementById('uploadForm'));
-        const filteredFormData = new FormData();
-        const modelTypeValue = document.querySelector('input[name="modelType"]:checked').value;
-        filteredFormData.append('modelType', modelTypeValue);
-        for (let [key, value] of originalFormData.entries()) {
-            if (value && value.name) {
-                filteredFormData.append(key, value, value.name);
-            }
-        }
-        fetch('/inference/save_file', {
-            method: 'POST',
-            body: filteredFormData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('File uploaded successfully!');
-                } else {
-                    alert('Upload failed: ' + data.error);
-                }
-            })
-            .catch(error => {
-                alert('An error occurred: ' + error.message);
-            });
-    }
-</script>
-
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
 </body>
-
 </html>

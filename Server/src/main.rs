@@ -1,3 +1,4 @@
+use library::web::page::log;
 use library::web::page::inference;
 use library::web::page::javascript;
 use library::web::page::configuration;
@@ -11,6 +12,7 @@ async fn main() -> Result<(), Error> {
         App::new()
             .service(configuration::initialize())
             .service(inference::initialize())
+            .service(log::initialize())
             .service(javascript::initialize())
     })
         .bind("127.0.0.1:8080")?
