@@ -28,4 +28,4 @@ serde = { version = "1.0.195", features = ["derive"] }
 
 [dependencies.uuid]
 version = "1.6.1"
-features = ["v4", "fast-rng", "macro-diagnostics"]
+features = ["v4", "fast-rng", "macro-diagnostics", "serde"]

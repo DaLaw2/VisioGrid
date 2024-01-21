@@ -7,7 +7,6 @@ use std::time::Duration;
 use gstreamer::prelude::*;
 use zip::read::ZipArchive;
 use imageproc::rect::Rect;
-use futures::TryFutureExt;
 use image::{Rgb, RgbImage};
 use zip::write::FileOptions;
 use rusttype::{Font, Scale};
@@ -251,7 +250,7 @@ impl FileManager {
                         Err("File Manager: An unknown error occurred in gstreamer.".to_string())
                     };
                 }
-                _ => (),
+                _ => {},
             }
         }
         pipeline.set_state(gstreamer::State::Null)
@@ -481,9 +480,9 @@ impl FileManager {
         Ok(())
     }
 
-    async fn process_recombination_result(mut task: Task, result: Result<Result<(), String>, JoinError>) {
+    async fn process_recombination_result(task: Task, result: Result<Result<(), String>, JoinError>) {
         match result {
-            Ok(Ok(_)) => Self::forward_to_repository(task, true),
+            Ok(Ok(_)) => Self::forward_to_repository(task, true).await,
             Ok(Err(err)) => {
                 Logger::append_system_log(LogLevel::ERROR, err).await;
                 Self::forward_to_repository(task, false).await;
@@ -511,11 +510,13 @@ impl FileManager {
         TaskManager::add_task(task).await;
     }
 
-    async fn forward_to_repository(task: Task,　success: bool) {
+    async fn forward_to_repository(mut task: Task, success: bool) {
         if success {
+            task.change_status(TaskStatus::Success);
             ResultRepository::task_success(task).await
         } else {
-            ResultRepository::task_failed(task).await,
+            task.change_status(TaskStatus::Fail);
+            ResultRepository::task_failed(task).await;
         }
     }
 }

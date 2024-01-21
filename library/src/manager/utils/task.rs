@@ -10,6 +10,7 @@ pub enum TaskStatus {
     Processing,
     PostProcessing,
     Fail,
+    Success,
 }
 
 #[derive(Debug, Clone)]
