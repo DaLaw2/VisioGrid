@@ -6,7 +6,7 @@ use crate::utils::static_files::StaticFiles;
 
 pub fn initialize() -> Scope {
     web::scope("/log")
-        .service(log)
+        .service(page)
         .service(system_log)
         .service(update_system_log)
         .service(node_log)
@@ -14,7 +14,7 @@ pub fn initialize() -> Scope {
 }
 
 #[get("")]
-async fn log() -> impl Responder {
+async fn page() -> impl Responder {
     let html = StaticFiles::get("log.html").expect("File not found in static files.").data;
     HttpResponse::Ok().content_type("text/html").body(html)
 }
@@ -41,8 +41,8 @@ async fn update_system_log(path: web::Path<String>) -> impl Responder {
 #[get("/{node_id}")]
 async fn node_log(node_id: web::Path<Uuid>) -> impl Responder {
     match Logger::get_node_logs(node_id.into_inner()).await {
-        Some(logs) => {
-            let log_string = Logger::format_logs(&logs);
+        Some(node_log) => {
+            let log_string = Logger::format_logs(&node_log);
             HttpResponse::Ok().body(log_string)
         }
         None => HttpResponse::BadRequest().body("Node not found.")

@@ -1,7 +1,7 @@
 use library::web::page::log;
 use library::web::page::inference;
 use library::web::page::javascript;
-use library::web::page::configuration;
+use library::web::page::config;
 use actix_web::{App, Error, HttpServer};
 use library::manager::file_manager::FileManager;
 
@@ -10,7 +10,7 @@ async fn main() -> Result<(), Error> {
     FileManager::run().await;
     HttpServer::new(|| {
         App::new()
-            .service(configuration::initialize())
+            .service(config::initialize())
             .service(inference::initialize())
             .service(log::initialize())
             .service(javascript::initialize())
