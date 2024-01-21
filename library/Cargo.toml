@@ -9,8 +9,8 @@ edition = "2021"
 zip = "0.6.6"
 toml = "0.8.8"
 image = "0.24.8"
-rusttype = "0.9.3"
 chrono = "0.4.31"
+rusttype = "0.9.3"
 futures = "0.3.30"
 actix-rt = "2.9.0"
 actix-web = "4.4.1"
@@ -25,7 +25,4 @@ sanitize-filename = "0.5.0"
 gstreamer-pbutils = "0.21.3"
 tokio = { version = "1.35.1", features = ["full"] }
 serde = { version = "1.0.195", features = ["derive"] }
-
-[dependencies.uuid]
-version = "1.6.1"
-features = ["v4", "fast-rng", "macro-diagnostics", "serde"]
+uuid = { version = "1.6.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }

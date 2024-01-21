@@ -1,4 +1,4 @@
-# ClusterComputing
+# Cluster Computing
 
 ## Project Introduction
 ClusterComputing is a distributed computing platform developed in Rust, focusing on image recognition. This project aims to build an efficient distributed system for processing and analyzing large-scale image data. By parallel processing tasks in a multi-node environment, ClusterComputing significantly enhances the efficiency and speed of image processing.
