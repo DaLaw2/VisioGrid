@@ -23,55 +23,57 @@ use crate::connection::packet::alive_packet::AlivePacket;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::packet::confirm_packet::ConfirmPacket;
 use crate::manager::utils::node_information::NodeInformation;
-use crate::connection::connection_channel::data_packet_channel;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
-use crate::connection::connection_channel::control_packet_channel;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::manager::utils::file_transfer_result::FileTransferResult;
-use crate::connection::connection_channel::data_channel::DataChannel;
+use crate::connection::connection_channel::data_channel_sender::DataChannelSender;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
-use crate::connection::connection_channel::control_channel::ControlChannel;
+use crate::connection::connection_channel::control_channel_sender::ControlChannelSender;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
+use crate::connection::connection_channel::control_channel::ControlChannel;
+use crate::connection::connection_channel::control_channel_receiver::ControlChannelReceiver;
+use crate::connection::connection_channel::data_channel::DataChannel;
+use crate::connection::connection_channel::data_channel_receiver::DataChannelReceiver;
 
 pub struct Node {
     uuid: Uuid,
-    information: NodeInformation,
     terminate: bool,
+    information: NodeInformation,
     idle_unused: Performance,
     realtime_usage: Performance,
     image_task: VecDeque<ImageTask>,
     previous_task: Option<ImageTask>,
-    control_channel: ControlChannel,
-    data_channel: Option<DataChannel>,
-    control_packet_channel: control_packet_channel::PacketReceiver,
-    data_packet_channel: Option<data_packet_channel::PacketReceiver>,
+    control_channel_sender: ControlChannelSender,
+    control_channel_receiver: ControlChannelReceiver,
+    data_channel_sender: Option<DataChannelSender>,
+    data_channel_receiver: Option<DataChannelReceiver>,
 }
 
 impl Node {
     pub async fn new(uuid: Uuid, socket_stream: SocketStream) -> Option<Self> {
         let config = Config::now().await;
-        let (mut control_channel, mut control_packet_channel) = ControlChannel::new(uuid, socket_stream);
+        let (mut control_channel_sender, mut control_channel_receiver) = ControlChannel::new(uuid, socket_stream);
         select! {
             biased;
-            reply = control_packet_channel.node_information_packet.recv() => {
+            reply = control_channel_receiver.node_information_packet.recv() => {
                 match &reply {
                     Some(packet) => {
                         match serde_json::from_slice::<NodeInformation>(&packet.as_data_byte()) {
                             Ok(information) => {
-                                control_channel.send(ConfirmPacket::new()).await;
+                                control_channel_sender.send(ConfirmPacket::new()).await;
                                 let node = Self {
                                     uuid,
-                                    information,
                                     terminate: false,
+                                    information,
                                     idle_unused: Performance::default(),
                                     realtime_usage: Performance::default(),
                                     image_task: VecDeque::new(),
                                     previous_task: None,
-                                    control_channel,
-                                    data_channel: None,
-                                    control_packet_channel,
-                                    data_packet_channel: None,
+                                    control_channel_sender,
+                                    control_channel_receiver,
+                                    data_channel_sender: None,
+                                    data_channel_receiver: None,
                                 };
                                 Some(node)
                             },
@@ -103,18 +105,22 @@ impl Node {
 
     pub async fn terminate(node: Arc<RwLock<Node>>) {
         let uuid = node.read().await.uuid;
+        Logger::append_node_log(uuid, LogLevel::INFO, "Node: Terminating node.".to_string()).await;
         let image_task = {
             let mut node = node.write().await;
             node.terminate = true;
-            node.control_channel.disconnect().await;
-            if let Some(data_channel) = &mut node.data_channel {
-                data_channel.disconnect().await;
+            node.control_channel_sender.disconnect().await;
+            node.control_channel_receiver.disconnect().await;
+            if let Some(data_channel_sender) = &mut node.data_channel_sender {
+                data_channel_sender.disconnect().await;
+            }
+            if let Some(data_channel_receiver) = &mut node.data_channel_receiver {
+                data_channel_receiver.disconnect().await;
             }
             mem::take(&mut node.image_task)
         };
         TaskManager::redistribute_task(image_task).await;
         NodeCluster::remove_node(uuid).await;
-        Logger::append_node_log(uuid, LogLevel::INFO, "Node: Terminating node.".to_string()).await;
     }
 
     async fn update_performance(node: Arc<RwLock<Node>>) {
@@ -134,13 +140,13 @@ impl Node {
             let mut node = node.write().await;
             select! {
                 biased;
-                reply = node.control_packet_channel.performance_packet.recv() => {
+                reply = node.control_channel_receiver.performance_packet.recv() => {
                     match &reply {
                         Some(reply_packet) => {
                             match serde_json::from_slice::<Performance>(reply_packet.as_data_byte()) {
                                 Ok(performance) => {
                                     node.realtime_usage = performance;
-                                    node.control_channel.send(ConfirmPacket::new()).await;
+                                    node.control_channel_sender.send(ConfirmPacket::new()).await;
                                     timer = Instant::now();
                                 },
                                 Err(_) => continue,
@@ -183,8 +189,8 @@ impl Node {
                             return;
                         }
                         if polling_timer.elapsed() > polling_interval * polling_times {
-                            match &mut node.write().await.data_channel {
-                                Some(data_channel) => data_channel.send(StillProcessPacket::new()).await,
+                            match &mut node.write().await.data_channel_sender {
+                                Some(data_channel_sender) => data_channel_sender.send(StillProcessPacket::new()).await,
                                 None => {
                                     data_channel_available = false;
                                     break;
@@ -192,17 +198,17 @@ impl Node {
                             }
                             polling_times += 1;
                         }
-                        match &mut node.write().await.data_packet_channel {
-                            Some(data_packet_channel) => {
+                        match &mut node.write().await.data_channel_receiver {
+                            Some(data_channel_receiver) => {
                                 select! {
                                     biased;
-                                    reply = data_packet_channel.still_process_reply_packet.recv() => {
+                                    reply = data_channel_receiver.still_process_reply_packet.recv() => {
                                         match &reply {
                                             Some(_) => timeout_timer = Instant::now(),
                                             None => continue,
                                         }
                                     },
-                                    reply = data_packet_channel.result_packet.recv() => {
+                                    reply = data_channel_receiver.result_packet.recv() => {
                                         match &reply {
                                             Some(reply_packet) => {
                                                 if let Ok(task_result) = serde_json::from_slice::<TaskResult>(reply_packet.as_data_byte()) {
@@ -218,7 +224,7 @@ impl Node {
                                     },
                                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                                 }
-                            },
+                            }
                             None => {
                                 data_channel_available = false;
                                 break;
@@ -256,8 +262,8 @@ impl Node {
                                     break;
                                 }
                                 if timer.elapsed() > polling_interval * polling_times {
-                                    match &mut node.write().await.data_channel {
-                                        Some(data_channel) => data_channel.send(AlivePacket::new()).await,
+                                    match &mut node.write().await.data_channel_sender {
+                                        Some(data_channel_sender) => data_channel_sender.send(AlivePacket::new()).await,
                                         None => {
                                             data_channel_available = false;
                                             break;
@@ -265,11 +271,11 @@ impl Node {
                                     }
                                     polling_times += 1;
                                 }
-                                match &mut node.write().await.data_packet_channel {
-                                    Some(data_packet_channel) => {
+                                match &mut node.write().await.data_channel_receiver {
+                                    Some(data_channel_receiver) => {
                                         select! {
                                             biased;
-                                            reply = data_packet_channel.alive_reply_packet.recv() => {
+                                            reply = data_channel_receiver.alive_reply_packet.recv() => {
                                                 match &reply {
                                                     Some(_) => timeout_timer = Instant::now(),
                                                     None => continue,
@@ -277,7 +283,7 @@ impl Node {
                                             },
                                             _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                                         }
-                                    },
+                                    }
                                     None => {
                                         data_channel_available = false;
                                         break;
@@ -295,12 +301,12 @@ impl Node {
     }
 
     async fn create_data_channel(node: Arc<RwLock<Node>>) {
+        let uuid = node.read().await.uuid;
         let config = Config::now().await;
         let (listener, port) = loop {
             let port = match PortPool::allocate_port().await {
                 Some(port) => port,
                 None => {
-                    let uuid = node.read().await.uuid;
                     Logger::append_node_log(uuid, LogLevel::WARNING, "Node: No available port for Data Channel".to_string()).await;
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
@@ -321,10 +327,11 @@ impl Node {
         let polling_interval = Duration::from_millis(config.polling_interval);
         let (stream, address) = loop {
             if timer.elapsed() > timeout_duration {
+                PortPool::free_port(port).await;
                 return;
             }
             if timer.elapsed() > polling_times * polling_interval {
-                node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
+                node.write().await.control_channel_sender.send(DataChannelPortPacket::new(port)).await;
                 polling_times += 1;
             }
             select! {
@@ -333,7 +340,7 @@ impl Node {
                     match connection {
                         Ok(connection) => break connection,
                         Err(_) => {
-                            node.write().await.control_channel.send(DataChannelPortPacket::new(port)).await;
+                            node.write().await.control_channel_sender.send(DataChannelPortPacket::new(port)).await;
                             continue;
                         },
                     }
@@ -342,15 +349,15 @@ impl Node {
             }
         };
         let socket_stream = SocketStream::new(stream, address);
+        let (data_channel_sender, data_channel_receiver) = DataChannel::new(uuid, socket_stream);
         let mut node = node.write().await;
-        let (data_channel, data_packet_channel) = DataChannel::new(node.uuid, socket_stream);
-        node.data_channel = Some(data_channel);
-        node.data_packet_channel = Some(data_packet_channel);
-        Logger::append_node_log(node.uuid, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
+        node.data_channel_sender = Some(data_channel_sender);
+        node.data_channel_receiver = Some(data_channel_receiver);
+        Logger::append_node_log(uuid, LogLevel::INFO, "Node: Create Data channel successfully.".to_string()).await;
     }
 
     async fn transfer_task(node: Arc<RwLock<Node>>, image_task: &ImageTask) -> Result<(), String> {
-        if node.write().await.data_channel.is_some() {
+        if node.write().await.data_channel_sender.is_some() {
             let should_transfer_model = if let Some(last_task) = &node.read().await.previous_task {
                 image_task.task_uuid != last_task.task_uuid
             } else {
@@ -363,7 +370,7 @@ impl Node {
             Node::transfer_file(node.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
             Node::create_data_channel(node).await;
-            return Err("Node: Data Channel is not available.".to_string())
+            Err("Node: Data Channel is not available.".to_string())?
         }
         Ok(())
     }
@@ -376,39 +383,40 @@ impl Node {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while time.elapsed() < timeout_duration {
             if time.elapsed() > polling_interval * polling_times {
-                match &mut node.write().await.data_channel {
-                    Some(data_channel) => data_channel.send(TaskInfoPacket::new(TaskInfo::new(&image_task))).await,
-                    None => return Err("Node: Data Channel is not available.".to_string()),
+                match &mut node.write().await.data_channel_sender {
+                    Some(data_channel_sender) => data_channel_sender.send(TaskInfoPacket::new(TaskInfo::new(&image_task))).await,
+                    None => Err("Node: Data Channel is not available.".to_string())?,
                 }
                 polling_times += 1;
             }
-            match &mut node.write().await.data_packet_channel {
-                Some(data_packet_channel) => {
+            match &mut node.write().await.data_channel_receiver {
+                Some(data_channel_receiver) => {
                     select! {
-                        reply = data_packet_channel.task_info_reply_packet.recv() => {
+                        reply = data_channel_receiver.task_info_reply_packet.recv() => {
                             return match &reply {
                                 Some(_) => Ok(()),
-                                None => return Err("Node: An error occurred while receive packet.".to_string()),
+                                None => Err("Node: An error occurred while receive packet.".to_string()),
                             }
                         }
                         _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                     }
-                },
-                None => return Err("Node: Data Channel is not available.".to_string()),
+                }
+                None => Err("Node: Data Channel is not available.".to_string())?,
             }
         }
         Err("Node: Task Info retransmission limit reached.".to_string())
     }
 
+    #[allow(unused_assignments)]
     async fn transfer_file(node: Arc<RwLock<Node>>, filename: &String, filepath: &PathBuf) -> Result<(), String> {
         let config = Config::now().await;
         let filesize = match fs::metadata(&filepath).await {
             Ok(metadata) => metadata.len(),
-            Err(err) => return Err(format!("Node: Cannot read file {}.\nReason: {}", filepath.display(), err)),
+            Err(err) => Err(format!("Node: Cannot read file {}.\nReason: {}", filepath.display(), err))?,
         };
-        match &mut node.write().await.data_channel {
-            Some(data_channel) => data_channel.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await,
-            None => return Err("Node: Data channel is not available.".to_string()),
+        match &mut node.write().await.data_channel_sender {
+            Some(data_channel_sender) => data_channel_sender.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await,
+            None => Err("Node: Data channel is not available.".to_string())?,
         }
         let file = File::open(filepath.clone()).await;
         let mut sequence_number = 0_usize;
@@ -425,28 +433,28 @@ impl Node {
                             }
                             let mut data = sequence_number.to_be_bytes().to_vec();
                             data.extend_from_slice(&buffer[..bytes_read]);
-                            match &mut node.write().await.data_channel {
-                                Some(data_channel) => data_channel.send(FileBodyPacket::new(data.clone())).await,
-                                None => return Err("Node: Data channel is not available.".to_string()),
+                            match &mut node.write().await.data_channel_sender {
+                                Some(data_channel_sender) => data_channel_sender.send(FileBodyPacket::new(data.clone())).await,
+                                None => Err("Node: Data channel is not available.".to_string())?,
                             }
                             sent_packets.insert(sequence_number, data);
                             sequence_number += 1;
                         },
-                        Err(_) => return Err(format!("Node: An error occurred while reading {} file", filepath.display())),
+                        Err(_) => Err(format!("Node: An error occurred while reading {} file", filepath.display()))?,
                     }
                 }
             },
-            Err(err) => return Err(format!("Node: Cannot read file {}.\nReason: {}", filepath.display(), err)),
+            Err(err) => Err(format!("Node: Cannot read file {}.\nReason: {}", filepath.display(), err))?,
         }
         let time = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);
         let mut require_resend = Vec::new();
         while time.elapsed() < timeout_duration {
-            match &mut node.write().await.data_packet_channel {
-                Some(data_packet_channel) => {
+            match &mut node.write().await.data_channel_receiver {
+                Some(data_channel_receiver) => {
                     select! {
                         biased;
-                        reply = data_packet_channel.file_transfer_reply_packet.recv() => {
+                        reply = data_channel_receiver.file_transfer_reply_packet.recv() => {
                             match &reply {
                                 Some(reply_packet) => {
                                     match FileTransferResult::parse_from_packet(reply_packet).into() {
@@ -454,19 +462,19 @@ impl Node {
                                         None => return Ok(()),
                                     }
                                 },
-                                None => return Err("Node: An error occurred while receive packet.".to_string()),
+                                None => Err("Node: An error occurred while receive packet.".to_string())?,
                             }
                         },
                         _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                     }
-                },
-                None => return Err("Node: Data channel is not available.".to_string()),
+                }
+                None => Err("Node: Data channel is not available.".to_string())?,
             }
-            for missing_chunk in require_resend {
+            for missing_chunk in &require_resend {
                 if let Some(data) = sent_packets.get(&missing_chunk) {
-                    match &mut node.write().await.data_channel {
-                        Some(data_channel) => data_channel.send(FileBodyPacket::new(data.clone())).await,
-                        None => return Err("Node: Data channel is not available.".to_string()),
+                    match &mut node.write().await.data_channel_sender {
+                        Some(data_channel_sender) => data_channel_sender.send(FileBodyPacket::new(data.clone())).await,
+                        None => Err("Node: Data channel is not available.".to_string())?,
                     }
                 }
             }

@@ -1,59 +1,66 @@
 use uuid::Uuid;
 use tokio::sync::oneshot;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use crate::utils::logger::{Logger, LogLevel};
-use crate::connection::packet::definition::Packet;
-use crate::connection::packet::definition::PacketType;
+use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
-use crate::connection::connection_channel::data_packet_channel::PacketSender;
+use crate::connection::connection_channel::data_channel_receive_thread::ReceiveThread;
 
-pub struct Receiver {
+pub struct DataChannelReceiver {
     node_id: Uuid,
-    socket: ReadHalf,
-    stop_signal: oneshot::Receiver<()>,
-    data_packet_channel: PacketSender,
+    stop_signal_tx: Option<oneshot::Sender<()>>,
+    pub alive_reply_packet: UnboundedReceiver<BasePacket>,
+    pub file_transfer_reply_packet: UnboundedReceiver<BasePacket>,
+    pub result_packet: UnboundedReceiver<BasePacket>,
+    pub still_process_reply_packet: UnboundedReceiver<BasePacket>,
+    pub task_info_reply_packet: UnboundedReceiver<BasePacket>,
 }
 
-impl Receiver {
-    pub fn new(node_id: Uuid, socket: ReadHalf, stop_signal: oneshot::Receiver<()>, data_packet_channel: PacketSender) -> Self {
+impl DataChannelReceiver {
+    pub fn new(node_id: Uuid, socket_rx: ReadHalf) -> Self {
+        let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
+        let (alive_reply_packet_tx, alive_reply_packet_rx) = mpsc::unbounded_channel();
+        let (file_transfer_reply_packet_tx, file_transfer_reply_packet_rx) = mpsc::unbounded_channel();
+        let (result_packet_tx, result_packet_rx) = mpsc::unbounded_channel();
+        let (still_process_reply_packet_tx, still_process_reply_packet_rx) = mpsc::unbounded_channel();
+        let (task_info_reply_packet_tx, task_info_reply_packet_rx) = mpsc::unbounded_channel();
+        let receiver_tx = ReceiverTX {
+            alive_reply_packet: alive_reply_packet_tx,
+            file_transfer_reply_packet: file_transfer_reply_packet_tx,
+            result_packet: result_packet_tx,
+            still_process_reply_packet: still_process_reply_packet_tx,
+            task_info_reply_packet: task_info_reply_packet_tx,
+        };
+        let mut receive_thread = ReceiveThread::new(node_id, socket_rx, receiver_tx, stop_signal_rx);
+        tokio::spawn(async move {
+            receive_thread.run().await;
+        });
         Self {
             node_id,
-            socket,
-            stop_signal,
-            data_packet_channel,
+            stop_signal_tx: Some(stop_signal_tx),
+            alive_reply_packet: alive_reply_packet_rx,
+            file_transfer_reply_packet: file_transfer_reply_packet_rx,
+            result_packet: result_packet_rx,
+            still_process_reply_packet: still_process_reply_packet_rx,
+            task_info_reply_packet: task_info_reply_packet_rx,
         }
     }
 
-    pub async fn run(&mut self) {
-        loop {
-            tokio::select! {
-                packet = self.socket.receive_packet() => {
-                    match packet {
-                        Ok(packet) => {
-                            let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
-                            let result = match packet_type {
-                                PacketType::AliveReplyPacket => self.data_packet_channel.alive_reply_packet.send(packet),
-                                PacketType::FileTransferReplyPacket => self.data_packet_channel.file_transfer_reply_packet.send(packet),
-                                PacketType::ResultPacket => self.data_packet_channel.result_packet.send(packet),
-                                PacketType::StillProcessReplyPacket => self.data_packet_channel.still_process_reply_packet.send(packet),
-                                PacketType::TaskInfoReplyPacket => self.data_packet_channel.task_info_reply_packet.send(packet),
-                                _ => {
-                                    Logger::append_node_log(self.node_id, LogLevel::WARNING, "Data Channel Receiver: Receive unknown packet.".to_string()).await;
-                                    Ok(())
-                                },
-                            };
-                            if result.is_err() {
-                                Logger::append_node_log(self.node_id, LogLevel::INFO, "Data Channel Receiver: Client disconnect.".to_string()).await;
-                                break;
-                            }
-                        },
-                        Err(_) => {
-                            Logger::append_node_log(self.node_id, LogLevel::INFO, "Data Channel Receiver: Client disconnect.".to_string()).await;
-                            break;
-                        },
-                    }
-                },
-                _ = &mut self.stop_signal => break,
-            }
+    pub async fn disconnect(&mut self) {
+        match self.stop_signal_tx.take() {
+            Some(stop_signal) => {
+                let _ = stop_signal.send(());
+                Logger::append_node_log(self.node_id, LogLevel::INFO, "Data Channel: Destroyed Receiver successfully.".to_string()).await;
+            },
+            None => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Data Channel: Failed to destroy Receiver.".to_string()).await,
         }
     }
+}
+
+pub struct ReceiverTX {
+    pub alive_reply_packet: UnboundedSender<BasePacket>,
+    pub file_transfer_reply_packet: UnboundedSender<BasePacket>,
+    pub result_packet: UnboundedSender<BasePacket>,
+    pub still_process_reply_packet: UnboundedSender<BasePacket>,
+    pub task_info_reply_packet: UnboundedSender<BasePacket>,
 }

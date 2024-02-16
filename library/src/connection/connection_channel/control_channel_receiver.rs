@@ -1,57 +1,56 @@
 use uuid::Uuid;
+use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::connection::packet::definition::Packet;
-use crate::connection::packet::definition::PacketType;
+use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
-use crate::connection::connection_channel::control_packet_channel::PacketSender;
+use crate::connection::connection_channel::control_channel_receive_thread::ReceiveThread;
 
-pub struct Receiver {
+pub struct ControlChannelReceiver {
     node_id: Uuid,
-    socket: ReadHalf,
-    stop_signal: oneshot::Receiver<()>,
-    control_packet_channel: PacketSender,
+    stop_signal_tx: Option<oneshot::Sender<()>>,
+    pub control_reply_packet: mpsc::UnboundedReceiver<BasePacket>,
+    pub node_information_packet: mpsc::UnboundedReceiver<BasePacket>,
+    pub performance_packet: mpsc::UnboundedReceiver<BasePacket>,
 }
 
-impl Receiver {
-    pub fn new(node_id: Uuid, socket: ReadHalf, stop_signal: oneshot::Receiver<()>, control_packet_channel: PacketSender) -> Self {
+impl ControlChannelReceiver {
+    pub fn new(node_id: Uuid, socket_rx: ReadHalf) -> Self {
+        let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
+        let (control_reply_packet_tx, control_reply_packet_rx) = mpsc::unbounded_channel();
+        let (node_information_packet_tx, node_information_packet_rx) = mpsc::unbounded_channel();
+        let (performance_packet_tx, performance_packet_rx) = mpsc::unbounded_channel();
+        let receiver_tx = ReceiverTX {
+            control_reply_packet: control_reply_packet_tx,
+            node_information_packet: node_information_packet_tx,
+            performance_packet: performance_packet_tx,
+        };
+        let mut receive_thread = ReceiveThread::new(node_id, socket_rx, receiver_tx, stop_signal_rx);
+        tokio::spawn(async move {
+            receive_thread.run().await;
+        });
         Self {
             node_id,
-            socket,
-            stop_signal,
-            control_packet_channel,
+            stop_signal_tx: Some(stop_signal_tx),
+            control_reply_packet: control_reply_packet_rx,
+            node_information_packet: node_information_packet_rx,
+            performance_packet: performance_packet_rx,
         }
     }
 
-    pub async fn run(&mut self) {
-        loop {
-            tokio::select! {
-                packet = self.socket.receive_packet() => {
-                    match packet {
-                        Ok(packet) => {
-                            let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
-                            let result = match packet_type {
-                                PacketType::ControlReplyPacket => self.control_packet_channel.control_reply_packet.send(packet),
-                                PacketType::NodeInformationPacket => self.control_packet_channel.node_information_packet.send(packet),
-                                PacketType::PerformancePacket => self.control_packet_channel.performance_packet.send(packet),
-                                _ => {
-                                    Logger::append_node_log(self.node_id, LogLevel::WARNING, "Control Channel Receiver: Receive unknown packet.".to_string()).await;
-                                    Ok(())
-                                },
-                            };
-                            if result.is_err() {
-                                Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel Receiver: Client disconnect.".to_string()).await;
-                                break;
-                            }
-                        },
-                        Err(_) => {
-                            Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel Receiver: Client disconnect.".to_string()).await;
-                            break;
-                        },
-                    }
-                },
-                _ = &mut self.stop_signal => break,
-            }
+    pub async fn disconnect(&mut self) {
+        match self.stop_signal_tx.take() {
+            Some(stop_signal) => {
+                let _ = stop_signal.send(());
+                Logger::append_node_log(self.node_id, LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await;
+            },
+            None => Logger::append_node_log(self.node_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await,
         }
     }
+}
+
+pub struct ReceiverTX {
+    pub control_reply_packet: mpsc::UnboundedSender<BasePacket>,
+    pub node_information_packet: mpsc::UnboundedSender<BasePacket>,
+    pub performance_packet: mpsc::UnboundedSender<BasePacket>,
 }

@@ -8,6 +8,7 @@ use futures::stream::{self, StreamExt};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::manager::node::Node;
 use crate::utils::config::Config;
+use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {
     static ref GLOBAL_CLUSTER: RwLock<NodeCluster> = RwLock::new(NodeCluster::new());
@@ -38,10 +39,6 @@ impl NodeCluster {
         GLOBAL_CLUSTER.write().await
     }
 
-    pub async fn terminate() {
-        Self::instance_mut().await.terminate = true;
-    }
-
     pub async fn run() {
         tokio::spawn(async {
             let config = Config::now().await;
@@ -61,6 +58,13 @@ impl NodeCluster {
                 sleep(Duration::from_millis(config.internal_timestamp)).await;
             }
         });
+        Logger::append_system_log(LogLevel::INFO, "Node Cluster: Online.".to_string()).await;
+    }
+
+    pub async fn terminate() {
+        Logger::append_system_log(LogLevel::INFO, "Node Cluster: Terminating.".to_string()).await;
+        Self::instance_mut().await.terminate = true;
+        Logger::append_system_log(LogLevel::INFO, "Node Cluster: Termination complete.".to_string()).await;
     }
 
     pub async fn add_node(node: Node) {

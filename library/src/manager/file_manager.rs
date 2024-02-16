@@ -62,14 +62,11 @@ impl FileManager {
         tokio::spawn(async {
             Self::post_processing().await;
         });
-    }
-
-    pub async fn terminate() {
-        Self::instance_mut().await.terminate = true;
-        Self::cleanup().await;
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Online.".to_string()).await;
     }
 
     async fn initialize() {
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Initializing.".to_string()).await;
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
@@ -81,9 +78,18 @@ impl FileManager {
             Ok(_) => Logger::append_system_log(LogLevel::INFO, "File Manager: GStreamer initialization successfully.".to_string()).await,
             Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: GStreamer initialization failed.\nReason: {}.", err)).await,
         }
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Initialization completed.".to_string()).await;
+    }
+
+    pub async fn terminate() {
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Terminating.".to_string()).await;
+        Self::instance_mut().await.terminate = true;
+        Self::cleanup().await;
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Termination complete.".to_string()).await;
     }
 
     async fn cleanup() {
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Cleaning up.".to_string()).await;
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
@@ -91,6 +97,7 @@ impl FileManager {
                 Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {} folder.\nReason: {}.", folder_name, err)).await
             }
         };
+        Logger::append_system_log(LogLevel::INFO, "File Manager: Cleanup completed.".to_string()).await;
     }
 
     pub async fn add_pre_process_task(task: Task) {
