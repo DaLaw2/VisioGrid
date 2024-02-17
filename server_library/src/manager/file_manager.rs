@@ -239,7 +239,7 @@ impl FileManager {
     fn extract_video(video_path: PathBuf) -> Result<(), String> {
         let saved_path = video_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%010d.png"));
-        let pipeline = gstreamer::parse_launch(&pipeline_string)
+        let pipeline = gstreamer::parse::launch(&pipeline_string)
             .map_err(|err| format!("File Manager: GStreamer cannot parse pipeline.\nReason: {}", err))?;
         let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
         pipeline.set_state(gstreamer::State::Playing)
@@ -429,7 +429,7 @@ impl FileManager {
             _ => "mp4mux",
         };
         let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, target_path);
-        let pipeline = gstreamer::parse_launch(&pipeline_string).map_err(|err| format!("File Manager: Unable to create GStreamer pipeline.\nReason: {}", err))?;
+        let pipeline = gstreamer::parse::launch(&pipeline_string).map_err(|err| format!("File Manager: Unable to create GStreamer pipeline.\nReason: {}", err))?;
         let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
         pipeline.set_state(gstreamer::State::Playing)
             .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {}", err))?;

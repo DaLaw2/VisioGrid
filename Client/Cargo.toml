@@ -1,12 +1,8 @@
 [package]
-name = "Server"
+name = "Client"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-rt = "2.9.0"
-actix-web = "4.4.0"
-server_library = { path = "../server_library" }
-tokio = { version = "1.32.0", features = ["full"] }
