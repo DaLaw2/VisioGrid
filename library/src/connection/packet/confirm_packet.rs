@@ -1,3 +1,4 @@
+use crate::manager::utils::confirm_type::ConfirmType;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
 
@@ -9,11 +10,11 @@ pub struct ConfirmPacket {
 }
 
 impl ConfirmPacket {
-    pub fn new() -> Self {
+    pub fn new(confirm_type: ConfirmType) -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::ConfirmPacket.as_id_byte(),
-            data: Vec::new(),
+            id: PacketType::ConfirmPacket.as_byte(),
+            data: confirm_type.as_byte(),
             packet_type: PacketType::ConfirmPacket,
         }
     }

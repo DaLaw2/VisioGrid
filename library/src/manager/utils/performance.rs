@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use crate::manager::utils::node_information::NodeInformation;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Performance {
@@ -24,6 +25,15 @@ impl Performance {
             ram,
             gpu,
             vram,
+        }
+    }
+
+    pub fn calc_residual_usage(node_information: &NodeInformation, realtime_performance: &Performance) -> Performance {
+        Self {
+            cpu: 100_f64 - realtime_performance.cpu,
+            ram: node_information.ram as f64 - realtime_performance.ram,
+            gpu: 100_f64 - realtime_performance.gpu,
+            vram: node_information.vram as f64 - realtime_performance.vram,
         }
     }
 }

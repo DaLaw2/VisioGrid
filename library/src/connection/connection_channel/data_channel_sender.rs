@@ -42,7 +42,7 @@ impl DataChannelSender {
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if let Err(err) = self.sender_tx.send(packet) {
-            Logger::append_node_log(self.node_id, LogLevel::ERROR, format!("Data Channel: Unable to submit packet to Send Thread.\nReason: {}.", err)).await;
+            Logger::append_node_log(self.node_id, LogLevel::ERROR, format!("Data Channel: Unable to submit packet to Send Thread.\nReason: {}", err)).await;
         }
     }
 }

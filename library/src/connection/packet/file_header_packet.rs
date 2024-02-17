@@ -13,7 +13,7 @@ impl FileHeaderPacket {
         let data = format!("Filename: {}, Size: {}, Packet count: {}", filename, filesize, (filesize + 1048575_usize) / 1048576_usize);
         Self {
             length: length_to_byte(16 + data.len()),
-            id: PacketType::FileHeaderPacket.as_id_byte(),
+            id: PacketType::FileHeaderPacket.as_byte(),
             data: data.as_bytes().to_vec(),
             packet_type: PacketType::FileHeaderPacket,
         }

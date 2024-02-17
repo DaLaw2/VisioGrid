@@ -1,5 +1,5 @@
 pub mod bounding_box;
-pub mod control_code;
+pub mod confirm_type;
 pub mod file_transfer_result;
 pub mod image_task;
 pub mod inference_type;

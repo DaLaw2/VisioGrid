@@ -58,6 +58,10 @@ impl WriteHalf {
         }
     }
 
+    pub async fn shutdown(&mut self) -> io::Result<()> {
+        self.write_half.shutdown().await
+    }
+
     pub async fn send_raw_data(&mut self, data: &Vec<u8>) -> io::Result<()> {
         self.write_half.write_all(&data).await?;
         self.write_half.flush().await?;

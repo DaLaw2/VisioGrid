@@ -33,13 +33,17 @@ impl SendThread {
                     match reply {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Send Thread: Failed to send packet.".to_string()).await;
+                                Logger::append_node_log(self.node_id, LogLevel::ERROR, "Send Thread: Client disconnect.".to_string()).await;
+                                return;
                             }
                         },
-                        None => break,
+                        None => return,
                     }
                 },
-                _ = &mut self.stop_signal_rx => break,
+                _ = &mut self.stop_signal_rx => {
+                    let _ = self.socket_tx.shutdown().await;
+                    return;
+                },
             }
         }
     }

@@ -13,7 +13,7 @@ impl DataChannelPortPacket {
         let port = port.to_string().as_bytes().to_vec();
         Self {
             length: length_to_byte(16 + port.len()),
-            id: PacketType::DataChannelPortPacket.as_id_byte(),
+            id: PacketType::DataChannelPortPacket.as_byte(),
             data: port,
             packet_type: PacketType::DataChannelPortPacket,
         }

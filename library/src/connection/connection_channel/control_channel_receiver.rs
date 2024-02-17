@@ -9,7 +9,6 @@ use crate::connection::connection_channel::control_channel_receive_thread::Recei
 pub struct ControlChannelReceiver {
     node_id: Uuid,
     stop_signal_tx: Option<oneshot::Sender<()>>,
-    pub control_reply_packet: mpsc::UnboundedReceiver<BasePacket>,
     pub node_information_packet: mpsc::UnboundedReceiver<BasePacket>,
     pub performance_packet: mpsc::UnboundedReceiver<BasePacket>,
 }
@@ -17,11 +16,9 @@ pub struct ControlChannelReceiver {
 impl ControlChannelReceiver {
     pub fn new(node_id: Uuid, socket_rx: ReadHalf) -> Self {
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let (control_reply_packet_tx, control_reply_packet_rx) = mpsc::unbounded_channel();
         let (node_information_packet_tx, node_information_packet_rx) = mpsc::unbounded_channel();
         let (performance_packet_tx, performance_packet_rx) = mpsc::unbounded_channel();
         let receiver_tx = ReceiverTX {
-            control_reply_packet: control_reply_packet_tx,
             node_information_packet: node_information_packet_tx,
             performance_packet: performance_packet_tx,
         };
@@ -32,13 +29,14 @@ impl ControlChannelReceiver {
         Self {
             node_id,
             stop_signal_tx: Some(stop_signal_tx),
-            control_reply_packet: control_reply_packet_rx,
             node_information_packet: node_information_packet_rx,
             performance_packet: performance_packet_rx,
         }
     }
 
     pub async fn disconnect(&mut self) {
+        self.node_information_packet.close();
+        self.performance_packet.close();
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 let _ = stop_signal.send(());
@@ -50,7 +48,6 @@ impl ControlChannelReceiver {
 }
 
 pub struct ReceiverTX {
-    pub control_reply_packet: mpsc::UnboundedSender<BasePacket>,
     pub node_information_packet: mpsc::UnboundedSender<BasePacket>,
     pub performance_packet: mpsc::UnboundedSender<BasePacket>,
 }

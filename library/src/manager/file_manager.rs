@@ -71,12 +71,12 @@ impl FileManager {
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
                 Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Create {} folder successfully.", folder_name)).await,
-                Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.\nReason: {}.", folder_name, err)).await
+                Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.\nReason: {}", folder_name, err)).await
             }
         }
         match gstreamer::init() {
             Ok(_) => Logger::append_system_log(LogLevel::INFO, "File Manager: GStreamer initialization successfully.".to_string()).await,
-            Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: GStreamer initialization failed.\nReason: {}.", err)).await,
+            Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: GStreamer initialization failed.\nReason: {}", err)).await,
         }
         Logger::append_system_log(LogLevel::INFO, "File Manager: Initialization completed.".to_string()).await;
     }
@@ -94,7 +94,7 @@ impl FileManager {
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
                 Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Deleted {} folder successfully.", folder_name)).await,
-                Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {} folder.\nReason: {}.", folder_name, err)).await
+                Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {} folder.\nReason: {}", folder_name, err)).await
             }
         };
         Logger::append_system_log(LogLevel::INFO, "File Manager: Cleanup completed.".to_string()).await;
@@ -169,7 +169,7 @@ impl FileManager {
                 Self::forward_to_task_manager(task).await;
             }
             Err(err) => {
-                let error_message = format!("File Manager: Task {} failed because move image file failed.\nReason: {}.", task.uuid, err);
+                let error_message = format!("File Manager: Task {} failed because move image file failed.\nReason: {}", task.uuid, err);
                 task.update_unprocessed(Err(error_message.clone())).await;
                 Logger::append_system_log(LogLevel::INFO, error_message).await;
             }
@@ -178,13 +178,13 @@ impl FileManager {
 
     async fn extract_pre_processing(task: &mut Task, source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) {
         if let Err(err) = fs::create_dir(&create_folder).await {
-            let error_message = format!("File Manager: Cannot create {} folder.\nReason: {}.", create_folder.display(), err);
+            let error_message = format!("File Manager: Cannot create {} folder.\nReason: {}", create_folder.display(), err);
             task.update_unprocessed(Err(error_message.clone())).await;
             Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
         }
         if let Err(err) = fs::rename(&source_path, &destination_path).await {
-            let error_message = format!("File Manager: Cannot to move file from {} to {}.\nReason: {}.", source_path.display(), destination_path.display(), err);
+            let error_message = format!("File Manager: Cannot to move file from {} to {}.\nReason: {}", source_path.display(), destination_path.display(), err);
             task.update_unprocessed(Err(error_message.clone())).await;
             Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
@@ -208,12 +208,12 @@ impl FileManager {
 
     async fn extract_video_info(video_path: PathBuf) -> Result<(), String> {
         let absolute_path = video_path.canonicalize()
-            .map_err(|err| format!("File Manager: Unable to get absolute path.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to get absolute path.\nReason: {}", err))?;
         let clean_path = absolute_path.to_string_lossy().trim_start_matches(r"\\?\").replace("\\", "/");
         let discoverer = Discoverer::new(gstreamer::ClockTime::from_seconds(5))
-            .map_err(|err| format!("File Manager: Failed to create Discoverer element.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Failed to create Discoverer element.\nReason: {}", err))?;
         let info = discoverer.discover_uri(&*format!("file:///{}", clean_path))
-            .map_err(|err| format!("File Manager: Failed to get video info.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Failed to get video info.\nReason: {}", err))?;
         let mut video_info = VideoInfo::default();
         if let Some(stream) = info.video_streams().get(0) {
             if let Some(caps) = stream.caps() {
@@ -230,9 +230,9 @@ impl FileManager {
         }
         let toml_path = video_path.with_extension("toml");
         let toml_string = toml::to_string(&video_info)
-            .map_err(|err| format!("File Manager: Unable to serialize video info.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to serialize video info.\nReason: {}", err))?;
         fs::write(&toml_path, toml_string).await
-            .map_err(|err| format!("File Manager: Unable to write video info to TOML file.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to write video info to TOML file.\nReason: {}", err))?;
         Ok(())
     }
 
@@ -240,16 +240,16 @@ impl FileManager {
         let saved_path = video_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%010d.png"));
         let pipeline = gstreamer::parse_launch(&pipeline_string)
-            .map_err(|err| format!("File Manager: GStreamer cannot parse pipeline.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: GStreamer cannot parse pipeline.\nReason: {}", err))?;
         let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
         pipeline.set_state(gstreamer::State::Playing)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {}", err))?;
         for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
             match message.view() {
                 gstreamer::MessageView::Eos(..) => break,
                 gstreamer::MessageView::Error(_) => {
                     pipeline.set_state(gstreamer::State::Null)
-                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
+                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}", err))?;
                     return if let Some(src) = message.src() {
                         let path = src.path_string();
                         Err(format!("File Manager: An error occurred in gstreamer.\nError from {}.", path))
@@ -261,7 +261,7 @@ impl FileManager {
             }
         }
         pipeline.set_state(gstreamer::State::Null)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}", err))?;
         Ok(())
     }
 
@@ -282,11 +282,11 @@ impl FileManager {
         let reader = File::open(&zip_path)
             .map_err(|_| format!("File Manager: Unable to open ZIP file {}.", zip_path.display()))?;
         let mut archive = ZipArchive::new(reader)
-            .map_err(|err| format!("File Manager: Unable to read {} archive.\nReason: {}.", zip_path.display(), err))?;
+            .map_err(|err| format!("File Manager: Unable to read {} archive.\nReason: {}", zip_path.display(), err))?;
         let output_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)
-                .map_err(|err| format!("File Manager: Unable to access {} entry by index.\nReason: {}.", zip_path.display(), err))?;
+                .map_err(|err| format!("File Manager: Unable to access {} entry by index.\nReason: {}", zip_path.display(), err))?;
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
                     if allowed_extensions.contains(&extension.to_str().unwrap_or("")) {
@@ -294,7 +294,7 @@ impl FileManager {
                         let mut output_file = File::create(&output_filepath)
                             .map_err(|_| format!("File Manager: Cannot create output file {}: ", output_filepath.display()))?;
                         std::io::copy(&mut file, &mut output_file)
-                            .map_err(|err| format!("File Manager: Unable to write to output file {}.\nReason: {}.", output_filepath.display(), err))?;
+                            .map_err(|err| format!("File Manager: Unable to write to output file {}.\nReason: {}", output_filepath.display(), err))?;
                     }
                 }
             }
@@ -311,7 +311,7 @@ impl FileManager {
                         Self::forward_to_task_manager(task).await;
                     }
                     Err(err) => {
-                        let error_message = format!("File Manager: An error occurred while reading folder {}.\nReason: {}.", created_folder.display(), err);
+                        let error_message = format!("File Manager: An error occurred while reading folder {}.\nReason: {}", created_folder.display(), err);
                         task.update_unprocessed(Err(error_message.clone())).await;
                         Logger::append_system_log(LogLevel::INFO, error_message).await;
                     }
@@ -322,7 +322,7 @@ impl FileManager {
                 Logger::append_system_log(LogLevel::INFO, err).await;
             }
             Err(err) => {
-                let error_message = format!("File Manager: Task {} panic.\nReason: {}.", task.uuid, err);
+                let error_message = format!("File Manager: Task {} panic.\nReason: {}", task.uuid, err);
                 task.update_unprocessed(Err(error_message.clone())).await;
                 Logger::append_system_log(LogLevel::ERROR, error_message).await;
             }
@@ -334,7 +334,7 @@ impl FileManager {
         let text_color = Rgb(config.text_color);
         let image_path = image_task.image_filepath.clone();
         let mut image = image::open(image_path)
-            .map_err(|err| format!("FileManager: Cannot read file {}.\nReason: {}.", image_task.image_filepath.display(), err))?
+            .map_err(|err| format!("FileManager: Cannot read file {}.\nReason: {}", image_task.image_filepath.display(), err))?
             .to_rgb8();
         for bounding_box in &image_task.bounding_boxes {
             let base_rectangle = Rect::at(bounding_box.x1 as i32, bounding_box.y1 as i32).of_size(bounding_box.x2 - bounding_box.x1, bounding_box.y2 - bounding_box.y1);
@@ -363,7 +363,7 @@ impl FileManager {
                 match Self::draw_bounding_box(image_task, &config, &font).await {
                     Ok(image) => {
                         if let Err(err) = image.save(&saved_path) {
-                            Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.\nReason: {}.", saved_path.display(), err)).await;
+                            Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.\nReason: {}", saved_path.display(), err)).await;
                         }
                         unimplemented!("Commit");
                     }
@@ -380,7 +380,7 @@ impl FileManager {
 
     async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) {
         if let Err(err) = fs::create_dir(&create_folder).await {
-            let error_message = format!("File Manager: Cannot create {} folder.\nReason: {}.", create_folder.display(), err);
+            let error_message = format!("File Manager: Cannot create {} folder.\nReason: {}", create_folder.display(), err);
             task.panic(error_message.clone()).await;
             Logger::append_system_log(LogLevel::INFO, error_message).await;
             return;
@@ -393,7 +393,7 @@ impl FileManager {
             match Self::draw_bounding_box(image_task, &config, &font).await {
                 Ok(image) => {
                     if let Err(err) = image.save(&saved_path) {
-                        Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.\nReason: {}.", saved_path.display(), err)).await;
+                        Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Unable to write to output file {}.\nReason: {}", saved_path.display(), err)).await;
                     }
                 },
                 Err(err) => Logger::append_system_log(LogLevel::ERROR, err).await,
@@ -429,16 +429,16 @@ impl FileManager {
             _ => "mp4mux",
         };
         let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, target_path);
-        let pipeline = gstreamer::parse_launch(&pipeline_string).map_err(|err| format!("File Manager: Unable to create GStreamer pipeline.\nReason: {}.", err))?;
+        let pipeline = gstreamer::parse_launch(&pipeline_string).map_err(|err| format!("File Manager: Unable to create GStreamer pipeline.\nReason: {}", err))?;
         let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
         pipeline.set_state(gstreamer::State::Playing)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {}", err))?;
         for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
             match message.view() {
                 gstreamer::MessageView::Eos(..) => break,
                 gstreamer::MessageView::Error(_) => {
                     pipeline.set_state(gstreamer::State::Null)
-                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
+                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}", err))?;
                     return if let Some(src) = message.src() {
                         let path = src.path_string();
                         Err(format!("File Manager: An error occurred in gstreamer.\nError from {}.", path))
@@ -450,7 +450,7 @@ impl FileManager {
             }
         }
         pipeline.set_state(gstreamer::State::Null)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {}", err))?;
         Ok(())
     }
 
@@ -466,24 +466,24 @@ impl FileManager {
 
     fn recombination_zip(source_folder: PathBuf, target_path: PathBuf) -> Result<(), String> {
         let file = File::create(&target_path)
-            .map_err(|err| format!("File Manager: Unable to create ZIP file.\nReason: {}.", err))?;
+            .map_err(|err| format!("File Manager: Unable to create ZIP file.\nReason: {}", err))?;
         let mut zip = ZipWriter::new(file);
         let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
-        for entry in std::fs::read_dir(&source_folder).map_err(|e| format!("File Manager: Unable to read source directory.\nReason: {}.", e))? {
-            let entry = entry.map_err(|err| format!("File Manager: Unable to process directory entry.\nReason: {}.", err))?;
+        for entry in std::fs::read_dir(&source_folder).map_err(|e| format!("File Manager: Unable to read source directory.\nReason: {}", e))? {
+            let entry = entry.map_err(|err| format!("File Manager: Unable to process directory entry.\nReason: {}", err))?;
             let path = entry.path();
             let file_name = path.file_name().ok_or("File Manager: Unable to get file name.")?.to_string_lossy();
             zip.start_file(file_name, options)
-                .map_err(|err| format!("File Manager: Error starting a new file in ZIP.\nReason: {}.", err))?;
+                .map_err(|err| format!("File Manager: Error starting a new file in ZIP.\nReason: {}", err))?;
             let mut file_contents = Vec::new();
             File::open(&path)
-                .map_err(|err| format!("File Manager: Error opening file for reading.\nReason: {}.", err))?
+                .map_err(|err| format!("File Manager: Error opening file for reading.\nReason: {}", err))?
                 .read_to_end(&mut file_contents)
-                .map_err(|err| format!("File Manager: Error reading file contents.\nReason: {}.", err))?;
+                .map_err(|err| format!("File Manager: Error reading file contents.\nReason: {}", err))?;
             zip.write_all(&file_contents)
-                .map_err(|err| format!("File Manager: Error writing file contents to ZIP.\nReason: {}.", err))?;
+                .map_err(|err| format!("File Manager: Error writing file contents to ZIP.\nReason: {}", err))?;
         }
-        zip.finish().map_err(|e| format!("File Manager: Error finishing ZIP file.\nReason: {}.", e))?;
+        zip.finish().map_err(|e| format!("File Manager: Error finishing ZIP file.\nReason: {}", e))?;
         Ok(())
     }
 
@@ -495,7 +495,7 @@ impl FileManager {
                 Self::forward_to_repository(task, false).await;
             },
             Err(err) => {
-                Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Task {} panic.\nReason: {}.", task.uuid, err)).await;
+                Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Task {} panic.\nReason: {}", task.uuid, err)).await;
                 Self::forward_to_repository(task, false).await;
             },
         }

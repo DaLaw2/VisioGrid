@@ -1,12 +1,12 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NodeInformation {
-    device_name: String,
-    os: String,
-    cpu: String,
-    cores: usize,
-    ram: usize,
-    gpu: String,
-    vram: usize,
+    pub device_name: String,
+    pub os: String,
+    pub cpu: String,
+    pub cores: usize,
+    pub ram: usize,
+    pub gpu: String,
+    pub vram: usize,
 }

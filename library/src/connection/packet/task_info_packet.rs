@@ -13,7 +13,7 @@ impl TaskInfoPacket {
     pub fn new(task_info: TaskInfo) -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::TaskInfoPacket.as_id_byte(),
+            id: PacketType::TaskInfoPacket.as_byte(),
             data: Vec::from(task_info.to_string().as_bytes()),
             packet_type: PacketType::TaskInfoPacket,
         }

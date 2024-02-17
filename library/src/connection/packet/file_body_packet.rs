@@ -12,7 +12,7 @@ impl FileBodyPacket {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16 + data.len()),
-            id: PacketType::FileBodyPacket.as_id_byte(),
+            id: PacketType::FileBodyPacket.as_byte(),
             data,
             packet_type: PacketType::FileBodyPacket,
         }

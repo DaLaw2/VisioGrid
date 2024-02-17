@@ -3,4 +3,5 @@ pub mod file_manager;
 pub mod node;
 pub mod node_cluster;
 pub mod result_repository;
+pub mod server;
 pub mod task_manager;

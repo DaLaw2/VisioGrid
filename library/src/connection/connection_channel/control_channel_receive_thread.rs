@@ -33,7 +33,6 @@ impl ReceiveThread {
                         Ok(packet) => {
                             let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
                             let result = match packet_type {
-                                PacketType::ControlReplyPacket => self.receiver_tx.control_reply_packet.send(packet),
                                 PacketType::NodeInformationPacket => self.receiver_tx.node_information_packet.send(packet),
                                 PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
                                 _ => {

@@ -32,7 +32,7 @@ pub enum PacketType {
 }
 
 impl PacketType {
-    pub fn as_id_byte(&self) -> Vec<u8> {
+    pub fn as_byte(&self) -> Vec<u8> {
         let id: usize = *self as usize;
         id.to_be_bytes().to_vec()
     }

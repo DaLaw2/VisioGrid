@@ -17,7 +17,7 @@ impl NodeSocket {
             match TcpListener::bind(format!("127.0.0.1:{}", config.node_listen_port)).await {
                 Ok(listener) => break listener,
                 Err(err) => {
-                    Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nReason: {}.", err)).await;
+                    Logger::append_system_log(LogLevel::ERROR, format!("Node Socket: Port binding failed.\nReason: {}", err)).await;
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                 },
             }
