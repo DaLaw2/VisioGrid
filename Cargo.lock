@@ -5,15 +5,60 @@ version = 3
 [[package]]
 name = "Client"
 version = "0.1.0"
+dependencies = [
+ "ClientLibrary",
+ "actix-rt",
+ "actix-web",
+ "tokio",
+]
+
+[[package]]
+name = "ClientLibrary"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "common",
+ "lazy_static",
+ "tokio",
+]
+
+[[package]]
+name = "Common"
+version = "1.0.0"
 
 [[package]]
 name = "Server"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
+ "ServerLibrary",
  "actix-rt",
  "actix-web",
- "server_library",
+]
+
+[[package]]
+name = "ServerLibrary"
+version = "1.0.0"
+dependencies = [
+ "actix-files",
+ "actix-multipart",
+ "actix-rt",
+ "actix-web",
+ "chrono",
+ "futures",
+ "gstreamer",
+ "gstreamer-pbutils",
+ "image",
+ "imageproc",
+ "lazy_static",
+ "rust-embed",
+ "rusttype",
+ "sanitize-filename",
+ "serde",
+ "serde_json",
  "tokio",
+ "toml",
+ "uuid",
+ "zip",
 ]
 
 [[package]]
@@ -390,6 +435,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bit_field"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -413,7 +467,7 @@ version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
- "generic-array",
+ "generic-array 0.14.7",
 ]
 
 [[package]]
@@ -436,6 +490,12 @@ dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
 ]
+
+[[package]]
+name = "bs58"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c95ee6bba9d950218b6cc910cf62bc9e0a171d0f4537e3627b0f54d08549b188"
 
 [[package]]
 name = "bumpalo"
@@ -542,14 +602,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "client_library"
-version = "0.1.0"
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "common"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e05200b5c7c59f4e849858a0df46f55a1851f82b881407cf4d6ddddeba11e180"
+dependencies = [
+ "bincode",
+ "bs58",
+ "generic-array 0.12.4",
+ "serde",
+ "serde_derive",
+]
 
 [[package]]
 name = "constant_time_eq"
@@ -644,7 +713,7 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
 dependencies = [
- "generic-array",
+ "generic-array 0.14.7",
  "typenum",
 ]
 
@@ -905,6 +974,16 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "generic-array"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
+dependencies = [
+ "serde",
+ "typenum",
 ]
 
 [[package]]
@@ -1355,7 +1434,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
- "generic-array",
+ "generic-array 0.14.7",
 ]
 
 [[package]]
@@ -2098,9 +2177,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.113"
+version = "1.0.114"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69801b70b1c3dac963ecb03a364ba0ceda9cf60c71cfe475e99864759c8b8a79"
+checksum = "c5f09b1bd632ef549eaa9f60a1f8de742bdbc698e6cee2095fc84dde5f549ae0"
 dependencies = [
  "itoa",
  "ryu",
@@ -2135,32 +2214,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "server_library"
-version = "0.1.0"
-dependencies = [
- "actix-files",
- "actix-multipart",
- "actix-rt",
- "actix-web",
- "chrono",
- "futures",
- "gstreamer",
- "gstreamer-pbutils",
- "image",
- "imageproc",
- "lazy_static",
- "rust-embed",
- "rusttype",
- "sanitize-filename",
- "serde",
- "serde_json",
- "tokio",
- "toml",
- "uuid",
- "zip",
 ]
 
 [[package]]

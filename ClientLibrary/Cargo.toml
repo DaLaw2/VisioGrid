@@ -1,8 +1,12 @@
 [package]
-name = "client_library"
-version = "0.1.0"
+name = "ClientLibrary"
+version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lazy_static = "1.4.0"
+tokio = "1.36.0"
+chrono = "0.4.34"
+common = "0.1.0"

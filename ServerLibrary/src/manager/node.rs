@@ -131,7 +131,7 @@ impl Node {
     }
 
     pub async fn add_task(node: Arc<RwLock<Node>>, image_task: ImageTask) {
-        node.write().await.image_task.push_front(image_task);
+        node.write().await.image_task.push_back(image_task);
     }
 
     pub async fn run(node: Arc<RwLock<Node>>) {
@@ -210,7 +210,7 @@ impl Node {
         let uuid = node.read().await.uuid;
         let config = Config::now().await;
         while !node.read().await.terminate {
-            match node.write().await.image_task.pop_back() {
+            match node.write().await.image_task.pop_front() {
                 Some(mut image_task) => {
                     if let Err(err) = Node::transfer_task(node.clone(), &image_task).await {
                         Logger::append_node_log(uuid, LogLevel::ERROR, err).await;
@@ -543,7 +543,7 @@ impl Node {
                 let mut steal = false;
                 let mut cache = false;
                 let mut node = node.write().await;
-                match node.image_task.get(1) {
+                match node.image_task.get(0) {
                     Some(image_task) => {
                         let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
                         let estimate_ram = TaskManager::estimated_ram_usage(&image_task.image_filepath).await;
@@ -557,7 +557,7 @@ impl Node {
                     None => continue,
                 }
                 if steal {
-                    match node.image_task.remove(1) {
+                    match node.image_task.pop_front() {
                         Some(mut image_task) => {
                             image_task.cache = cache;
                             return Some(image_task);
