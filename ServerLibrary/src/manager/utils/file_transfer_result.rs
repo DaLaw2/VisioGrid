@@ -1,4 +1,4 @@
-use crate::connection::packet::definition::Packet;
+use crate::connection::packet::Packet;
 use crate::connection::packet::base_packet::BasePacket;
 
 pub struct FileTransferResult {

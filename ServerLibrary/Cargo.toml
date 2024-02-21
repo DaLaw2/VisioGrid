@@ -23,6 +23,7 @@ serde_json = "1.0.114"
 actix-multipart = "0.6.1"
 sanitize-filename = "0.5.0"
 gstreamer-pbutils = "0.22.0"
+Common = { path = "../Common" }
 tokio = { version = "1.36.0", features = ["full"] }
 serde = { version = "1.0.196", features = ["derive"] }
 uuid = { version = "1.7.0", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }

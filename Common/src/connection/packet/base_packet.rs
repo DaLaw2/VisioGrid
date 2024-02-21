@@ -1,4 +1,4 @@
-use crate::connection::packet::definition::{Packet, PacketType};
+use crate::connection::packet::{Packet, PacketType};
 
 pub struct BasePacket {
     pub length: Vec<u8>,

@@ -1,6 +1,6 @@
 use crate::manager::utils::confirm_type::ConfirmType;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
+use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct ConfirmPacket {
     length: Vec<u8>,

@@ -1,6 +1,6 @@
 use crate::manager::utils::task_info::TaskInfo;
 use crate::connection::packet::base_packet::BasePacket;
-use crate::connection::packet::definition::{Packet, PacketType, length_to_byte};
+use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct TaskInfoPacket {
     length: Vec<u8>,

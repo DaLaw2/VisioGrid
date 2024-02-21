@@ -4,12 +4,11 @@ version = 3
 
 [[package]]
 name = "Client"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "ClientLibrary",
  "actix-rt",
  "actix-web",
- "tokio",
 ]
 
 [[package]]
@@ -25,6 +24,9 @@ dependencies = [
 [[package]]
 name = "Common"
 version = "1.0.0"
+dependencies = [
+ "tokio",
+]
 
 [[package]]
 name = "Server"
@@ -39,6 +41,7 @@ dependencies = [
 name = "ServerLibrary"
 version = "1.0.0"
 dependencies = [
+ "Common",
  "actix-files",
  "actix-multipart",
  "actix-rt",

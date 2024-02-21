@@ -2,8 +2,8 @@ use uuid::Uuid;
 use tokio::select;
 use tokio::sync::oneshot;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::connection::packet::definition::Packet;
-use crate::connection::packet::definition::PacketType;
+use crate::connection::packet::Packet;
+use crate::connection::packet::PacketType;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::connection_channel::data_channel_receiver::ReceiverTX;
 

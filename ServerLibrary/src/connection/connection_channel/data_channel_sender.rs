@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use tokio::sync::{mpsc, oneshot};
 use crate::utils::logger::{Logger, LogLevel};
-use crate::connection::packet::definition::Packet;
+use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::connection_channel::send_thread::SendThread;
 

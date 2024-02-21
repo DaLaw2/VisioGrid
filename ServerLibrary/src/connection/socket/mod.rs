@@ -1,2 +1,3 @@
 pub mod node_socket;
-pub mod socket_stream;
+
+pub use Common::connection::socket::socket_stream;

@@ -3,7 +3,7 @@ use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::connection::packet::definition::Packet;
+use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 
 type SenderRX = mpsc::UnboundedReceiver<Box<dyn Packet + Send>>;

@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use crate::connection::packet::definition::Packet;
+use crate::connection::packet::Packet;
 use crate::connection::packet::base_packet::BasePacket;
 
 pub struct SocketStream {

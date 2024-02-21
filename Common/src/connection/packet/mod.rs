@@ -1,3 +1,5 @@
+pub mod base_packet;
+
 pub trait Packet: Send {
     fn as_length_byte(&self) -> &[u8];
     fn as_id_byte(&self) -> &[u8];
