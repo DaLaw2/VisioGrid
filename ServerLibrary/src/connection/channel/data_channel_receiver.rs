@@ -4,7 +4,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
-use crate::connection::connection_channel::data_channel_receive_thread::ReceiveThread;
+use crate::connection::channel::data_channel_receive_thread::ReceiveThread;
 
 pub struct DataChannelReceiver {
     node_id: Uuid,

@@ -4,7 +4,7 @@ use tokio::sync::oneshot;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
-use crate::connection::connection_channel::control_channel_receive_thread::ReceiveThread;
+use crate::connection::channel::control_channel_receive_thread::ReceiveThread;
 
 pub struct ControlChannelReceiver {
     node_id: Uuid,

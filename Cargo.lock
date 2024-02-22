@@ -15,10 +15,13 @@ dependencies = [
 name = "ClientLibrary"
 version = "1.0.0"
 dependencies = [
+ "Common",
  "chrono",
  "common",
  "lazy_static",
+ "serde",
  "tokio",
+ "toml",
 ]
 
 [[package]]

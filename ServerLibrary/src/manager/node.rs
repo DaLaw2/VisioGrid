@@ -12,10 +12,12 @@ use tokio::time::{sleep, Duration, Instant};
 use crate::utils::config::Config;
 use crate::utils::port_pool::PortPool;
 use crate::connection::packet::Packet;
+use crate::connection::channel::DataChannel;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::manager::task_manager::TaskManager;
 use crate::manager::node_cluster::NodeCluster;
 use crate::manager::utils::task_info::TaskInfo;
+use crate::connection::channel::ControlChannel;
 use crate::manager::utils::image_task::ImageTask;
 use crate::manager::utils::task_result::TaskResult;
 use crate::manager::utils::performance::Performance;
@@ -28,14 +30,12 @@ use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
 use crate::manager::utils::file_transfer_result::FileTransferResult;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
-use crate::connection::connection_channel::data_channel::DataChannel;
+use crate::connection::channel::data_channel_sender::DataChannelSender;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
-use crate::connection::connection_channel::control_channel::ControlChannel;
+use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
+use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
-use crate::connection::connection_channel::data_channel_sender::DataChannelSender;
-use crate::connection::connection_channel::data_channel_receiver::DataChannelReceiver;
-use crate::connection::connection_channel::control_channel_sender::ControlChannelSender;
-use crate::connection::connection_channel::control_channel_receiver::ControlChannelReceiver;
+use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
 
 pub struct Node {
     uuid: Uuid,
