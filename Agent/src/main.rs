@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use tch::Tensor;
-use ClientLibrary::manager::agent::Client;
+use AgentLibrary::management::agent::Agent;
 
 pub fn demo() {
     let mut t = Tensor::from_slice(&[3, 1, 4, 1, 5]);
@@ -23,6 +23,6 @@ pub fn cuda_is_available(){
 async fn main() {
     demo();
     cuda_is_available();
-    Client::run().await;
-    Client::terminate().await;
+    Agent::run().await;
+    Agent::terminate().await;
 }

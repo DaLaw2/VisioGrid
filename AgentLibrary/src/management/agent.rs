@@ -1,8 +1,8 @@
-pub struct Client {
+pub struct Agent {
     terminate: bool,
 }
 
-impl Client {
+impl Agent {
     pub fn new() -> Self {
         Self {
             terminate: false,

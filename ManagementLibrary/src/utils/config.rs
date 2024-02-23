@@ -35,7 +35,7 @@ pub struct Config {
 impl Config {
     pub fn new() -> Self {
         //Seriously, the program must be terminated.
-        let toml_string = fs::read_to_string("./server_config.toml").expect("No configuration found.");
+        let toml_string = fs::read_to_string("./management.toml").expect("No configuration found.");
         let config_table: ConfigTable = toml::from_str(&toml_string).expect("Unable parse configuration.");
         let config = config_table.config;
         if !Self::validate(&config) {
