@@ -1,11 +1,11 @@
 [package]
-name = "Common"
+name = "Management"
 version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = "1.36.0"
-chrono = "0.4.34"
-serde = { version = "1.0.197", features = ["derive"] }
+actix-rt = "2.9.0"
+actix-web = "4.4.0"
+ManagementLibrary = { path = "../ManagementLibrary" }

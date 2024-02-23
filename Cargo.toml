@@ -1,3 +1,3 @@
 [workspace]
-members = ["Server", "ServerLibrary", "Client", "ClientLibrary", "Common"]
+members = ["Management", "ManagementLibrary", "Agent", "AgentLibrary", "Common"]
 resolver = "2"

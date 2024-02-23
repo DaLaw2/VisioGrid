@@ -1,0 +1,29 @@
+[package]
+name = "ManagementLibrary"
+version = "1.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zip = "0.6.6"
+toml = "0.8.8"
+image = "0.24.8"
+chrono = "0.4.31"
+rusttype = "0.9.3"
+futures = "0.3.30"
+actix-rt = "2.9.0"
+actix-web = "4.5.1"
+imageproc = "0.23.0"
+gstreamer = "0.22.1"
+rust-embed = "8.2.0"
+actix-files = "0.6.5"
+lazy_static = "1.4.0"
+serde_json = "1.0.114"
+actix-multipart = "0.6.1"
+sanitize-filename = "0.5.0"
+gstreamer-pbutils = "0.22.0"
+Common = { path = "../Common" }
+tokio = { version = "1.36.0", features = ["full"] }
+serde = { version = "1.0.196", features = ["derive"] }
+uuid = { version = "1.7.0", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }

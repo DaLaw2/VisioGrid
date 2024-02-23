@@ -15,6 +15,7 @@ pub trait Packet: Send {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum PacketType {
     BasePacket,
+    AgentInformationPacket,
     AlivePacket,
     AliveReplyPacket,
     ConfirmPacket,
@@ -22,7 +23,6 @@ pub enum PacketType {
     FileBodyPacket,
     FileHeaderPacket,
     FileTransferReplyPacket,
-    NodeInformationPacket,
     PerformancePacket,
     ResultPacket,
     StillProcessPacket,
@@ -42,14 +42,14 @@ impl PacketType {
         byte_array.copy_from_slice(&byte);
         let id = usize::from_be_bytes(byte_array);
         match id {
-            1 => PacketType::AlivePacket,
-            2 => PacketType::AliveReplyPacket,
-            3 => PacketType::ConfirmPacket,
-            4 => PacketType::DataChannelPortPacket,
-            5 => PacketType::FileBodyPacket,
-            6 => PacketType::FileHeaderPacket,
-            7 => PacketType::FileTransferReplyPacket,
-            8 => PacketType::NodeInformationPacket,
+            1 => PacketType::AgentInformationPacket,
+            2 => PacketType::AlivePacket,
+            3 => PacketType::AliveReplyPacket,
+            4 => PacketType::ConfirmPacket,
+            5 => PacketType::DataChannelPortPacket,
+            6 => PacketType::FileBodyPacket,
+            7 => PacketType::FileHeaderPacket,
+            8 => PacketType::FileTransferReplyPacket,
             9 => PacketType::PerformancePacket,
             10 => PacketType::ResultPacket,
             11 => PacketType::StillProcessPacket,

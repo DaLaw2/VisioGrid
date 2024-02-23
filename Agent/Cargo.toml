@@ -1,11 +1,10 @@
 [package]
-name = "Common"
+name = "Agent"
 version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = "1.36.0"
-chrono = "0.4.34"
-serde = { version = "1.0.197", features = ["derive"] }
+tch = "0.15.0"
+AgentLibrary = { path = "../AgentLibrary" }
