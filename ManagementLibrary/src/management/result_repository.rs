@@ -3,7 +3,7 @@ use std::path::Path;
 use tokio::sync::RwLock;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
-use crate::manager::utils::task::Task;
+use crate::management::utils::task::Task;
 
 lazy_static! {
     static ref RESULT_REPOSITORY: RwLock<ResultRepository> = RwLock::new(ResultRepository::new());

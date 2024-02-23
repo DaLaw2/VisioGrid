@@ -1,7 +1,7 @@
 use uuid::Uuid;
-use crate::manager::utils::image_task::ImageTask;
-use crate::manager::result_repository::ResultRepository;
-use crate::manager::utils::inference_type::InferenceType;
+use crate::management::utils::image_task::ImageTask;
+use crate::management::result_repository::ResultRepository;
+use crate::management::utils::inference_type::InferenceType;
 
 #[derive(Debug, Copy, Clone)]
 pub enum TaskStatus {

@@ -1,4 +1,4 @@
-use crate::manager::utils::task_result::TaskResult;
+use crate::management::utils::task_result::TaskResult;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
@@ -10,11 +10,11 @@ pub struct ResultPacket {
 }
 
 impl ResultPacket {
-    pub fn new(task_result: TaskResult) -> Self {
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16),
             id: PacketType::ResultPacket.as_id_byte(),
-            data: Vec::new(),
+            data,
             packet_type: PacketType::ResultPacket
         }
     }

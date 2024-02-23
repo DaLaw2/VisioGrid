@@ -1,4 +1,4 @@
-use crate::manager::utils::task_info::TaskInfo;
+use crate::management::utils::task_info::TaskInfo;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 

@@ -4,4 +4,4 @@ pub mod task;
 pub mod task_info;
 pub mod video_info;
 
-pub use Common::manager::utils::*;
+pub use Common::management::utils::*;

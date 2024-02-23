@@ -4,12 +4,12 @@ use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, VecDeque};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::manager::agnet::Agent;
+use crate::management::agnet::Agent;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::file_manager::FileManager;
-use crate::manager::agent_manager::AgentManager;
-use crate::manager::utils::image_task::ImageTask;
-use crate::manager::utils::task::{Task, TaskStatus};
+use crate::management::file_manager::FileManager;
+use crate::management::agent_manager::AgentManager;
+use crate::management::utils::image_task::ImageTask;
+use crate::management::utils::task::{Task, TaskStatus};
 
 lazy_static! {
     static ref TASK_MANAGER: RwLock<TaskManager> = RwLock::new(TaskManager::new());

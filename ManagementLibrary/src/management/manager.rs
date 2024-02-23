@@ -4,23 +4,23 @@ use std::time::Duration;
 use lazy_static::lazy_static;
 use actix_web::{App, HttpServer};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::manager::agnet::Agent;
+use crate::management::agnet::Agent;
 use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::agent_manager::AgentManager;
-use crate::manager::file_manager::FileManager;
+use crate::management::agent_manager::AgentManager;
+use crate::management::file_manager::FileManager;
 use crate::connection::socket::agent_socket::AgentSocket;
 use crate::web::page::{config, inference, javascript, log};
 
 lazy_static!{
-    static ref MANAGEMENT: RwLock<Management> = RwLock::new(Management::new());
+    static ref MANAGEMENT: RwLock<Manager> = RwLock::new(Manager::new());
 }
 
-pub struct Management {
+pub struct Manager {
     terminate: bool,
 }
 
-impl Management {
+impl Manager {
     fn new() -> Self {
         Self {
             terminate: false,

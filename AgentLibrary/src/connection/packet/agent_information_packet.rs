@@ -1,5 +1,5 @@
 use crate::connection::packet::base_packet::BasePacket;
-use crate::manager::utils::agent_information::AgentInformation;
+use crate::management::utils::agent_information::AgentInformation;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct AgentInformationPacket {
@@ -10,8 +10,7 @@ pub struct AgentInformationPacket {
 }
 
 impl AgentInformationPacket {
-    pub fn new(agent_information: AgentInformation) -> Result<Self, serde_json::Error> {
-        let data = serde_json::to_vec(&agent_information)?;
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16),
             id: PacketType::AgentInformationPacket.as_id_byte(),

@@ -1,5 +1,5 @@
 use crate::connection::packet::base_packet::BasePacket;
-use crate::manager::utils::file_transfer_result::FileTransferResult;
+use crate::management::utils::file_transfer_result::FileTransferResult;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct FileTransferReplyPacket {
@@ -10,11 +10,11 @@ pub struct FileTransferReplyPacket {
 }
 
 impl FileTransferReplyPacket {
-    pub fn new(file_transfer_result: FileTransferResult) -> Self {
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16),
             id: PacketType::FileTransferReplyPacket.as_id_byte(),
-            data: Vec::new(),
+            data,
             packet_type: PacketType::FileTransferReplyPacket
         }
     }

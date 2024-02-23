@@ -7,11 +7,11 @@ use actix_multipart::Multipart;
 use sanitize_filename::sanitize;
 use futures::{self, StreamExt, TryStreamExt};
 use actix_web::{get, post, web, Scope, HttpResponse, Responder};
-use crate::manager::utils::task::Task;
+use crate::management::utils::task::Task;
 use crate::utils::static_files::StaticFiles;
-use crate::manager::file_manager::FileManager;
+use crate::management::file_manager::FileManager;
 use crate::web::utils::response::OperationStatus;
-use crate::manager::utils::inference_type::InferenceType;
+use crate::management::utils::inference_type::InferenceType;
 
 pub fn initialize() -> Scope {
     web::scope("/inference")

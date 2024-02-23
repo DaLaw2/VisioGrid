@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use std::fmt::{self, Display, Formatter};
-use crate::manager::utils::image_task::ImageTask;
-use crate::manager::utils::inference_type::InferenceType;
+use crate::management::utils::image_task::ImageTask;
+use crate::management::utils::inference_type::InferenceType;
 
 #[derive(Debug, Clone)]
 pub struct TaskInfo {

@@ -1,4 +1,5 @@
 use std::fs;
+use std::net::{SocketAddr, ToSocketAddrs};
 use tokio::sync::RwLock;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
@@ -15,8 +16,7 @@ struct ConfigTable {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    management_ip: [u8; 4],
-    management_listen_port: u16,
+    pub management_address: String,
 }
 
 impl Config {
@@ -40,14 +40,10 @@ impl Config {
     }
 
     pub fn validate(config: &Config) -> bool {
-        true
+        Config::validate_address(&config.management_address)
     }
 
-    fn validate_mini_second(second: u64) -> bool {
-        second <= 60000
-    }
-
-    fn validate_second(second: u64) -> bool {
-        second <= 86400
+    fn validate_address(address: &str) -> bool {
+        address.to_socket_addrs().is_ok()
     }
 }

@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::manager::utils::bounding_box::BoundingBox;
+use crate::management::utils::bounding_box::BoundingBox;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskResult {

@@ -1,4 +1,4 @@
-use crate::manager::utils::performance::Performance;
+use crate::management::utils::performance::Performance;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
@@ -10,11 +10,11 @@ pub struct PerformancePacket {
 }
 
 impl PerformancePacket {
-    pub fn new(performance: Performance) -> Self {
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16),
             id: PacketType::PerformancePacket.as_id_byte(),
-            data: Vec::new(),
+            data,
             packet_type: PacketType::PerformancePacket
         }
     }

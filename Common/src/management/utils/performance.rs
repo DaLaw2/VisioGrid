@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::manager::utils::agent_information::AgentInformation;
+use crate::management::utils::agent_information::AgentInformation;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Performance {

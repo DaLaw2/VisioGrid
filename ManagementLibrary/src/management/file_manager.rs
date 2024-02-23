@@ -21,11 +21,11 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
 use crate::utils::config::Config;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::manager::task_manager::TaskManager;
-use crate::manager::utils::video_info::VideoInfo;
-use crate::manager::utils::image_task::ImageTask;
-use crate::manager::utils::task::{Task, TaskStatus};
-use crate::manager::result_repository::ResultRepository;
+use crate::management::task_manager::TaskManager;
+use crate::management::utils::video_info::VideoInfo;
+use crate::management::utils::image_task::ImageTask;
+use crate::management::utils::task::{Task, TaskStatus};
+use crate::management::result_repository::ResultRepository;
 
 lazy_static! {
     static ref FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager::new());

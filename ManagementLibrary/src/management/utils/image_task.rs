@@ -1,8 +1,8 @@
 use uuid::Uuid;
 use std::path::PathBuf;
-use crate::manager::utils::task::Task;
-use Common::manager::utils::bounding_box::BoundingBox;
-use crate::manager::utils::inference_type::InferenceType;
+use crate::management::utils::task::Task;
+use Common::management::utils::bounding_box::BoundingBox;
+use crate::management::utils::inference_type::InferenceType;
 
 #[derive(Debug, Clone)]
 pub struct ImageTask {
