@@ -1,4 +1,3 @@
-use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct DataChannelPortPacket {
@@ -10,20 +9,11 @@ pub struct DataChannelPortPacket {
 
 impl DataChannelPortPacket {
     pub fn new(port: u16) -> Self {
-        let port = port.to_string().as_bytes().to_vec();
+        let data = port.to_be_bytes().to_vec();
         Self {
-            length: length_to_byte(16 + port.len()),
+            length: length_to_byte(16 + data.len()),
             id: PacketType::DataChannelPortPacket.as_byte(),
-            data: port,
-            packet_type: PacketType::DataChannelPortPacket,
-        }
-    }
-
-    pub fn from_base_packet(base_packet: BasePacket) -> Self {
-        Self {
-            length: base_packet.length,
-            id: base_packet.id,
-            data: base_packet.data,
+            data,
             packet_type: PacketType::DataChannelPortPacket,
         }
     }

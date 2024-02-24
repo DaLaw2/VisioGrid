@@ -12,7 +12,7 @@ impl StillProcessReplyPacket {
     pub fn new() -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::StillProcessReplyPacket.as_id_byte(),
+            id: PacketType::StillProcessReplyPacket.as_byte(),
             data: Vec::new(),
             packet_type: PacketType::StillProcessReplyPacket
         }

@@ -1,7 +1,8 @@
 use std::str::FromStr;
 use std::fmt::Display;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum InferenceType {
     YOLO,
     ONNX,

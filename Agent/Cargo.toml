@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 tch = "0.15.0"
 AgentLibrary = { path = "../AgentLibrary" }
+tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }

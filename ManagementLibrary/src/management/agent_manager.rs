@@ -6,8 +6,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use futures::stream::{self, StreamExt};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::management::agnet::Agent;
 use crate::utils::config::Config;
+use crate::management::agent::Agent;
 use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {

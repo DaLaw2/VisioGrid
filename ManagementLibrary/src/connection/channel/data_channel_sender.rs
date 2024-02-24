@@ -32,8 +32,10 @@ impl DataChannelSender {
     pub async fn disconnect(&mut self) {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                let _ = stop_signal.send(());
-                Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Data Channel: Destroyed Sender successfully.".to_string()).await;
+                match stop_signal.send(()) {
+                    Ok(_) => Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Data Channel: Destroyed Sender successfully.".to_string()).await,
+                    Err(_) => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Data Channel: Failed to destroy Sender.".to_string()).await,
+                }
             },
             None => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Data Channel: Failed to destroy Sender.".to_string()).await,
         }

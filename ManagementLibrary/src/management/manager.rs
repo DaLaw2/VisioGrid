@@ -4,11 +4,11 @@ use std::time::Duration;
 use lazy_static::lazy_static;
 use actix_web::{App, HttpServer};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::management::agnet::Agent;
 use crate::utils::config::Config;
+use crate::management::agent::Agent;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::management::agent_manager::AgentManager;
 use crate::management::file_manager::FileManager;
+use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
 use crate::web::page::{config, inference, javascript, log};
 

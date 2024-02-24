@@ -6,6 +6,11 @@ use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::channel::control_channel_receive_thread::ReceiveThread;
 
+pub struct ReceiverTX {
+    pub agent_information_packet: mpsc::UnboundedSender<BasePacket>,
+    pub performance_packet: mpsc::UnboundedSender<BasePacket>,
+}
+
 pub struct ControlChannelReceiver {
     agent_id: Uuid,
     stop_signal_tx: Option<oneshot::Sender<()>>,
@@ -39,15 +44,12 @@ impl ControlChannelReceiver {
         self.performance_packet.close();
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                let _ = stop_signal.send(());
-                Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await;
+                match stop_signal.send(()) {
+                    Ok(_) => Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await,
+                    Err(_) => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await
+                }
             },
             None => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await,
         }
     }
-}
-
-pub struct ReceiverTX {
-    pub agent_information_packet: mpsc::UnboundedSender<BasePacket>,
-    pub performance_packet: mpsc::UnboundedSender<BasePacket>,
 }

@@ -1,4 +1,3 @@
-use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct FileHeaderPacket {
@@ -9,21 +8,11 @@ pub struct FileHeaderPacket {
 }
 
 impl FileHeaderPacket {
-    pub fn new(filename: String, filesize: usize) -> Self {
-        let data = format!("Filename: {}, Size: {}, Packet count: {}", filename, filesize, (filesize + 1048575_usize) / 1048576_usize);
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16 + data.len()),
             id: PacketType::FileHeaderPacket.as_byte(),
-            data: data.as_bytes().to_vec(),
-            packet_type: PacketType::FileHeaderPacket,
-        }
-    }
-
-    pub fn from_base_packet(base_packet: BasePacket) -> Self {
-        Self {
-            length: base_packet.length,
-            id: base_packet.id,
-            data: base_packet.data,
+            data,
             packet_type: PacketType::FileHeaderPacket,
         }
     }

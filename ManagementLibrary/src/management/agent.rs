@@ -14,28 +14,30 @@ use crate::utils::port_pool::PortPool;
 use crate::connection::packet::Packet;
 use crate::connection::channel::DataChannel;
 use crate::utils::logger::{Logger, LogLevel};
-use crate::management::task_manager::TaskManager;
-use crate::management::agent_manager::AgentManager;
-use crate::management::utils::task_info::TaskInfo;
 use crate::connection::channel::ControlChannel;
+use crate::management::task_manager::TaskManager;
+use crate::management::utils::task_info::TaskInfo;
+use crate::management::agent_manager::AgentManager;
 use crate::management::utils::image_task::ImageTask;
-use Common::management::utils::task_result::TaskResult;
+use crate::management::utils::task_result::TaskResult;
+use crate::management::utils::file_header::FileHeader;
 use crate::management::utils::performance::Performance;
 use crate::management::utils::confirm_type::ConfirmType;
 use crate::connection::packet::alive_packet::AlivePacket;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::packet::confirm_packet::ConfirmPacket;
-use crate::management::utils::agent_information::AgentInformation;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
-use crate::management::utils::file_transfer_result::FileTransferResult;
+use crate::management::utils::agent_information::AgentInformation;
 use crate::connection::packet::file_header_packet::FileHeaderPacket;
+use crate::management::utils::file_transfer_result::FileTransferResult;
 use crate::connection::channel::data_channel_sender::DataChannelSender;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
 use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
 use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
+
 
 pub struct Agent {
     uuid: Uuid,
@@ -62,67 +64,62 @@ impl Agent {
             select! {
                 biased;
                 reply = control_channel_receiver.agent_information_packet.recv() => {
-                    return match &reply {
-                        Some(packet) => {
-                            match serde_json::from_slice::<AgentInformation>(&packet.as_data_byte()) {
-                                Ok(information) => {
-                                    agent_information = Some(information);
-                                    control_channel_sender.send(ConfirmPacket::new(ConfirmType::ReceiveAgentInformationSuccess)).await;
-                                    continue;
-                                },
-                                Err(_) => {
-                                    Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse information.".to_string()).await;
-                                    None
-                                },
+                    return if let Some(packet) = &reply {
+                        if let Ok(information) = serde_json::from_slice::<AgentInformation>(&packet.as_data_byte()) {
+                            agent_information = Some(information);
+                            if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceiveAgentInformationSuccess) {
+                                control_channel_sender.send(ConfirmPacket::new(confirm)).await;
+                                continue;
+                            } else {
+                                Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to serialized confirm data.".to_string()).await;
+                                None
                             }
-                        },
-                        None => {
-                            Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                        } else {
+                            Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse information.".to_string()).await;
                             None
-                        },
-                    };
+                        }
+                    } else {
+                        Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                        None
+                    }
                 },
                 reply = control_channel_receiver.performance_packet.recv() => {
-                    return match &reply {
-                        Some(packet) => {
-                            match serde_json::from_slice::<Performance>(packet.as_data_byte()) {
-                                Ok(realtime_usage) => {
-                                    match agent_information {
-                                        Some(information) => {
-                                            control_channel_sender.send(ConfirmPacket::new(ConfirmType::ReceivePerformanceSuccess)).await;
-                                            let residual_usage = Performance::calc_residual_usage(&information, &realtime_usage);
-                                            let agent = Self {
-                                                uuid,
-                                                terminate: false,
-                                                information,
-                                                idle_unused: residual_usage,
-                                                realtime_usage,
-                                                image_task: VecDeque::new(),
-                                                previous_task: None,
-                                                control_channel_sender,
-                                                control_channel_receiver,
-                                                data_channel_sender: None,
-                                                data_channel_receiver: None,
-                                            };
-                                            Some(agent)
-                                        },
-                                        None => {
-                                            Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Agent information not ready.".to_string()).await;
-                                            None
-                                        }
-                                    }
-                                },
-                                Err(_) => {
-                                    Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse performance.".to_string()).await;
+                    return if let Some(packet) = &reply {
+                        if let Ok(realtime_usage) = serde_json::from_slice::<Performance>(packet.as_data_byte()) {
+                            if let Some(information) = agent_information {
+                                if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceivePerformanceSuccess) {
+                                    control_channel_sender.send(ConfirmPacket::new(confirm)).await;
+                                    let residual_usage = Performance::calc_residual_usage(&information, &realtime_usage);
+                                    let agent = Self {
+                                        uuid,
+                                        terminate: false,
+                                        information,
+                                        idle_unused: residual_usage,
+                                        realtime_usage,
+                                        image_task: VecDeque::new(),
+                                        previous_task: None,
+                                        control_channel_sender,
+                                        control_channel_receiver,
+                                        data_channel_sender: None,
+                                        data_channel_receiver: None,
+                                    };
+                                    Some(agent)
+                                } else {
+                                    Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to serialized confirm data.".to_string()).await;
                                     None
-                                },
+                                }
+                            } else {
+                                Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Agent information not ready.".to_string()).await;
+                                None
                             }
-                        },
-                        None => {
-                            Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                        } else {
+                            Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse performance.".to_string()).await;
                             None
-                        },
-                    };
+                        }
+                    } else {
+                        Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                        None
+                    }
                 },
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
@@ -181,24 +178,23 @@ impl Agent {
             select! {
                 biased;
                 reply = agent.control_channel_receiver.performance_packet.recv() => {
-                    match &reply {
-                        Some(reply_packet) => {
-                            match serde_json::from_slice::<Performance>(reply_packet.as_data_byte()) {
-                                Ok(performance) => {
-                                    agent.realtime_usage = performance;
-                                    agent.control_channel_sender.send(ConfirmPacket::new(ConfirmType::ReceivePerformanceSuccess)).await;
-                                    timer = Instant::now();
-                                },
-                                Err(_) => {
-                                    Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse performance.".to_string()).await;
-                                    continue;
-                                },
+                    if let Some(reply_packet) = &reply {
+                        if let Ok(performance) = serde_json::from_slice::<Performance>(reply_packet.as_data_byte()) {
+                            if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceivePerformanceSuccess) {
+                                agent.realtime_usage = performance;
+                                agent.control_channel_sender.send(ConfirmPacket::new(confirm)).await;
+                                timer = Instant::now();
+                            } else {
+                                Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to serialized confirm data.".to_string()).await;
+                                continue;
                             }
-                        },
-                        None => {
-                            Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
-                            return;
-                        },
+                        } else {
+                            Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse performance.".to_string()).await;
+                            continue;
+                        }
+                    } else {
+                        Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                        return;
                     }
                 },
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
@@ -433,9 +429,15 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while time.elapsed() < timeout_duration {
             if time.elapsed() > polling_interval * polling_times {
-                match &mut agent.write().await.data_channel_sender {
-                    Some(data_channel_sender) => data_channel_sender.send(TaskInfoPacket::new(TaskInfo::new(&image_task))).await,
-                    None => Err("Agent: Data Channel is not available.".to_string())?,
+                if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
+                    let taskinfo = TaskInfo::new(image_task.task_uuid.clone(), image_task.model_filename.clone(), image_task.inference_type);
+                    if let Ok(task_info) = serde_json::to_vec(&taskinfo) {
+                        data_channel_sender.send(TaskInfoPacket::new(task_info)).await;
+                    } else {
+                        Err("Agent: Unable to serialized task info data.".to_string())?
+                    }
+                } else {
+                    Err("Agent: Data Channel is not available.".to_string())?
                 }
                 polling_times += 1;
             }
@@ -465,7 +467,13 @@ impl Agent {
             Err(err) => Err(format!("Agent: Cannot read file {}.\nReason: {}", filepath.display(), err))?,
         };
         match &mut agent.write().await.data_channel_sender {
-            Some(data_channel_sender) => data_channel_sender.send(FileHeaderPacket::new(filename.clone(), filesize as usize)).await,
+            Some(data_channel_sender) => {
+                if let Ok(file_header) = serde_json::to_vec(&FileHeader::new(filename.clone(), filesize as usize)) {
+                    data_channel_sender.send(FileHeaderPacket::new(file_header)).await
+                } else {
+                    Err("Agent: Unable to serialized file header data.".to_string())?;
+                }
+            },
             None => Err("Agent: Data channel is not available.".to_string())?,
         }
         let file = File::open(filepath.clone()).await;

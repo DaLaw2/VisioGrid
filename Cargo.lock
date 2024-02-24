@@ -8,6 +8,7 @@ version = "1.0.0"
 dependencies = [
  "AgentLibrary",
  "tch",
+ "tokio",
 ]
 
 [[package]]
@@ -31,6 +32,7 @@ dependencies = [
  "chrono",
  "serde",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

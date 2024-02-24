@@ -1,5 +1,4 @@
 use crate::connection::packet::base_packet::BasePacket;
-use crate::management::utils::agent_information::AgentInformation;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct AgentInformationPacket {
@@ -13,7 +12,7 @@ impl AgentInformationPacket {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::AgentInformationPacket.as_id_byte(),
+            id: PacketType::AgentInformationPacket.as_byte(),
             data,
             packet_type: PacketType::AgentInformationPacket
         }

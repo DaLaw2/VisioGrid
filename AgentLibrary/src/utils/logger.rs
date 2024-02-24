@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 lazy_static! {
-    static ref GLOBAL_LOGGER: RwLock<Logger> = RwLock::new(Logger::new());
+    static ref LOGGER: RwLock<Logger> = RwLock::new(Logger::new());
 }
 
 pub struct Logger {
@@ -23,11 +23,11 @@ impl Logger {
     }
 
     pub async fn instance() -> RwLockReadGuard<'static, Logger> {
-        GLOBAL_LOGGER.read().await
+        LOGGER.read().await
     }
 
     pub async fn instance_mut() -> RwLockWriteGuard<'static, Logger> {
-        GLOBAL_LOGGER.write().await
+        LOGGER.write().await
     }
 
     pub async fn append_system_log(level: LogLevel, message: String) {

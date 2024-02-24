@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 lazy_static! {
-    static ref GLOBAL_CONFIG: RwLock<Config> = RwLock::new(Config::new());
+    static ref CONFIG: RwLock<Config> = RwLock::new(Config::new());
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,11 +45,11 @@ impl Config {
     }
 
     pub async fn now() -> Config {
-        GLOBAL_CONFIG.read().await.clone()
+        CONFIG.read().await.clone()
     }
 
     pub async fn update(config: Config) {
-        *GLOBAL_CONFIG.write().await = config
+        *CONFIG.write().await = config
     }
 
     pub fn validate(config: &Config) -> bool {

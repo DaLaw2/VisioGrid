@@ -1,4 +1,3 @@
-use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct FileBodyPacket {
@@ -14,15 +13,6 @@ impl FileBodyPacket {
             length: length_to_byte(16 + data.len()),
             id: PacketType::FileBodyPacket.as_byte(),
             data,
-            packet_type: PacketType::FileBodyPacket,
-        }
-    }
-
-    pub fn from_base_packet(base_packet: BasePacket) -> Self {
-        Self {
-            length: base_packet.length,
-            id: base_packet.id,
-            data: base_packet.data,
             packet_type: PacketType::FileBodyPacket,
         }
     }

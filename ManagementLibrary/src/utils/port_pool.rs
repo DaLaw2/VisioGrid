@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use crate::utils::config::Config;
 
 lazy_static! {
-    static ref GLOBAL_PORT_POOL: Mutex<PortPool> = Mutex::new(PortPool::new());
+    static ref PORT_POOL: Mutex<PortPool> = Mutex::new(PortPool::new());
 }
 
 pub struct PortPool {
@@ -25,7 +25,7 @@ impl PortPool {
     }
 
     pub async fn allocate_port() -> Option<u16> {
-        let mut port_pool = GLOBAL_PORT_POOL.lock().await;
+        let mut port_pool = PORT_POOL.lock().await;
         port_pool.available.iter().next().cloned().map(|port| {
             port_pool.available.remove(&port);
             port
@@ -33,7 +33,7 @@ impl PortPool {
     }
 
     pub async fn free_port(port: u16) {
-        let mut port_pool = GLOBAL_PORT_POOL.lock().await;
+        let mut port_pool = PORT_POOL.lock().await;
         if port >= port_pool.start && port < port_pool.end {
             port_pool.available.insert(port);
         }

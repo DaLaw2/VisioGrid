@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use std::path::PathBuf;
 use crate::management::utils::task::Task;
-use Common::management::utils::bounding_box::BoundingBox;
+use crate::management::utils::bounding_box::BoundingBox;
 use crate::management::utils::inference_type::InferenceType;
 
 #[derive(Debug, Clone)]

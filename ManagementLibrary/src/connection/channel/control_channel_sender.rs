@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use tokio::sync::{mpsc, oneshot};
-use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::Packet;
+use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::channel::send_thread::SendThread;
 
@@ -32,8 +32,10 @@ impl ControlChannelSender {
     pub async fn disconnect(&mut self) {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                let _ = stop_signal.send(());
-                Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Sender successfully.".to_string()).await;
+                match stop_signal.send(()) {
+                    Ok(_) => Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Sender successfully.".to_string()).await,
+                    Err(_) => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
+                }
             },
             None => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
         }

@@ -1,11 +1,11 @@
 use std::fs;
-use std::net::{SocketAddr, ToSocketAddrs};
 use tokio::sync::RwLock;
+use std::net::ToSocketAddrs;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 lazy_static! {
-    static ref GLOBAL_CONFIG: RwLock<Config> = RwLock::new(Config::new());
+    static ref CONFIG: RwLock<Config> = RwLock::new(Config::new());
 }
 
 #[derive(Debug, Deserialize)]
@@ -16,7 +16,11 @@ struct ConfigTable {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
+    pub internal_timestamp: u64,
     pub management_address: String,
+    pub control_channel_timeout: u64,
+    pub data_channel_timeout: u64,
+    pub file_transfer_timeout: u64,
 }
 
 impl Config {
@@ -32,15 +36,27 @@ impl Config {
     }
 
     pub async fn now() -> Config {
-        GLOBAL_CONFIG.read().await.clone()
+        CONFIG.read().await.clone()
     }
 
     pub async fn update(config: Config) {
-        *GLOBAL_CONFIG.write().await = config
+        *CONFIG.write().await = config
     }
 
     pub fn validate(config: &Config) -> bool {
-        Config::validate_address(&config.management_address)
+        Config::validate_mini_second(config.internal_timestamp)
+            && Config::validate_address(&config.management_address)
+            && Config::validate_second(config.control_channel_timeout)
+            && Config::validate_second(config.data_channel_timeout)
+            && Config::validate_second(config.file_transfer_timeout)
+    }
+
+    fn validate_mini_second(second: u64) -> bool {
+        second <= 60000
+    }
+
+    fn validate_second(second: u64) -> bool {
+        second <= 86400
     }
 
     fn validate_address(address: &str) -> bool {

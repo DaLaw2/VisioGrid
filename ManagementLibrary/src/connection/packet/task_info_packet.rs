@@ -1,5 +1,3 @@
-use crate::management::utils::task_info::TaskInfo;
-use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct TaskInfoPacket {
@@ -10,20 +8,11 @@ pub struct TaskInfoPacket {
 }
 
 impl TaskInfoPacket {
-    pub fn new(task_info: TaskInfo) -> Self {
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
-            length: length_to_byte(16),
+            length: length_to_byte(16 + data.len()),
             id: PacketType::TaskInfoPacket.as_byte(),
-            data: Vec::from(task_info.to_string().as_bytes()),
-            packet_type: PacketType::TaskInfoPacket,
-        }
-    }
-
-    pub fn from_base_packet(base_packet: BasePacket) -> Self {
-        Self {
-            length: base_packet.length,
-            id: base_packet.id,
-            data: base_packet.data,
+            data,
             packet_type: PacketType::TaskInfoPacket,
         }
     }

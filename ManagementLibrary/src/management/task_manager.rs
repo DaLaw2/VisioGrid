@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, VecDeque};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::management::agnet::Agent;
+use crate::management::agent::Agent;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
