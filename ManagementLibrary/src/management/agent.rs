@@ -65,13 +65,13 @@ impl Agent {
                 biased;
                 reply = control_channel_receiver.agent_information_packet.recv() => {
                     return if let Some(packet) = &reply {
-                        if let Ok(information) = serde_json::from_slice::<AgentInformation>(&packet.as_data_byte()) {
+                        if let Ok(information) = serde_json::from_slice::<AgentInformation>(packet.as_data_byte()) {
                             agent_information = Some(information);
                             if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceiveAgentInformationSuccess) {
                                 control_channel_sender.send(ConfirmPacket::new(confirm)).await;
                                 continue;
                             } else {
-                                Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to serialized confirm data.".to_string()).await;
+                                Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to serialized confirm type.".to_string()).await;
                                 None
                             }
                         } else {
@@ -357,11 +357,11 @@ impl Agent {
                     continue;
                 },
             };
-            match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
+            match TcpListener::bind(format!("127.0.0.1:{port}")).await {
                 Ok(listener) => break (listener, port),
                 Err(err) => {
                     PortPool::free_port(port).await;
-                    Logger::append_system_log(LogLevel::ERROR, format!("Agent: Port binding failed.\nReason: {}\n", err)).await;
+                    Logger::append_system_log(LogLevel::ERROR, format!("Agent: Port binding failed.\nReason: {err}")).await;
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
@@ -371,7 +371,7 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
-        let (stream, address) = loop {
+        let (tcp_stream, _) = loop {
             if timer.elapsed() > timeout_duration {
                 PortPool::free_port(port).await;
                 return;
@@ -394,7 +394,7 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         };
-        let socket_stream = SocketStream::new(stream, address);
+        let socket_stream = SocketStream::new(tcp_stream);
         let (data_channel_sender, data_channel_receiver) = DataChannel::new(uuid, socket_stream);
         let mut agent = agent.write().await;
         agent.data_channel_sender = Some(data_channel_sender);
@@ -464,7 +464,7 @@ impl Agent {
         let config = Config::now().await;
         let filesize = match fs::metadata(&filepath).await {
             Ok(metadata) => metadata.len(),
-            Err(err) => Err(format!("Agent: Cannot read file {}.\nReason: {}", filepath.display(), err))?,
+            Err(err) => Err(format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display()))?,
         };
         match &mut agent.write().await.data_channel_sender {
             Some(data_channel_sender) => {
@@ -498,11 +498,11 @@ impl Agent {
                             sent_packets.push(data);
                             sequence_number += 1;
                         },
-                        Err(_) => Err(format!("Agent: An error occurred while reading file {}.", filepath.display()))?,
+                        Err(_) => Err(format!("Agent: An error occurred while reading file {filepath}.", filepath = filepath.display()))?,
                     }
                 }
             },
-            Err(err) => Err(format!("Agent: Cannot read file {}.\nReason: {}", filepath.display(), err))?,
+            Err(err) => Err(format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display()))?,
         }
         let time = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);

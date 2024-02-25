@@ -47,16 +47,13 @@ impl Task {
         self.status = status;
     }
 
-    pub async fn panic(&mut self, error_message: String) {
+    pub async fn panic(mut self, error_message: String) {
         self.status = TaskStatus::Fail;
         self.error = Err(error_message);
-        ResultRepository::task_failed(self.clone()).await;
+        ResultRepository::task_failed(self).await;
     }
 
-    pub async fn update_unprocessed(&mut self, unprocessed: Result<usize, String>) {
-        match unprocessed {
-            Ok(unprocessed) => self.unprocessed = unprocessed,
-            Err(err) => self.panic(err).await,
-        }
+    pub async fn update_unprocessed(&mut self, unprocessed: usize) {
+        self.unprocessed = unprocessed;
     }
 }

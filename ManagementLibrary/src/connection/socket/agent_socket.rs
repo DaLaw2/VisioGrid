@@ -12,12 +12,13 @@ pub struct AgentSocket {
 
 impl AgentSocket {
     pub async fn new() -> Self {
-        let config = Config::now().await;
         let listener = loop {
-            match TcpListener::bind(format!("127.0.0.1:{}", config.agent_listen_port)).await {
+            let config = Config::now().await;
+            let port = config.agent_listen_port;
+            match TcpListener::bind(format!("127.0.0.1:{port}")).await {
                 Ok(listener) => break listener,
                 Err(err) => {
-                    Logger::append_system_log(LogLevel::ERROR, format!("Agent Socket: Port binding failed.\nReason: {}", err)).await;
+                    Logger::append_system_log(LogLevel::ERROR, format!("Agent Socket: Port binding failed.\nReason: {err}")).await;
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                 },
             }
@@ -33,6 +34,6 @@ impl AgentSocket {
                 break connection;
             }
         };
-        (SocketStream::new(stream, address.clone()), address)
+        (SocketStream::new(stream), address)
     }
 }

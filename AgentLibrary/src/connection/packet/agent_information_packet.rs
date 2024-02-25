@@ -1,4 +1,3 @@
-use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
 pub struct AgentInformationPacket {
@@ -11,18 +10,9 @@ pub struct AgentInformationPacket {
 impl AgentInformationPacket {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
-            length: length_to_byte(16),
+            length: length_to_byte(16 + data.len()),
             id: PacketType::AgentInformationPacket.as_byte(),
             data,
-            packet_type: PacketType::AgentInformationPacket
-        }
-    }
-
-    pub fn from_base_packet(base_packet: BasePacket) -> Self {
-        Self {
-            length: base_packet.length,
-            id: base_packet.id,
-            data: base_packet.data,
             packet_type: PacketType::AgentInformationPacket
         }
     }

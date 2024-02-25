@@ -11,7 +11,7 @@ impl ManagementSocket {
         loop {
             if let Ok(tcp_stream) = TcpStream::connect(&config.management_address).await {
                 if let Ok(socket_address) = tcp_stream.peer_addr() {
-                    let socket_stream = SocketStream::new(tcp_stream, socket_address.clone());
+                    let socket_stream = SocketStream::new(tcp_stream);
                     break (socket_stream, socket_address);
                 }
             }

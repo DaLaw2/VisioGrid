@@ -36,7 +36,6 @@ impl Manager {
     }
 
     pub async fn run() {
-        Config::now().await;
         FileManager::run().await;
         AgentManager::run().await;
         Self::register_agent().await;
@@ -52,8 +51,8 @@ impl Manager {
             match http_server {
                 Ok(http_server) => break http_server,
                 Err(err) => {
-                    Logger::append_system_log(LogLevel::ERROR, format!("Management: Http service bind port failed.\nReason: {}", err)).await;
-                    sleep(Duration::from_millis(config.internal_timestamp)).await;
+                    Logger::append_system_log(LogLevel::ERROR, format!("Management: Http service bind port failed.\nReason: {err}")).await;
+                    sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
             }
@@ -61,7 +60,7 @@ impl Manager {
         Logger::append_system_log(LogLevel::INFO, "Management: Web service ready.".to_string()).await;
         Logger::append_system_log(LogLevel::INFO, "Management: Online.".to_string()).await;
         if let Err(err) = http_server.run().await {
-            Logger::append_system_log(LogLevel::ERROR, format!("Management: Error while Http service running.\nReason: {}", err)).await
+            Logger::append_system_log(LogLevel::ERROR, format!("Management: Error while web service running.\nReason: {err}")).await
         }
     }
 
@@ -75,14 +74,14 @@ impl Manager {
 
     async fn register_agent() {
         tokio::spawn(async {
+            let mut agent_socket = AgentSocket::new().await;
             while !Self::instance().await.terminate {
                 let agent_id = Uuid::new_v4();
-                let mut agent_socket = AgentSocket::new().await;
                 let (socket_stream, agent_ip) = agent_socket.get_connection().await;
                 let agent = Agent::new(agent_id, socket_stream).await;
                 if let Some(agent) = agent {
                     AgentManager::add_agent(agent).await;
-                    Logger::append_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {}, Allocate agent ID: {}", agent_ip, agent_id)).await;
+                    Logger::append_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}")).await;
                 }
             }
         });
