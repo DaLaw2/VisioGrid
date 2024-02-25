@@ -4,7 +4,7 @@ const originalContent = {
 };
 
 function showUploadOptions(option) {
-    const options = ['YOLO', 'ONNX', 'Default'];
+    const options = ['YOLO', 'ONNX'];
     for (const opt of options) {
         const container = document.getElementById(opt);
         if (opt === option) {

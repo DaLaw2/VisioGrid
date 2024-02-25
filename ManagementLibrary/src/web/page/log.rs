@@ -34,7 +34,7 @@ async fn update_system_log(path: web::Path<String>) -> impl Responder {
             let log_string = Logger::format_logs(&logs);
             HttpResponse::Ok().body(log_string)
         },
-        Err(_) => HttpResponse::BadRequest().body("Invalid datetime format.")
+        Err(_) => HttpResponse::BadRequest().body("Invalid datetime format."),
     }
 }
 
@@ -44,8 +44,8 @@ async fn agent_log(agent_id: web::Path<Uuid>) -> impl Responder {
         Some(agent_log) => {
             let log_string = Logger::format_logs(&agent_log);
             HttpResponse::Ok().body(log_string)
-        }
-        None => HttpResponse::BadRequest().body("Agent not found.")
+        },
+        None => HttpResponse::BadRequest().body("Agent not found."),
     }
 }
 
@@ -58,11 +58,11 @@ async fn agent_log_update(path: web::Path<(Uuid, String)>) -> impl Responder {
                 Some(logs) => {
                     let log_string = Logger::format_logs(&logs);
                     HttpResponse::Ok().body(log_string)
-                }
-                None => HttpResponse::BadRequest().body("Agent not found.")
+                },
+                None => HttpResponse::BadRequest().body("Agent not found."),
             }
         },
-        Err(_) => HttpResponse::BadRequest().body("Invalid datetime format")
+        Err(_) => HttpResponse::BadRequest().body("Invalid datetime format"),
     }
 }
 

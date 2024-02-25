@@ -7,7 +7,7 @@ use std::time::Duration;
 use zip::read::ZipArchive;
 use gstreamer::prelude::*;
 use imageproc::rect::Rect;
-use image::{ImageResult, Rgb, RgbImage};
+use image::{Rgb, RgbImage};
 use zip::write::FileOptions;
 use rusttype::{Font, Scale};
 use lazy_static::lazy_static;
@@ -149,7 +149,7 @@ impl FileManager {
                         },
                     }
                 },
-                None => sleep(Duration::from_millis(config.internal_timestamp)).await
+                None => sleep(Duration::from_millis(config.internal_timestamp)).await,
             }
         }
     }
@@ -163,7 +163,7 @@ impl FileManager {
                 Self::forward_to_task_manager(task).await;
             },
             Err(err) => {
-                let error_message = format!("File Manager: Task {task_id} failed because move image failed.\nReason: {err}", task_id = task.uuid);
+                let error_message = format!("File Manager: Task {task_id} failed because move image file failed.\nReason: {err}", task_id = task.uuid);
                 task.panic(error_message.clone()).await;
                 Logger::append_system_log(LogLevel::INFO, error_message).await;
             },
@@ -171,21 +171,21 @@ impl FileManager {
     }
 
     async fn extract_pre_processing(source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) -> Result<(), String> {
-        if let Err(err) = fs::create_dir(&create_folder).await {
-            let create_folder = create_folder.display();
-            let error_message = format!("File Manager: Cannot create {create_folder} folder.\nReason: {err}");
-            Err(error_message)?
-        }
-        if let Err(err) = fs::rename(&source_path, &destination_path).await {
-            let source_path = source_path.display();
-            let destination_path = destination_path.display();
-            let error_message = format!("File Manager: Cannot to move file from {source_path} to {destination_path}.\nReason: {err}");
-            Err(error_message)?
-        }
+        fs::create_dir(&create_folder).await
+            .map_err(|err| {
+                let create_folder = create_folder.display();
+                format!("File Manager: Cannot create {create_folder} folder.\nReason: {err}")
+            })?;
+        fs::rename(&source_path, &destination_path).await
+            .map_err(|err| {
+                let source_path = source_path.display();
+                let destination_path = destination_path.display();
+                format!("File Manager: Cannot to move file from {source_path} to {destination_path}.\nReason: {err}")
+            })?;
         Ok(())
     }
 
-    async fn video_pre_process(mut task: Task) {
+    async fn video_pre_process(task: Task) {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
@@ -213,7 +213,7 @@ impl FileManager {
         let discoverer = Discoverer::new(gstreamer::ClockTime::from_seconds(5))
             .map_err(|err| format!("File Manager: Failed to create Discoverer element.\nReason: {err}"))?;
         let info = discoverer.discover_uri(&*format!("file:///{clean_path}"))
-            .map_err(|err| format!("File Manager: Failed to get video info.\nReason: {err}"))?;
+            .map_err(|err| format!("File Manager: Failed to read video file.\nReason: {err}"))?;
         let mut video_info = VideoInfo::default();
         if let Some(stream) = info.video_streams().get(0) {
             if let Some(caps) = stream.caps() {
@@ -266,7 +266,7 @@ impl FileManager {
         Ok(())
     }
 
-    async fn zip_pre_process(mut task: Task) {
+    async fn zip_pre_process(task: Task) {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
@@ -335,7 +335,7 @@ impl FileManager {
         }
     }
 
-    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &Option<Font<'_>>) -> Result<RgbImage, String> {
+    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &Font<'_>) -> Result<RgbImage, String> {
         let border_color = Rgb(config.border_color);
         let text_color = Rgb(config.text_color);
         let image_path = image_task.image_filepath.clone();
@@ -348,13 +348,11 @@ impl FileManager {
                 let offset_rect = Rect::at(base_rectangle.left() - i as i32, base_rectangle.top() - i as i32).of_size(base_rectangle.width() + 2 * i, base_rectangle.height() + 2 * i);
                 draw_hollow_rect_mut(&mut image, offset_rect, border_color);
             }
-            if let Some(font) = font {
-                let scale = Scale::uniform(config.font_size);
-                let text = format!("{name}: {confidence:.2}%", name = bounding_box.name, confidence = bounding_box.confidence);
-                let position_x = bounding_box.x1 as i32;
-                let position_y = (bounding_box.y2 + config.border_width + 10) as i32;
-                draw_text_mut(&mut image, text_color, position_x, position_y, scale, &font, &text);
-            }
+            let scale = Scale::uniform(config.font_size);
+            let text = format!("{name}: {confidence:.2}%", name = bounding_box.name, confidence = bounding_box.confidence);
+            let position_x = bounding_box.x1 as i32;
+            let position_y = (bounding_box.y2 + config.border_width + 10) as i32;
+            draw_text_mut(&mut image, text_color, position_x, position_y, scale, &font, &text);
         }
         Ok(image)
     }
@@ -362,24 +360,38 @@ impl FileManager {
     async fn picture_post_processing(task: Task) {
         if let Some(image_task) = task.result.get(0) {
             let config = Config::now().await;
-            let font_data = fs::read(&config.font_path).await.unwrap_or_default();
-            let font = Font::try_from_bytes(&font_data);
-            let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
-            match Self::draw_bounding_box(image_task, &config, &font).await {
-                Ok(image) => {
-                    match image.save(&saved_path) {
-                        Ok(_) => Self::forward_to_repository(task),
-                        Err(err) => {
-                            let saved_path = saved_path.display();
-                            let error_message = format!("File Manager: Unable to write to output file {saved_path}.\nReason: {err}");
-                            Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
-                            task.panic(error_message).await;
-                        },
+            let font_path = &config.font_path;
+            match fs::read(font_path).await {
+                Ok(font_data) => {
+                    if let Some(font) = Font::try_from_bytes(&font_data) {
+                        let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
+                        match Self::draw_bounding_box(image_task, &config, &font).await {
+                            Ok(image) => {
+                                match image.save(&saved_path) {
+                                    Ok(_) => Self::forward_to_repository(task).await,
+                                    Err(err) => {
+                                        let saved_path = saved_path.display();
+                                        let error_message = format!("File Manager: Unable to write to output file {saved_path}.\nReason: {err}");
+                                        Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                                        task.panic(error_message).await;
+                                    },
+                                }
+                            },
+                            Err(err) => {
+                                Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+                                task.panic(err).await;
+                            },
+                        }
+                    } else {
+                        let error_message = "FileManager: Unable to parse font data.".to_string();
+                        Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                        task.panic(error_message).await;
                     }
                 },
                 Err(err) => {
-                    Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
-                    task.panic(err).await;
+                    let error_message = format!("FileManager: Cannot read file {font_path}.\nReason: {err}");
+                    Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                    task.panic(error_message).await;
                 },
             }
         } else {
@@ -391,20 +403,19 @@ impl FileManager {
     }
 
     async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) -> Result<(), String> {
-        if let Err(err) = fs::create_dir(&create_folder).await {
-            let error_message = format!("File Manager: Cannot create {create_folder} folder.\nReason: {err}", create_folder = create_folder.display());
-            Err(error_message)?
-        }
+        fs::create_dir(&create_folder).await
+            .map_err(|err| format!("File Manager: Cannot create {create_folder} folder.\nReason: {err}", create_folder = create_folder.display()))?;
         let config = Config::now().await;
-        let font_data = fs::read(&config.font_path).await.unwrap_or_default();
-        let font = Font::try_from_bytes(&font_data);
+        let font_path = &config.font_path;
+        let font_data = fs::read(&config.font_path).await
+            .map_err(|err| format!("FileManager: Cannot read file {font_path}.\nReason: {err}"))?;
+        let font = Font::try_from_bytes(&font_data)
+            .ok_or("FileManager: Unable to parse font data.".to_string())?;
         for image_task in &task.result {
             let saved_path = create_folder.join(image_task.image_filename.clone());
             let image = Self::draw_bounding_box(image_task, &config, &font).await?;
-            if let Err(err) = image.save(&saved_path) {
-                let error_message = format!("File Manager: Unable to write to output file {saved_path}.\nReason: {err}", saved_path = saved_path.display());
-                Err(error_message)?
-            }
+            image.save(&saved_path)
+                .map_err(|err| format!("File Manager: Unable to write to output file {saved_path}.\nReason: {err}", saved_path = saved_path.display()))?;
         }
         Ok(())
     }

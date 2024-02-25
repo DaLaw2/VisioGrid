@@ -186,7 +186,7 @@ impl TaskManager {
 
     pub async fn task_panic(uuid: &Uuid, error: String) {
         let mut task_manager = Self::instance_mut().await;
-        if let Some(mut task) = task_manager.tasks.remove(uuid) {
+        if let Some(task) = task_manager.tasks.remove(uuid) {
             task.panic(error).await;
         }
     }

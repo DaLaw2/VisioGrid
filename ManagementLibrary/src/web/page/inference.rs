@@ -75,7 +75,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
                         Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None))),
                     }
                 }
-            }
+            },
             Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None))),
         }
     }
