@@ -12,6 +12,7 @@ use tokio::time::{sleep, Duration, Instant};
 use crate::utils::config::Config;
 use crate::utils::port_pool::PortPool;
 use crate::connection::packet::Packet;
+use crate::utils::clear_unbounded_channel;
 use crate::connection::channel::DataChannel;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::channel::ControlChannel;
@@ -37,7 +38,6 @@ use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
 use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
-
 
 pub struct Agent {
     uuid: Uuid,
@@ -65,6 +65,7 @@ impl Agent {
                 biased;
                 reply = control_channel_receiver.agent_information_packet.recv() => {
                     return if let Some(packet) = &reply {
+                        clear_unbounded_channel(&mut control_channel_receiver.agent_information_packet).await;
                         if let Ok(information) = serde_json::from_slice::<AgentInformation>(packet.as_data_byte()) {
                             agent_information = Some(information);
                             if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceiveAgentInformationSuccess) {
@@ -85,6 +86,7 @@ impl Agent {
                 },
                 reply = control_channel_receiver.performance_packet.recv() => {
                     return if let Some(packet) = &reply {
+                        clear_unbounded_channel(&mut control_channel_receiver.performance_packet).await;
                         if let Ok(realtime_usage) = serde_json::from_slice::<Performance>(packet.as_data_byte()) {
                             if let Some(information) = agent_information {
                                 if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceivePerformanceSuccess) {
@@ -161,6 +163,7 @@ impl Agent {
         };
         TaskManager::redistribute_task(image_task).await;
         AgentManager::remove_agent(uuid).await;
+        Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Termination complete.".to_string()).await;
     }
 
     async fn update_performance(agent: Arc<RwLock<Agent>>) {
@@ -178,8 +181,9 @@ impl Agent {
             select! {
                 biased;
                 reply = agent.control_channel_receiver.performance_packet.recv() => {
-                    if let Some(reply_packet) = &reply {
-                        if let Ok(performance) = serde_json::from_slice::<Performance>(reply_packet.as_data_byte()) {
+                    if let Some(packet) = &reply {
+                        clear_unbounded_channel(&mut agent.control_channel_receiver.performance_packet).await;
+                        if let Ok(performance) = serde_json::from_slice::<Performance>(packet.as_data_byte()) {
                             if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceivePerformanceSuccess) {
                                 agent.realtime_usage = performance;
                                 agent.control_channel_sender.send(ConfirmPacket::new(confirm)).await;
@@ -206,139 +210,130 @@ impl Agent {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
         while !agent.read().await.terminate {
-            match agent.write().await.image_task.pop_front() {
-                Some(mut image_task) => {
-                    if let Err(err) = Agent::transfer_task(agent.clone(), &image_task).await {
-                        Logger::append_agent_log(uuid, LogLevel::ERROR, err).await;
+            if let Some(mut image_task) = agent.write().await.image_task.pop_front() {
+                if let Err(err) = Agent::transfer_task(agent.clone(), &image_task).await {
+                    Logger::append_agent_log(uuid, LogLevel::ERROR, err).await;
+                    TaskManager::submit_image_task(image_task, false).await;
+                    continue;
+                }
+                let mut success = false;
+                let mut data_channel_available = true;
+                let mut timeout_timer = Instant::now();
+                let timeout_duration = Duration::from_secs(config.control_channel_timeout);
+                let mut polling_times = 0_u32;
+                let polling_timer = Instant::now();
+                let polling_interval = Duration::from_millis(config.polling_interval);
+                while !agent.read().await.terminate {
+                    if timeout_timer.elapsed() > timeout_duration {
+                        Logger::append_agent_log(uuid, LogLevel::WARNING, "Agent: Data Channel timeout.".to_string()).await;
                         TaskManager::submit_image_task(image_task, false).await;
-                        continue;
+                        Agent::terminate(agent.clone()).await;
+                        return;
                     }
-                    let mut success = false;
-                    let mut data_channel_available = true;
-                    let mut timeout_timer = Instant::now();
-                    let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-                    let mut polling_times = 0_u32;
-                    let polling_timer = Instant::now();
-                    let polling_interval = Duration::from_millis(config.polling_interval);
-                    loop {
-                        if timeout_timer.elapsed() > timeout_duration {
-                            Logger::append_agent_log(uuid, LogLevel::WARNING, "Agent: Data Channel timeout.".to_string()).await;
-                            TaskManager::submit_image_task(image_task, false).await;
-                            Agent::terminate(agent.clone()).await;
-                            return;
-                        }
-                        if polling_timer.elapsed() > polling_interval * polling_times {
-                            match &mut agent.write().await.data_channel_sender {
-                                Some(data_channel_sender) => data_channel_sender.send(StillProcessPacket::new()).await,
-                                None => {
-                                    data_channel_available = false;
-                                    break;
-                                },
-                            }
-                            polling_times += 1;
-                        }
-                        match &mut agent.write().await.data_channel_receiver {
-                            Some(data_channel_receiver) => {
-                                select! {
-                                    biased;
-                                    reply = data_channel_receiver.still_process_reply_packet.recv() => {
-                                        match &reply {
-                                            Some(_) => timeout_timer = Instant::now(),
-                                            None => {
-                                                Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
-                                                return;
-                                            },
-                                        }
-                                    },
-                                    reply = data_channel_receiver.result_packet.recv() => {
-                                        match &reply {
-                                            Some(reply_packet) => {
-                                                if let Ok(task_result) = serde_json::from_slice::<TaskResult>(reply_packet.as_data_byte()) {
-                                                    if let Ok(bounding_box) = task_result.into() {
-                                                        image_task.bounding_boxes = bounding_box;
-                                                        success = true;
-                                                    }
-                                                }
-                                                break;
-                                            },
-                                            None => {
-                                                Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
-                                                return;
-                                            },
-                                        }
-                                    },
-                                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
-                                }
-                            },
+                    if polling_timer.elapsed() > polling_interval * polling_times {
+                        match &mut agent.write().await.data_channel_sender {
+                            Some(data_channel_sender) => data_channel_sender.send(StillProcessPacket::new()).await,
                             None => {
                                 data_channel_available = false;
                                 break;
                             },
                         }
+                        polling_times += 1;
+                    }
+                    if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
+                        select! {
+                            biased;
+                            reply = data_channel_receiver.still_process_reply_packet.recv() => {
+                                if reply.is_some() {
+                                    clear_unbounded_channel(&mut data_channel_receiver.still_process_reply_packet).await;
+                                    timeout_timer = Instant::now();
+                                } else {
+                                    Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                                    return;
+                                }
+                            },
+                            reply = data_channel_receiver.result_packet.recv() => {
+                                if let Some(reply_packet) = &reply {
+                                    clear_unbounded_channel(&mut data_channel_receiver.result_packet).await;
+                                    if let Ok(task_result) = serde_json::from_slice::<TaskResult>(reply_packet.as_data_byte()) {
+                                        match task_result.into() {
+                                            Ok(bounding_box) => {
+                                                image_task.bounding_boxes = bounding_box;
+                                                success = true;
+                                            },
+                                            Err(err) => Logger::append_agent_log(uuid, LogLevel::ERROR, format!("Agent: An error occurred while processing.\nReason: {err}")).await,
+                                        }
+                                    } else {
+                                        Logger::append_agent_log(uuid, LogLevel::ERROR, "Agent: Unable to parse task result.".to_string()).await;
+                                    }
+                                    break;
+                                } else {
+                                    Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                                    return;
+                                }
+                            },
+                            _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                        }
+                    } else {
+                        data_channel_available = false;
+                        break;
+                    }
+                }
+                if !data_channel_available {
+                    Agent::create_data_channel(agent.clone()).await;
+                }
+                TaskManager::submit_image_task(image_task, success).await;
+            } else {
+                if let Some(image_task) = Agent::steal_task(agent.clone()).await {
+                    Agent::add_task(agent.clone(), image_task).await
+                } else {
+                    {
+                        let mut agent = agent.write().await;
+                        agent.idle_unused = Performance::calc_residual_usage(&agent.information, &agent.realtime_usage);
+                    }
+                    let mut data_channel_available = true;
+                    let timer = Instant::now();
+                    let mut timeout_timer = Instant::now();
+                    let timeout_duration = Duration::from_secs(config.control_channel_timeout);
+                    let idle_duration = Duration::from_secs(config.agent_idle_duration);
+                    let mut polling_times = 0_u32;
+                    let polling_interval = Duration::from_millis(config.polling_interval);
+                    while !agent.read().await.terminate && timer.elapsed() <= idle_duration {
+                        if timeout_timer.elapsed() > timeout_duration {
+                            Logger::append_agent_log(uuid, LogLevel::WARNING, "Agent: Data Channel timeout.".to_string()).await;
+                            Agent::terminate(agent.clone()).await;
+                            return;
+                        }
+                        if timer.elapsed() > polling_interval * polling_times {
+                            if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
+                                data_channel_sender.send(AlivePacket::new()).await
+                            } else {
+                                data_channel_available = false;
+                                break;
+                            }
+                            polling_times += 1;
+                        }
+                        if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
+                            select! {
+                                biased;
+                                reply = data_channel_receiver.alive_reply_packet.recv() => {
+                                    if reply.is_some() {
+                                        clear_unbounded_channel(&mut data_channel_receiver.alive_reply_packet).await;
+                                        timeout_timer = Instant::now();
+                                    } else {
+                                        Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                                        return;
+                                    }
+                                },
+                                _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                            }
+                        } else {
+                            data_channel_available = false;
+                            break;
+                        }
                     }
                     if !data_channel_available {
                         Agent::create_data_channel(agent.clone()).await;
-                        success = false;
-                    }
-                    TaskManager::submit_image_task(image_task, success).await;
-                },
-                None => {
-                    match Agent::steal_task(agent.clone()).await {
-                        Some(image_task) => Agent::add_task(agent.clone(), image_task).await,
-                        None => {
-                            {
-                                let mut agent = agent.write().await;
-                                agent.idle_unused = Performance::calc_residual_usage(&agent.information, &agent.realtime_usage);
-                            }
-                            let mut data_channel_available = true;
-                            let timer = Instant::now();
-                            let mut timeout_timer = Instant::now();
-                            let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-                            let idle_duration = Duration::from_secs(config.agent_idle_duration);
-                            let mut polling_times = 0_u32;
-                            let polling_interval = Duration::from_millis(config.polling_interval);
-                            while timer.elapsed() <= idle_duration {
-                                if timeout_timer.elapsed() > timeout_duration {
-                                    Logger::append_agent_log(uuid, LogLevel::WARNING, "Agent: Data Channel timeout.".to_string()).await;
-                                    Agent::terminate(agent.clone()).await;
-                                    return;
-                                }
-                                if timer.elapsed() > polling_interval * polling_times {
-                                    match &mut agent.write().await.data_channel_sender {
-                                        Some(data_channel_sender) => data_channel_sender.send(AlivePacket::new()).await,
-                                        None => {
-                                            data_channel_available = false;
-                                            break;
-                                        },
-                                    }
-                                    polling_times += 1;
-                                }
-                                match &mut agent.write().await.data_channel_receiver {
-                                    Some(data_channel_receiver) => {
-                                        select! {
-                                            biased;
-                                            reply = data_channel_receiver.alive_reply_packet.recv() => {
-                                                match &reply {
-                                                    Some(_) => timeout_timer = Instant::now(),
-                                                    None => {
-                                                        Logger::append_agent_log(uuid, LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
-                                                        return;
-                                                    },
-                                                }
-                                            },
-                                            _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
-                                        }
-                                    }
-                                    None => {
-                                        data_channel_available = false;
-                                        break;
-                                    },
-                                }
-                            }
-                            if !data_channel_available {
-                                Agent::create_data_channel(agent.clone()).await;
-                            }
-                        }
                     }
                 }
             }
@@ -349,6 +344,9 @@ impl Agent {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
         let (listener, port) = loop {
+            if agent.read().await.terminate {
+                return;
+            }
             let port = match PortPool::allocate_port().await {
                 Some(port) => port,
                 None => {
@@ -372,7 +370,7 @@ impl Agent {
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
         let (tcp_stream, _) = loop {
-            if timer.elapsed() > timeout_duration {
+            if agent.read().await.terminate || timer.elapsed() > timeout_duration {
                 PortPool::free_port(port).await;
                 return;
             }
@@ -423,37 +421,33 @@ impl Agent {
 
     async fn transfer_task_info(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), String> {
         let config = Config::now().await;
+        let task_info = TaskInfo::new(image_task.task_uuid.clone(), image_task.model_filename.clone(), image_task.inference_type);
+        let task_info_data = serde_json::to_vec(&task_info)
+            .map_err(|_| "Agent: Unable to serialized task info data.".to_string())?;
         let time = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-        while time.elapsed() < timeout_duration {
+        while !agent.read().await.terminate && time.elapsed() < timeout_duration {
             if time.elapsed() > polling_interval * polling_times {
                 if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
-                    let taskinfo = TaskInfo::new(image_task.task_uuid.clone(), image_task.model_filename.clone(), image_task.inference_type);
-                    if let Ok(task_info) = serde_json::to_vec(&taskinfo) {
-                        data_channel_sender.send(TaskInfoPacket::new(task_info)).await;
-                    } else {
-                        Err("Agent: Unable to serialized task info data.".to_string())?
-                    }
+                    data_channel_sender.send(TaskInfoPacket::new(task_info_data.clone())).await;
                 } else {
                     Err("Agent: Data Channel is not available.".to_string())?
                 }
                 polling_times += 1;
             }
-            match &mut agent.write().await.data_channel_receiver {
-                Some(data_channel_receiver) => {
-                    select! {
-                        reply = data_channel_receiver.task_info_reply_packet.recv() => {
-                            return match &reply {
-                                Some(_) => Ok(()),
-                                None => Err("Agent: Channel has been closed.".to_string()),
-                            }
-                        }
-                        _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
-                    }
+            if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
+                select! {
+                    reply = data_channel_receiver.task_info_reply_packet.recv() => {
+                        reply.ok_or("Agent: Channel has been closed.".to_string())?;
+                        clear_unbounded_channel(&mut data_channel_receiver.task_info_reply_packet).await;
+                        return Ok(())
+                    },
+                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
-                None => Err("Agent: Data Channel is not available.".to_string())?,
+            } else {
+                Err("Agent: Data Channel is not available.".to_string())?
             }
         }
         Err("Agent: Task Info retransmission limit reached.".to_string())
@@ -462,17 +456,14 @@ impl Agent {
     #[allow(unused_assignments)]
     async fn transfer_file(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), String> {
         let config = Config::now().await;
-        let filesize = match fs::metadata(&filepath).await {
-            Ok(metadata) => metadata.len(),
-            Err(err) => Err(format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display()))?,
-        };
+        let filesize = fs::metadata(&filepath).await
+            .map_err(|err| format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display()))?
+            .len();
         match &mut agent.write().await.data_channel_sender {
             Some(data_channel_sender) => {
-                if let Ok(file_header) = serde_json::to_vec(&FileHeader::new(filename.clone(), filesize as usize)) {
-                    data_channel_sender.send(FileHeaderPacket::new(file_header)).await
-                } else {
-                    Err("Agent: Unable to serialized file header data.".to_string())?;
-                }
+                let file_header = serde_json::to_vec(&FileHeader::new(filename.clone(), filesize as usize))
+                    .map_err(|_| "Agent: Unable to serialized file header data.".to_string())?;
+                data_channel_sender.send(FileHeaderPacket::new(file_header)).await;
             },
             None => Err("Agent: Data channel is not available.".to_string())?,
         }
@@ -480,29 +471,22 @@ impl Agent {
         let mut sequence_number = 0_usize;
         let mut buffer = vec![0; 1_048_576];
         let mut sent_packets = Vec::new();
-        match file {
-            Ok(mut file) => {
-                loop {
-                    let bytes_read = file.read(&mut buffer).await;
-                    match bytes_read {
-                        Ok(bytes_read) => {
-                            if bytes_read == 0 {
-                                break;
-                            }
-                            let mut data = sequence_number.to_be_bytes().to_vec();
-                            data.extend_from_slice(&buffer[..bytes_read]);
-                            match &mut agent.write().await.data_channel_sender {
-                                Some(data_channel_sender) => data_channel_sender.send(FileBodyPacket::new(data.clone())).await,
-                                None => Err("Agent: Data channel is not available.".to_string())?,
-                            }
-                            sent_packets.push(data);
-                            sequence_number += 1;
-                        },
-                        Err(_) => Err(format!("Agent: An error occurred while reading file {filepath}.", filepath = filepath.display()))?,
-                    }
-                }
-            },
-            Err(err) => Err(format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display()))?,
+        let mut file = file
+            .map_err(|err| format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display()))?;
+        loop {
+            let bytes_read = file.read(&mut buffer).await
+                .map_err(|_| format!("Agent: An error occurred while reading file {filepath}.", filepath = filepath.display()))?;
+            if bytes_read == 0 {
+                break;
+            }
+            let mut data = sequence_number.to_be_bytes().to_vec();
+            data.extend_from_slice(&buffer[..bytes_read]);
+            match &mut agent.write().await.data_channel_sender {
+                Some(data_channel_sender) => data_channel_sender.send(FileBodyPacket::new(data.clone())).await,
+                None => Err("Agent: Data channel is not available.".to_string())?,
+            }
+            sent_packets.push(data);
+            sequence_number += 1;
         }
         let time = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);
@@ -515,6 +499,7 @@ impl Agent {
                         reply = data_channel_receiver.file_transfer_reply_packet.recv() => {
                             match &reply {
                                 Some(reply_packet) => {
+                                    clear_unbounded_channel(&mut data_channel_receiver.file_transfer_reply_packet).await;
                                     match serde_json::from_slice::<FileTransferResult>(reply_packet.as_data_byte()) {
                                         Ok(file_transfer_result) => {
                                             match file_transfer_result.into() {
