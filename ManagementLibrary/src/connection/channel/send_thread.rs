@@ -33,7 +33,7 @@ impl SendThread {
                     match reply {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Send Thread: Agent disconnect.".to_string()).await;
+                                Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Send Thread: Agent disconnect.".to_string()).await;
                                 return;
                             }
                         },

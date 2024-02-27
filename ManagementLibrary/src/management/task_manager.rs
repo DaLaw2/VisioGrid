@@ -72,7 +72,7 @@ impl TaskManager {
                     let agent_ram = match AgentManager::get_agent(agent_id).await {
                         Some(agent) => agent.read().await.idle_unused().ram,
                         None => {
-                            Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Agent {agent_id} does not exist.")).await;
+                            Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Agent {agent_id} does not exist.")).await;
                             0.0
                         }
                     };
@@ -88,7 +88,7 @@ impl TaskManager {
                     }
                 }
                 if !assigned {
-                    Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid)).await;
+                    Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid)).await;
                     Self::submit_image_task(image_task, false).await;
                 }
             }
@@ -97,7 +97,7 @@ impl TaskManager {
                 let mut image_folder = match fs::read_dir(&image_folder).await {
                     Ok(image_folder) => image_folder,
                     Err(_) => {
-                        Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read folder {image_folder}.", image_folder = image_folder.display())).await;
+                        Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read folder {image_folder}.", image_folder = image_folder.display())).await;
                         return;
                     }
                 };
@@ -117,7 +117,7 @@ impl TaskManager {
                         let agent_ram = match AgentManager::get_agent(agent_id).await {
                             Some(agent) => agent.read().await.idle_unused().ram,
                             None => {
-                                Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Agent {agent_id} does not exist.")).await;
+                                Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Agent {agent_id} does not exist.")).await;
                                 0.0
                             }
                         };
@@ -134,7 +134,7 @@ impl TaskManager {
                         }
                     }
                     if !assigned {
-                        Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid)).await;
+                        Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid)).await;
                         Self::submit_image_task(image_task, false).await;
                     }
                     image_id += 1;
@@ -143,7 +143,7 @@ impl TaskManager {
             _ => {
                 let error_message = format!("Task Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
                 Self::task_panic(&task.uuid, error_message.clone()).await;
-                Logger::append_system_log(LogLevel::INFO, error_message).await;
+                Logger::add_system_log(LogLevel::INFO, error_message).await;
             }
         }
     }
@@ -164,7 +164,7 @@ impl TaskManager {
                 let agent_ram = match AgentManager::get_agent(agent_id).await {
                     Some(agent) => agent.read().await.idle_unused().ram,
                     None => {
-                        Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Agent {agent_id} does not exist.")).await;
+                        Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Agent {agent_id} does not exist.")).await;
                         continue;
                     }
                 };
@@ -178,7 +178,7 @@ impl TaskManager {
                 }
             }
             if !assigned {
-                Logger::append_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be reassigned to any agent.", task_id = image_task.task_uuid)).await;
+                Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be reassigned to any agent.", task_id = image_task.task_uuid)).await;
                 Self::submit_image_task(image_task, false).await;
             }
         }
@@ -208,7 +208,7 @@ impl TaskManager {
                     complete = true;
                 }
             }
-            None => Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Task {task_id} does not exist.", task_id = uuid)).await,
+            None => Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Task {task_id} does not exist.", task_id = uuid)).await,
         }
         if complete {
             if let Some(task) = task_manager.tasks.remove(&uuid) {
@@ -221,7 +221,7 @@ impl TaskManager {
         let model_filesize = match fs::metadata(model_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(_) => {
-                Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {model_filepath}.", model_filepath = model_filepath.display())).await;
+                Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {model_filepath}.", model_filepath = model_filepath.display())).await;
                 0
             }
         };
@@ -232,7 +232,7 @@ impl TaskManager {
         let image_filesize = match fs::metadata(image_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(_) => {
-                Logger::append_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {image_filepath}.", image_filepath = image_filepath.display())).await;
+                Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {image_filepath}.", image_filepath = image_filepath.display())).await;
                 0
             }
         };

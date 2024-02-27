@@ -51,25 +51,25 @@ impl Manager {
             match http_server {
                 Ok(http_server) => break http_server,
                 Err(err) => {
-                    Logger::append_system_log(LogLevel::ERROR, format!("Management: Http service bind port failed.\nReason: {err}")).await;
+                    Logger::add_system_log(LogLevel::ERROR, format!("Management: Http service bind port failed.\nReason: {err}")).await;
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
             }
         };
-        Logger::append_system_log(LogLevel::INFO, "Management: Web service ready.".to_string()).await;
-        Logger::append_system_log(LogLevel::INFO, "Management: Online.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Management: Web service ready.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Management: Online.".to_string()).await;
         if let Err(err) = http_server.run().await {
-            Logger::append_system_log(LogLevel::ERROR, format!("Management: Error while web service running.\nReason: {err}")).await
+            Logger::add_system_log(LogLevel::ERROR, format!("Management: Error while web service running.\nReason: {err}")).await
         }
     }
 
     pub async fn terminate() {
-        Logger::append_system_log(LogLevel::INFO, "Management: Terminating.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Management: Terminating.".to_string()).await;
         AgentManager::terminate().await;
         FileManager::terminate().await;
         Self::instance_mut().await.terminate = true;
-        Logger::append_system_log(LogLevel::INFO, "Management: Termination complete.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Management: Termination complete.".to_string()).await;
     }
 
     async fn register_agent() {
@@ -81,7 +81,7 @@ impl Manager {
                 let agent = Agent::new(agent_id, socket_stream).await;
                 if let Some(agent) = agent {
                     AgentManager::add_agent(agent).await;
-                    Logger::append_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}")).await;
+                    Logger::add_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}")).await;
                 }
             }
         });

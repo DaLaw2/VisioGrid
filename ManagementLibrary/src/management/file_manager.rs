@@ -62,42 +62,42 @@ impl FileManager {
         tokio::spawn(async {
             Self::post_processing().await;
         });
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Online.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Online.".to_string()).await;
     }
 
     async fn initialize() {
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Initializing.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Initializing.".to_string()).await;
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Create {folder_name} folder successfully.")).await,
-                Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot create {folder_name} folder.\nReason: {err}")).await,
+                Ok(_) => Logger::add_system_log(LogLevel::INFO, format!("File Manager: Create {folder_name} folder successfully.")).await,
+                Err(err) => Logger::add_system_log(LogLevel::ERROR, format!("File Manager: Cannot create {folder_name} folder.\nReason: {err}")).await,
             }
         }
         match gstreamer::init() {
-            Ok(_) => Logger::append_system_log(LogLevel::INFO, "File Manager: GStreamer initialization successfully.".to_string()).await,
-            Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: GStreamer initialization failed.\nReason: {err}")).await,
+            Ok(_) => Logger::add_system_log(LogLevel::INFO, "File Manager: GStreamer initialization successfully.".to_string()).await,
+            Err(err) => Logger::add_system_log(LogLevel::ERROR, format!("File Manager: GStreamer initialization failed.\nReason: {err}")).await,
         }
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Initialization completed.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Initialization completed.".to_string()).await;
     }
 
     pub async fn terminate() {
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Terminating.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Terminating.".to_string()).await;
         Self::instance_mut().await.terminate = true;
         Self::cleanup().await;
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Termination complete.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Termination complete.".to_string()).await;
     }
 
     async fn cleanup() {
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Cleaning up.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Cleaning up.".to_string()).await;
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => Logger::append_system_log(LogLevel::INFO, format!("File Manager: Deleted {folder_name} folder successfully.")).await,
-                Err(err) => Logger::append_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {folder_name} folder.\nReason: {err}")).await,
+                Ok(_) => Logger::add_system_log(LogLevel::INFO, format!("File Manager: Deleted {folder_name} folder successfully.")).await,
+                Err(err) => Logger::add_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {folder_name} folder.\nReason: {err}")).await,
             }
         };
-        Logger::append_system_log(LogLevel::INFO, "File Manager: Cleanup completed.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "File Manager: Cleanup completed.".to_string()).await;
     }
 
     pub async fn add_pre_process_task(task: Task) {
@@ -122,7 +122,7 @@ impl FileManager {
                         _ => {
                             let error_message = format!("File Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
                             task.panic(error_message.clone()).await;
-                            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                            Logger::add_system_log(LogLevel::ERROR, error_message).await;
                         },
                     }
                 },
@@ -145,7 +145,7 @@ impl FileManager {
                         _ => {
                             let error_message = format!("File Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
                             task.panic(error_message.clone()).await;
-                            Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                            Logger::add_system_log(LogLevel::ERROR, error_message).await;
                         },
                     }
                 },
@@ -165,7 +165,7 @@ impl FileManager {
             Err(err) => {
                 let error_message = format!("File Manager: Task {task_id} failed because move image file failed.\nReason: {err}", task_id = task.uuid);
                 task.panic(error_message.clone()).await;
-                Logger::append_system_log(LogLevel::INFO, error_message).await;
+                Logger::add_system_log(LogLevel::INFO, error_message).await;
             },
         }
     }
@@ -190,13 +190,13 @@ impl FileManager {
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
         if let Err(err) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
-            Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+            Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
             task.panic(err).await;
             return;
         }
         let video_path = destination_path;
         if let Err(err) = Self::extract_video_info(&video_path).await {
-            Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+            Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
             task.panic(err).await;
             return;
         }
@@ -271,7 +271,7 @@ impl FileManager {
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
         if let Err(err) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
-            Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+            Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
             task.panic(err).await;
             return;
         }
@@ -319,18 +319,18 @@ impl FileManager {
                         let created_folder = created_folder.display();
                         let error_message = format!("File Manager: An error occurred while reading folder {created_folder}.\nReason: {err}");
                         task.panic(error_message.clone()).await;
-                        Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                        Logger::add_system_log(LogLevel::ERROR, error_message).await;
                     },
                 }
             },
             Ok(Err(err)) => {
                 task.panic(err.clone()).await;
-                Logger::append_system_log(LogLevel::ERROR, err).await;
+                Logger::add_system_log(LogLevel::ERROR, err).await;
             },
             Err(err) => {
                 let error_message = format!("File Manager: Task {task_id} panic.\nReason: {err}", task_id = task.uuid);
                 task.panic(error_message.clone()).await;
-                Logger::append_system_log(LogLevel::ERROR, error_message).await;
+                Logger::add_system_log(LogLevel::ERROR, error_message).await;
             },
         }
     }
@@ -372,32 +372,32 @@ impl FileManager {
                                     Err(err) => {
                                         let saved_path = saved_path.display();
                                         let error_message = format!("File Manager: Unable to write to output file {saved_path}.\nReason: {err}");
-                                        Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                                        Logger::add_system_log(LogLevel::ERROR, error_message.clone()).await;
                                         task.panic(error_message).await;
                                     },
                                 }
                             },
                             Err(err) => {
-                                Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+                                Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
                                 task.panic(err).await;
                             },
                         }
                     } else {
                         let error_message = "FileManager: Unable to parse font data.".to_string();
-                        Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                        Logger::add_system_log(LogLevel::ERROR, error_message.clone()).await;
                         task.panic(error_message).await;
                     }
                 },
                 Err(err) => {
                     let error_message = format!("FileManager: Cannot read file {font_path}.\nReason: {err}");
-                    Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                    Logger::add_system_log(LogLevel::ERROR, error_message.clone()).await;
                     task.panic(error_message).await;
                 },
             }
         } else {
             //Impossible, it means that an ImageTask is missing.
             let error_message = "FileManager: Internal server error.\nReason: Image Task Disappeared.".to_string();
-            Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+            Logger::add_system_log(LogLevel::ERROR, error_message.clone()).await;
             task.panic(error_message).await;
         }
     }
@@ -425,7 +425,7 @@ impl FileManager {
         let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
         let create_folder = target_path.with_extension("");
         if let Err(err) = Self::recombination_pre_processing(&mut task, &create_folder).await {
-            Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+            Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
             task.panic(err).await;
             return;
         }
@@ -483,7 +483,7 @@ impl FileManager {
         let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
         let create_folder = target_path.with_extension("");
         if let Err(err) = Self::recombination_pre_processing(&mut task, &create_folder).await {
-            Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+            Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
             task.panic(err).await;
             return;
         }
@@ -521,12 +521,12 @@ impl FileManager {
         match result {
             Ok(Ok(_)) => Self::forward_to_repository(task).await,
             Ok(Err(err)) => {
-                Logger::append_system_log(LogLevel::ERROR, err.clone()).await;
+                Logger::add_system_log(LogLevel::ERROR, err.clone()).await;
                 task.panic(err).await;
             },
             Err(err) => {
                 let error_message = format!("File Manager: Task {task_id} panic.\nReason: {err}", task_id = task.uuid);
-                Logger::append_system_log(LogLevel::ERROR, error_message.clone()).await;
+                Logger::add_system_log(LogLevel::ERROR, error_message.clone()).await;
                 task.panic(error_message).await;
             },
         }

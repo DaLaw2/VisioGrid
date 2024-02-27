@@ -33,18 +33,18 @@ impl ControlChannelSender {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 match stop_signal.send(()) {
-                    Ok(_) => Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Sender successfully.".to_string()).await,
-                    Err(_) => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
+                    Ok(_) => Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Sender successfully.".to_string()).await,
+                    Err(_) => Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
                 }
             },
-            None => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
+            None => Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if let Err(err) = self.sender_tx.send(packet) {
-            Logger::append_agent_log(self.agent_id, LogLevel::ERROR, format!("Control Channel: Unable to submit packet to Send Thread.\nReason: {}", err)).await;
+            Logger::add_agent_log(self.agent_id, LogLevel::ERROR, format!("Control Channel: Unable to submit packet to Send Thread.\nReason: {}", err)).await;
         }
     }
 }

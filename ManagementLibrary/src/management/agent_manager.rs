@@ -58,13 +58,13 @@ impl AgentManager {
                 sleep(Duration::from_millis(config.internal_timestamp)).await;
             }
         });
-        Logger::append_system_log(LogLevel::INFO, "Agent Manager: Online.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Agent Manager: Online.".to_string()).await;
     }
 
     pub async fn terminate() {
-        Logger::append_system_log(LogLevel::INFO, "Agent Manager: Terminating.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Agent Manager: Terminating.".to_string()).await;
         Self::instance_mut().await.terminate = true;
-        Logger::append_system_log(LogLevel::INFO, "Agent Manager: Termination complete.".to_string()).await;
+        Logger::add_system_log(LogLevel::INFO, "Agent Manager: Termination complete.".to_string()).await;
     }
 
     pub async fn add_agent(agent: Agent) {

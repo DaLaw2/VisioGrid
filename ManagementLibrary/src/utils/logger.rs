@@ -33,17 +33,29 @@ impl Logger {
         LOGGER.write().await
     }
 
-    pub async fn append_system_log(level: LogLevel, message: String) {
-        let date = Local::now();
-        let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
-        println!("{}", format!("{} [{}] {}", timestamp, level, message));
+    pub async fn add_system_log(level: LogLevel, message: String) {
         let log_entry = LogEntry::new(level, message);
+        println!("{log_entry}");
         let mut logger = Self::instance_mut().await;
         logger.system_log.push_back(log_entry);
     }
 
-    pub async fn append_agent_log(agent_id: Uuid, level: LogLevel, message: String) {
+    pub async fn add_agent_log(agent_id: Uuid, level: LogLevel, message: String) {
         let log_entry = LogEntry::new(level, message);
+        let mut logger = Self::instance_mut().await;
+        if !logger.agent_log.contains_key(&agent_id) {
+            logger.agent_log.insert(agent_id, VecDeque::new());
+        }
+        //Impossible error, because it has been checked before.
+        logger.agent_log.get_mut(&agent_id).unwrap().push_back(log_entry);
+    }
+
+    pub async fn add_system_log_entry(log_entry: LogEntry) {
+        let mut logger = Self::instance_mut().await;
+        logger.system_log.push_back(log_entry);
+    }
+
+    pub async fn add_agent_log_entry(agent_id: Uuid, log_entry: LogEntry) {
         let mut logger = Self::instance_mut().await;
         if !logger.agent_log.contains_key(&agent_id) {
             logger.agent_log.insert(agent_id, VecDeque::new());

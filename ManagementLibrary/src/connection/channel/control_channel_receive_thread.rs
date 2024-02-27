@@ -35,16 +35,16 @@ impl ReceiveThread {
                             PacketType::AgentInformationPacket => self.receiver_tx.agent_information_packet.send(packet),
                             PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
                             _ => {
-                                Logger::append_agent_log(self.agent_id, LogLevel::WARNING, "Receive Thread: Receive unknown packet.".to_string()).await;
+                                Logger::add_agent_log(self.agent_id, LogLevel::WARNING, "Receive Thread: Receive unknown packet.".to_string()).await;
                                 Ok(())
                             },
                         };
                         if result.is_err() {
-                            Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Receive Thread: Unable to submit packet to receiver.".to_string()).await;
+                            Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Receive Thread: Unable to submit packet to receiver.".to_string()).await;
                             break;
                         }
                     } else {
-                        Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Receive Thread: Agent disconnect.".to_string()).await;
+                        Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Receive Thread: Agent disconnect.".to_string()).await;
                         break;
                     }
                 },
