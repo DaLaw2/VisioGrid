@@ -79,9 +79,12 @@ impl Manager {
                 let agent_id = Uuid::new_v4();
                 let (socket_stream, agent_ip) = agent_socket.get_connection().await;
                 let agent = Agent::new(agent_id, socket_stream).await;
-                if let Some(agent) = agent {
-                    AgentManager::add_agent(agent).await;
-                    Logger::add_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}")).await;
+                match agent {
+                    Ok(agent) => {
+                        AgentManager::add_agent(agent).await;
+                        Logger::add_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}")).await;
+                    },
+                    Err(entry) => Logger::add_agent_log_entry(agent_id, entry).await,
                 }
             }
         });

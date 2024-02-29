@@ -1,7 +1,9 @@
 #![allow(non_snake_case)]
 
 use tch::Tensor;
-use AgentLibrary::management::agent::Agent;
+use tokio::process::Command;
+use tokio::time::Instant;
+use AgentLibrary::management::manager::Manager;
 
 pub fn demo() {
     let mut t = Tensor::from_slice(&[3, 1, 4, 1, 5]);
@@ -22,7 +24,19 @@ pub fn cuda_is_available(){
 #[tokio::main]
 async fn main() {
     demo();
+    let now = Instant::now();
     cuda_is_available();
-    Agent::run().await;
-    Agent::terminate().await;
+    let elapsed = now.elapsed();
+
+    let _ = Command::new("nvidia-smi")
+        .output()
+        .await
+        .expect("Failed to execute command");
+
+
+    println!("Command took: {:.2?}", elapsed);
+
+
+    Manager::run().await;
+    Manager::terminate().await;
 }

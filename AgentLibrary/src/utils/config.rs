@@ -18,6 +18,7 @@ struct ConfigTable {
 pub struct Config {
     pub internal_timestamp: u64,
     pub management_address: String,
+    pub polling_interval: u64,
     pub control_channel_timeout: u64,
     pub data_channel_timeout: u64,
     pub file_transfer_timeout: u64,

@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AgentInformation {
-    pub device_name: String,
+    pub host_name: String,
     pub os: String,
     pub cpu: String,
     pub cores: usize,

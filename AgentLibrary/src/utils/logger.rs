@@ -30,7 +30,7 @@ impl Logger {
         LOGGER.write().await
     }
 
-    pub async fn append_system_log(level: LogLevel, message: String) {
+    pub async fn add_system_log(level: LogLevel, message: String) {
         let date = Local::now();
         let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
         println!("{}", format!("{} [{}] {}", timestamp, level, message));

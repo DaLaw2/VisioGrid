@@ -19,11 +19,12 @@ impl Manager {
     pub fn new() -> Self {
         Self {
             agent: None,
+            information: Self::get_information(),
             terminate: false,
         }
     }
 
-    pub fn run() {
+    pub async fn run() {
 
     }
 
@@ -31,7 +32,7 @@ impl Manager {
 
     }
 
-    pub fn terminate() {
+    pub async fn terminate() {
 
     }
 
@@ -40,10 +41,23 @@ impl Manager {
     }
 
     pub async fn get_performance() -> Performance {
-
+        Performance {
+            cpu: 0.0,
+            ram: 0.0,
+            gpu: 0.0,
+            vram: 0.0,
+        }
     }
 
-    pub async fn get_information() -> AgentInformation {
-
+    pub fn get_information() -> AgentInformation {
+        AgentInformation {
+            host_name: "".to_string(),
+            os: "".to_string(),
+            cpu: "".to_string(),
+            cores: 0,
+            ram: 0,
+            gpu: "".to_string(),
+            vram: 0,
+        }
     }
 }

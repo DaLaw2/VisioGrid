@@ -37,9 +37,9 @@ impl ControlChannelReceiver {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 let _ = stop_signal.send(());
-                Logger::append_system_log(LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await;
+                Logger::add_system_log(LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await;
             },
-            None => Logger::append_system_log(LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await,
+            None => Logger::add_system_log(LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await,
         }
     }
 }

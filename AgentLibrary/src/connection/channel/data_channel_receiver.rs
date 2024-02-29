@@ -52,9 +52,9 @@ impl DataChannelReceiver {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 let _ = stop_signal.send(());
-                Logger::append_agent_log(self.agent_id, LogLevel::INFO, "Data Channel: Destroyed Receiver successfully.".to_string()).await;
+                Logger::add_system_log(LogLevel::INFO, "Data Channel: Destroyed Receiver successfully.".to_string()).await;
             },
-            None => Logger::append_agent_log(self.agent_id, LogLevel::ERROR, "Data Channel: Failed to destroy Receiver.".to_string()).await,
+            None => Logger::add_system_log(LogLevel::ERROR, "Data Channel: Failed to destroy Receiver.".to_string()).await,
         }
     }
 }

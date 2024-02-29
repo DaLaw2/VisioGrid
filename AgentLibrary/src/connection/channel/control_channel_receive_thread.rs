@@ -33,17 +33,17 @@ impl ReceiveThread {
                                 PacketType::ConfirmPacket => self.receiver_tx.confirm_packet.send(packet),
                                 PacketType::DataChannelPortPacket => self.receiver_tx.data_channel_port_packet.send(packet),
                                 _ => {
-                                    Logger::append_system_log(LogLevel::WARNING, "Receive Thread: Receive unknown packet.".to_string()).await;
+                                    Logger::add_system_log(LogLevel::WARNING, "Receive Thread: Receive unknown packet.".to_string()).await;
                                     Ok(())
                                 },
                             };
                             if result.is_err() {
-                                Logger::append_system_log(LogLevel::INFO, "Receive Thread: Unable to submit packet to receiver.".to_string()).await;
+                                Logger::add_system_log(LogLevel::INFO, "Receive Thread: Unable to submit packet to receiver.".to_string()).await;
                                 break;
                             }
                         },
                         Err(_) => {
-                            Logger::append_system_log(LogLevel::INFO, "Receive Thread: Agent disconnect.".to_string()).await;
+                            Logger::add_system_log(LogLevel::INFO, "Receive Thread: Agent disconnect.".to_string()).await;
                             break;
                         },
                     }

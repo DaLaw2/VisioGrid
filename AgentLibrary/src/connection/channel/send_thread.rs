@@ -30,7 +30,7 @@ impl SendThread {
                     match reply {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                Logger::append_system_log(LogLevel::ERROR, "Send Thread: Management disconnect.".to_string()).await;
+                                Logger::add_system_log(LogLevel::ERROR, "Send Thread: Management disconnect.".to_string()).await;
                                 return;
                             }
                         },
