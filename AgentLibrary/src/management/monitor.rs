@@ -1,24 +1,27 @@
 use std::process::Command;
 use lazy_static::lazy_static;
+use tokio::process::Command as AsyncCommand;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::management::utils::performance::Performance;
 use crate::management::utils::agent_information::AgentInformation;
 
-lazy_static!{
+lazy_static! {
     static ref MONITOR: RwLock<Monitor> = RwLock::new(Monitor::new());
 }
 
 pub struct Monitor {
     information: AgentInformation,
     performance: Performance,
-};
+    terminate: bool,
+}
 
 impl Monitor {
     fn new() -> Self {
         Self {
             information: Self::system_info(),
-            performance: Self::performance(),
+            performance: Performance::default(),
+            terminate: false,
         }
     }
 
@@ -54,30 +57,50 @@ impl Monitor {
             .arg("--format=csv,noheader")
             .output()
             .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
-        let gpu_name = String::from_utf8_lossy(&gpu_name.stdout).to_string();
+        let gpu_name = String::from_utf8_lossy(&gpu_name.stdout).trim().to_string();
         Ok(gpu_name)
     }
 
-    fn get_vram_total() -> Result<usize, String> {
-        let output = Command::new("nvidia-smi")
+    fn get_vram_total() -> Result<u64, String> {
+        let vram_total = Command::new("nvidia-smi")
             .arg("--query-gpu=memory.total")
-            .arg("--format=csv,noheader")
+            .arg("--format=csv,noheader,nounits")
             .output()
             .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
-        let output_string = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let parts: Vec<&str> = output_string.split_whitespace().collect();
-        let vram_total = parts.get(0).ok_or("Monitor: Fail to parse gpu information.".to_string())?;
-        let vram_total = vram_total.parse::<usize>().map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
+        let vram_total = String::from_utf8_lossy(&vram_total.stdout).trim().to_string()
+            .parse::<u64>()
+            .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
         Ok(vram_total)
     }
 
-    pub fn performance() -> Performance {
+    async fn get_gpu_usage() -> Result<u64, String> {
+        let gpu_usage = AsyncCommand::new("nvidia-smi")
+            .arg("--query-gpu=utilization.gpu")
+            .arg("--format=csv,noheader,nounits")
+            .output()
+            .await
+            .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
+        let gpu_usage = String::from_utf8_lossy(&gpu_usage.stdout).trim().to_string()
+            .parse::<u64>()
+            .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
+        Ok(gpu_usage)
+    }
 
-        Performance {
-            cpu: 0.0,
-            ram: 0.0,
-            gpu: 0.0,
-            vram: 0.0,
-        }
+    async fn get_vram_usage() -> Result<u64, String> {
+        let vram_usage = AsyncCommand::new("nvidia-smi")
+            .arg("--query-gpu=memory.used")
+            .arg("--format=csv,noheader,nounits")
+            .output()
+            .await
+            .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
+        let vram_usage = String::from_utf8_lossy(&vram_usage.stdout).trim().to_string()
+            .parse::<u64>()
+            .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
+        Ok(vram_usage)
+    }
+
+    pub async fn update_performance() {
+        let mut system = System::new_all();
+
     }
 }

@@ -8,5 +8,5 @@ pub struct AgentInformation {
     pub cores: usize,
     pub ram: u64,
     pub gpu: String,
-    pub vram: usize,
+    pub vram: u64,
 }
