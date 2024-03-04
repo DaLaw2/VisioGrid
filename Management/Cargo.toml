@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 actix-rt = "2.9.0"
-actix-web = "4.4.0"
+actix-web = "4.5.1"
 ManagementLibrary = { path = "../ManagementLibrary" }

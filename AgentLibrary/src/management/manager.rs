@@ -52,7 +52,7 @@ impl Manager {
     pub fn get_information() -> AgentInformation {
         AgentInformation {
             host_name: "".to_string(),
-            os: "".to_string(),
+            system_name: "".to_string(),
             cpu: "".to_string(),
             cores: 0,
             ram: 0,

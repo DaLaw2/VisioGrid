@@ -39,4 +39,5 @@ async fn main() {
 
     Manager::run().await;
     Manager::terminate().await;
+    panic!("Monitor: Fail to get gpu information.")
 }
