@@ -1,8 +1,11 @@
+use sysinfo::System;
+use tokio::time::sleep;
+use std::time::Duration;
 use std::process::Command;
 use lazy_static::lazy_static;
 use tokio::process::Command as AsyncCommand;
-use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::utils::config::Config;
 use crate::management::utils::performance::Performance;
 use crate::management::utils::agent_information::AgentInformation;
 
@@ -33,9 +36,19 @@ impl Monitor {
         MONITOR.write().await
     }
 
+    pub async fn run() {
+        tokio::spawn(async {
+            Self::update_performance().await;
+        });
+    }
+
+    pub async fn terminate() {
+        Self::instance_mut().await.terminate = true;
+    }
+
     fn system_info() -> AgentInformation {
-        let sys = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::everything()));
-        let cpu = sys.cpus().get(0).map(|cpu| cpu.name())
+        let sys = System::new_all();
+        let cpu = sys.cpus().get(0).map(|cpu| cpu.brand())
             .expect("Monitor: Fail to get system information.")
             .to_string();
         let gpu = Self::get_gpu_name().expect("Monitor: Fail to get system information.");
@@ -86,21 +99,39 @@ impl Monitor {
         Ok(gpu_usage)
     }
 
-    async fn get_vram_usage() -> Result<u64, String> {
-        let vram_usage = AsyncCommand::new("nvidia-smi")
+    async fn get_vram_used() -> Result<u64, String> {
+        let vram_used = AsyncCommand::new("nvidia-smi")
             .arg("--query-gpu=memory.used")
             .arg("--format=csv,noheader,nounits")
             .output()
             .await
             .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
-        let vram_usage = String::from_utf8_lossy(&vram_usage.stdout).trim().to_string()
+        let vram_used = String::from_utf8_lossy(&vram_used.stdout).trim().to_string()
             .parse::<u64>()
             .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
-        Ok(vram_usage)
+        Ok(vram_used)
     }
 
-    pub async fn update_performance() {
+    async fn update_performance() {
         let mut system = System::new_all();
+        while !Self::instance().await.terminate {
+            system.refresh_all();
+            let cpu_usage = system.cpus().iter()
+                .map(|core| core.cpu_usage() as f64)
+                .sum::<f64>() / system.cpus().len() as f64;
+            let ram_used = system.used_memory();
+            let gpu_usage = Self::get_gpu_usage().await.unwrap_or_default() as f64;
+            let vram_used = Self::get_vram_used().await.unwrap_or_default();
+            Self::instance_mut().await.performance = Performance::new(cpu_usage, ram_used, gpu_usage, vram_used);
+            sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
+        }
+    }
 
+    pub async fn get_system_info() -> AgentInformation {
+        Self::instance().await.information.clone()
+    }
+
+    pub async fn get_performance() -> Performance {
+        Self::instance().await.performance.clone()
     }
 }

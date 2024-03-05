@@ -7,3 +7,4 @@ pub mod inference_type;
 pub mod performance;
 pub mod task_info;
 pub mod task_result;
+mod format;

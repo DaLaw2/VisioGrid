@@ -16,7 +16,7 @@ use crate::connection::channel::control_channel_receiver::ControlChannelReceiver
 use crate::connection::channel::ControlChannel;
 use crate::connection::packet::agent_information_packet::AgentInformationPacket;
 use crate::connection::packet::performance_packet::PerformancePacket;
-use crate::management::manager::Manager;
+use crate::management::monitor::Monitor;
 use crate::utils::config::Config;
 
 pub struct Agent {
@@ -30,7 +30,7 @@ pub struct Agent {
 impl Agent {
     pub async fn new(socket_stream: SocketStream) -> Result<Self, LogEntry> {
         let config = Config::now().await;
-        let information = serde_json::to_vec(&Manager::get_information())
+        let information = serde_json::to_vec(&Monitor::get_system_info().await)
             .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized agent information.".to_string()))?;
         let (mut control_channel_sender, mut control_channel_receiver) = ControlChannel::new(socket_stream);
         let mut information_confirm = false;
@@ -44,7 +44,7 @@ impl Agent {
                 if !information_confirm {
                     control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
                 } else {
-                    let performance = Manager::get_performance().await;
+                    let performance = Monitor::get_performance().await;
                     let performance = serde_json::to_vec(&performance)
                         .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()))?;
                     control_channel_sender.send(PerformancePacket::new(performance)).await;
@@ -62,7 +62,7 @@ impl Agent {
                     match confirm {
                         ConfirmType::ReceiveAgentInformationSuccess => {
                             information_confirm = true;
-                            let performance = Manager::get_performance().await;
+                            let performance = Monitor::get_performance().await;
                             let performance = serde_json::to_vec(&performance)
                                 .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()))?;
                             control_channel_sender.send(PerformancePacket::new(performance)).await;
