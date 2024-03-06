@@ -94,7 +94,7 @@ impl Agent {
             Self::performance(for_performance).await;
         });
         tokio::spawn(async move {
-            Self::task_management(for_management).await;
+            Self::management(for_management).await;
         });
         tokio::spawn(async move {
             Self::create_data_channel(agent).await;
@@ -116,7 +116,7 @@ impl Agent {
         Logger::add_system_log(LogLevel::INFO, "Agent: Termination complete.".to_string()).await;
     }
 
-    pub async fn performance(agent: Arc<RwLock<Agent>>) {
+    async fn performance(agent: Arc<RwLock<Agent>>) {
         let config = Config::now().await;
         let mut polling_times = 0_u32;
         let polling_timer = Instant::now();
@@ -157,11 +157,37 @@ impl Agent {
         }
     }
 
-    pub async fn task_management(agent: Arc<RwLock<Agent>>) {
+    async fn management(agent: Arc<RwLock<Agent>>) {
+        let config = Config::now().await;
+        while !agent.read().await.terminate {
+            let agent_instance = agent.clone().write().await;
+            if let Some(data_channel_receiver) = &mut agent_instance.data_channel_receiver {
+                select! {
+                    reply = data_channel_receiver.task_info_packet.recv() => {
+                        drop(agent_instance);
+                        Self::process_task(agent).await;
+                    },
+                    reply = data_channel_receiver.alive_packet.recv() => {
+                        drop(agent_instance)
+                        Self::idle(agent).await;
+                    },
+                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                }
+            } else {
+                sleep(Duration::from_millis(config.internal_timestamp)).await;
+            }
+        }
+    }
+
+    async fn process_task(agent: Arc<RwLock<Agent>>) {
 
     }
 
-    pub async fn create_data_channel(agent: Arc<RwLock<Agent>>) {
+    async fn idle(agent: Arc<RwLock<Agent>>) {
+
+    }
+
+    async fn create_data_channel(agent: Arc<RwLock<Agent>>) {
         let config = Config::now().await;
         let mut port: Option<u16> = None;
         while !agent.read().await.terminate {

@@ -37,7 +37,7 @@ impl Config {
         config
     }
 
-    pub async fn now() -> Config {
+    pub async fn now() -> Self {
         CONFIG.read().await.clone()
     }
 
