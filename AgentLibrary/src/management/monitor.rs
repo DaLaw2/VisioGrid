@@ -50,13 +50,13 @@ impl Monitor {
             .expect("Monitor: Fail to get system information.")
             .to_string();
         let gpu = Self::get_gpu_name().expect("Monitor: Fail to get system information.");
-        let vram = Self::get_vram_total().expect("Monitor: Fail to get system information.");
+        let vram = Self::get_vram_total().expect("Monitor: Fail to get system information.") as f64;
         AgentInformation {
             host_name: System::host_name().expect("Monitor: Fail to get system information."),
             system_name: System::name().expect("Monitor: Fail to get system information."),
             cpu,
-            cores: sys.physical_core_count().unwrap_or(0),
-            ram: sys.total_memory(),
+            cores: sys.physical_core_count().expect("Monitor: Fail to get system information."),
+            ram: sys.total_memory() as f64,
             gpu,
             vram,
         }
@@ -81,7 +81,7 @@ impl Monitor {
         let vram_total = String::from_utf8_lossy(&vram_total.stdout).trim().to_string()
             .parse::<u64>()
             .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
-        Ok(vram_total)
+        Ok(vram_total * 1_048_576_u64)
     }
 
     async fn get_gpu_usage() -> Result<u64, String> {
@@ -107,7 +107,7 @@ impl Monitor {
         let vram_used = String::from_utf8_lossy(&vram_used.stdout).trim().to_string()
             .parse::<u64>()
             .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
-        Ok(vram_used)
+        Ok(vram_used * 1_048_576_u64)
     }
 
     async fn update_performance() {
@@ -117,9 +117,9 @@ impl Monitor {
             let cpu_usage = system.cpus().iter()
                 .map(|core| core.cpu_usage() as f64)
                 .sum::<f64>() / system.cpus().len() as f64;
-            let ram_used = system.used_memory();
+            let ram_used = system.used_memory() as f64;
             let gpu_usage = Self::get_gpu_usage().await.unwrap_or_default() as f64;
-            let vram_used = Self::get_vram_used().await.unwrap_or_default();
+            let vram_used = Self::get_vram_used().await.unwrap_or_default() as f64;
             Self::instance_mut().await.performance = Performance::new(cpu_usage, ram_used, gpu_usage, vram_used);
             sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
         }

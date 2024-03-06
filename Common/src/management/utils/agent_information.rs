@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use serde::{Serialize, Deserialize};
-use crate::management::utils::format::{format_ram, format_vram};
+use crate::management::utils::format::format_bytes;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AgentInformation {
@@ -8,15 +8,15 @@ pub struct AgentInformation {
     pub system_name: String,
     pub cpu: String,
     pub cores: usize,
-    pub ram: u64,
+    pub ram: f64,
     pub gpu: String,
-    pub vram: u64,
+    pub vram: f64,
 }
 
 impl Display for AgentInformation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = format!("Host Name: {}, System Name: {}, CPU Model: {}, Cores: {}, RAM Total: {}, GPU Model: {}, VRAM Total: {}",
-            self.host_name, self.system_name, self.cpu, self.cores, format_ram(self.ram), self.gpu, format_vram(self.vram)
+            self.host_name, self.system_name, self.cpu, self.cores, format_bytes(self.ram), self.gpu, format_bytes(self.vram)
         );
         write!(f, "{}", str)
     }

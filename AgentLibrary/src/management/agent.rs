@@ -4,6 +4,7 @@ use std::time::Duration;
 use tokio::select;
 use tokio::sync::RwLock;
 use tokio::time::{Instant, sleep};
+use Common::management::utils::performance::Performance;
 use crate::utils::clear_unbounded_channel;
 use crate::utils::logger::{Logger, LogLevel};
 use crate::utils::logger::LogEntry;
@@ -131,9 +132,11 @@ impl Agent {
             }
             if polling_timer.elapsed() > polling_times * polling_interval {
                 let performance = Monitor::get_performance().await;
-                let performance = serde_json::to_vec(&performance)
-                    .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()))?;
-                agent.write().await.control_channel_sender.send(PerformancePacket::new(performance)).await;
+                if let Ok(performance) = serde_json::to_vec(&performance) {
+                    agent.write().await.control_channel_sender.send(PerformancePacket::new(performance)).await;
+                } else {
+                    Logger::add_system_log(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()).await;
+                }
             }
             let mut agent = agent.write().await;
             select! {
@@ -160,16 +163,16 @@ impl Agent {
     async fn management(agent: Arc<RwLock<Agent>>) {
         let config = Config::now().await;
         while !agent.read().await.terminate {
-            let agent_instance = agent.clone().write().await;
+            let mut agent_instance = agent.write().await;
             if let Some(data_channel_receiver) = &mut agent_instance.data_channel_receiver {
                 select! {
                     reply = data_channel_receiver.task_info_packet.recv() => {
                         drop(agent_instance);
-                        Self::process_task(agent).await;
+                        Self::process_task(agent.clone()).await;
                     },
                     reply = data_channel_receiver.alive_packet.recv() => {
-                        drop(agent_instance)
-                        Self::idle(agent).await;
+                        drop(agent_instance);
+                        Self::idle(agent.clone()).await;
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
@@ -195,7 +198,7 @@ impl Agent {
                 sleep(Duration::from_millis(config.internal_timestamp)).await;
             }
             {
-                let agent = agent.write().await;
+                let mut agent = agent.write().await;
                 select! {
                     biased;
                     reply = agent.control_channel_receiver.data_channel_port_packet.recv() => {
@@ -221,7 +224,7 @@ impl Agent {
                 if let Ok(tcp_stream) = TcpStream::connect(&full_address).await {
                     let socket_stream = SocketStream::new(tcp_stream);
                     let (data_channel_sender, data_channel_receiver) = DataChannel::new(socket_stream);
-                    let agent = agent.write().await;
+                    let mut agent = agent.write().await;
                     agent.data_channel_sender = Some(data_channel_sender);
                     agent.data_channel_receiver = Some(data_channel_receiver);
                 }
