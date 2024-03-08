@@ -216,7 +216,7 @@ impl Agent {
                         Agent::terminate(agent.clone()).await;
                         return;
                     }
-                    if polling_timer.elapsed() > polling_interval * polling_times {
+                    if polling_timer.elapsed() > polling_times * polling_interval {
                         match &mut agent.write().await.data_channel_sender {
                             Some(data_channel_sender) => data_channel_sender.send(StillProcessPacket::new()).await,
                             None => {
@@ -267,7 +267,7 @@ impl Agent {
                 }
                 TaskManager::submit_image_task(image_task, success).await;
             } else {
-                if let Some(image_task) = Agent::steal_task(agent.clone()).await {
+                if let Some(image_task) = TaskManager::steal_task(agent.clone()).await {
                     Agent::add_task(agent.clone(), image_task).await
                 } else {
                     {
@@ -286,7 +286,7 @@ impl Agent {
                             Agent::terminate(agent.clone()).await;
                             return;
                         }
-                        if timer.elapsed() > polling_interval * polling_times {
+                        if timer.elapsed() > polling_times * polling_interval {
                             if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
                                 data_channel_sender.send(AlivePacket::new()).await
                             } else {
@@ -409,7 +409,7 @@ impl Agent {
             if agent.read().await.terminate {
                 Err(LogEntry::new(LogLevel::INFO, "Agent: Terminating. Transfer task info cancel.".to_string()))?
             }
-            if timer.elapsed() > polling_interval * polling_times {
+            if timer.elapsed() > polling_times * polling_interval {
                 let mut agent = agent.write().await;
                 let data_channel_sender = agent.data_channel_sender.as_mut()
                     .ok_or(LogEntry::new(LogLevel::ERROR, "Agent: Data Channel is not available.".to_string()))?;
@@ -508,44 +508,6 @@ impl Agent {
         Err(LogEntry::new(LogLevel::ERROR, "Agent: File transfer timeout.".to_string()))
     }
 
-    pub async fn steal_task(agent: Arc<RwLock<Agent>>) -> Option<ImageTask> {
-        let agents = AgentManager::sorted_by_vram().await;
-        let (vram, ram) = {
-            let agent = agent.write().await;
-            (agent.idle_unused.vram, agent.idle_unused.ram)
-        };
-        for (uuid, _) in agents {
-            if let Some(agent) = AgentManager::get_agent(uuid).await {
-                let mut steal = false;
-                let mut cache = false;
-                let mut agent = agent.write().await;
-                match agent.image_task.get(0) {
-                    Some(image_task) => {
-                        let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
-                        let estimate_ram = TaskManager::estimated_ram_usage(&image_task.image_filepath).await;
-                        if vram > estimate_vram && ram > estimate_ram * 0.7 {
-                            steal = true;
-                            if ram < estimate_ram {
-                                cache = true;
-                            }
-                        }
-                    },
-                    None => continue,
-                }
-                if steal {
-                    match agent.image_task.pop_front() {
-                        Some(mut image_task) => {
-                            image_task.cache = cache;
-                            return Some(image_task);
-                        },
-                        None => continue,
-                    }
-                }
-            }
-        }
-        None
-    }
-
     pub fn uuid(&self) -> Uuid {
         self.uuid
     }
@@ -558,12 +520,12 @@ impl Agent {
         &self.idle_unused
     }
 
-    pub fn mut_idle_unused(&mut self) -> &mut Performance {
-        &mut self.idle_unused
-    }
-
     pub fn realtime_usage(&self) -> &Performance {
         &self.realtime_usage
+    }
+
+    pub fn image_tasks(&mut self) -> &mut VecDeque<ImageTask> {
+        &mut self.image_task
     }
 
     pub fn mut_realtime_usage(&mut self) -> &mut Performance {

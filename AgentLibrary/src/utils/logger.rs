@@ -31,11 +31,15 @@ impl Logger {
     }
 
     pub async fn add_system_log(level: LogLevel, message: String) {
-        let date = Local::now();
-        let timestamp = date.format("%Y/%m/%d %H:%M:%S").to_string();
-        println!("{}", format!("{} [{}] {}", timestamp, level, message));
         let log_entry = LogEntry::new(level, message);
+        println!("{log_entry}");
         let mut logger = Self::instance_mut().await;
+        logger.system_log.push_back(log_entry);
+    }
+
+    pub async fn add_system_log_entry(log_entry: LogEntry) {
+        let mut logger = Self::instance_mut().await;
+        println!("{log_entry}");
         logger.system_log.push_back(log_entry);
     }
 

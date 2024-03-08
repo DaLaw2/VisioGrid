@@ -52,6 +52,7 @@ impl Logger {
 
     pub async fn add_system_log_entry(log_entry: LogEntry) {
         let mut logger = Self::instance_mut().await;
+        println!("{log_entry}");
         logger.system_log.push_back(log_entry);
     }
 

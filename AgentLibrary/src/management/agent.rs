@@ -36,18 +36,16 @@ impl Agent {
             .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized agent information.".to_string()))?;
         let (mut control_channel_sender, mut control_channel_receiver) = ControlChannel::new(socket_stream);
         let mut information_confirm = false;
-        control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
         let timer = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while timer.elapsed() <= timeout_duration {
-            if timer.elapsed() > polling_interval * polling_times {
+            if timer.elapsed() > polling_times * polling_interval {
                 if !information_confirm {
                     control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
                 } else {
-                    let performance = Monitor::get_performance().await;
-                    let performance = serde_json::to_vec(&performance)
+                    let performance = serde_json::to_vec(&Monitor::get_performance().await)
                         .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()))?;
                     control_channel_sender.send(PerformancePacket::new(performance)).await;
                 }
@@ -64,10 +62,6 @@ impl Agent {
                     match confirm {
                         ConfirmType::ReceiveAgentInformationSuccess => {
                             information_confirm = true;
-                            let performance = Monitor::get_performance().await;
-                            let performance = serde_json::to_vec(&performance)
-                                .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()))?;
-                            control_channel_sender.send(PerformancePacket::new(performance)).await;
                             continue
                         },
                         ConfirmType::ReceivePerformanceSuccess => {
@@ -148,7 +142,6 @@ impl Agent {
                             timeout_timer = Instant::now();
                         } else {
                             Logger::add_system_log(LogLevel::INFO, "Agent: Unable to parse confirm data.".to_string()).await;
-                            continue;
                         }
                     } else {
                         Logger::add_system_log(LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
@@ -168,11 +161,15 @@ impl Agent {
                 select! {
                     reply = data_channel_receiver.task_info_packet.recv() => {
                         drop(agent_instance);
-                        Self::process_task(agent.clone()).await;
+                        if let Err(entry) = Self::process_task(agent.clone()).await {
+                            Logger::add_system_log_entry(entry).await;
+                        }
                     },
                     reply = data_channel_receiver.alive_packet.recv() => {
                         drop(agent_instance);
-                        Self::idle(agent.clone()).await;
+                        if let Err(entry) = Self::idle(agent.clone()).await {
+                            Logger::add_system_log_entry(entry).await;
+                        }
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
@@ -182,11 +179,11 @@ impl Agent {
         }
     }
 
-    async fn process_task(agent: Arc<RwLock<Agent>>) {
+    async fn process_task(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
 
     }
 
-    async fn idle(agent: Arc<RwLock<Agent>>) {
+    async fn idle(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
 
     }
 

@@ -3,6 +3,7 @@ use uuid::Uuid;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::management::agent::Agent;
 use crate::utils::logger::{Logger, LogLevel};
@@ -182,6 +183,44 @@ impl TaskManager {
                 Self::submit_image_task(image_task, false).await;
             }
         }
+    }
+
+    pub async fn steal_task(agent: Arc<RwLock<Agent>>) -> Option<ImageTask> {
+        let agents = AgentManager::sorted_by_vram().await;
+        let (vram, ram) = {
+            let agent = agent.write().await;
+            (agent.idle_unused().vram, agent.idle_unused().ram)
+        };
+        for (uuid, _) in agents {
+            if let Some(agent) = AgentManager::get_agent(uuid).await {
+                let mut steal = false;
+                let mut cache = false;
+                let mut agent = agent.write().await;
+                match agent.image_tasks().get(0) {
+                    Some(image_task) => {
+                        let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
+                        let estimate_ram = TaskManager::estimated_ram_usage(&image_task.image_filepath).await;
+                        if vram > estimate_vram && ram > estimate_ram * 0.7 {
+                            steal = true;
+                            if ram < estimate_ram {
+                                cache = true;
+                            }
+                        }
+                    },
+                    None => continue,
+                }
+                if steal {
+                    match agent.image_tasks().pop_front() {
+                        Some(mut image_task) => {
+                            image_task.cache = cache;
+                            return Some(image_task);
+                        },
+                        None => continue,
+                    }
+                }
+            }
+        }
+        None
     }
 
     pub async fn task_panic(uuid: &Uuid, error: String) {
