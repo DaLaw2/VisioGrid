@@ -53,38 +53,35 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
         file_name = format!("{}_{}_{}", uuid, model_type, file_name);
         let file_extension = Path::new(&file_name).extension().and_then(|os_str| os_str.to_str()).unwrap_or("");
         let file_path = match (field_name, file_extension) {
-            ("ptFile" | "onnxFile", "pt" | "onnx") => {
+            ("pyTorchModel" | "onnxModel", "pt" | "pth" | "onnx") => {
                 model_filename = file_name.clone();
                 Path::new(".").join("SavedModel").join(file_name)
             },
-            ("yoloInferenceFile" | "onnxInferenceFile" | "defaultInferenceFile", "png" | "jpg" | "jpeg" | "mp4" | "avi" | "mkv" | "zip") => {
+            ("inferenceFile", "png" | "jpg" | "jpeg" | "mp4" | "avi" | "mkv" | "zip") => {
                 media_filename = file_name.clone();
                 Path::new(".").join("SavedFile").join(file_name)
             },
             _ => return HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid file type or extension.".to_string())))),
         };
-        match File::create(&file_path).await {
-            Ok(mut file) => {
-                while let Some(chunk) = field.next().await {
-                    match chunk {
-                        Ok(data) => {
-                            if let Err(_) = file.write_all(&data).await {
-                                return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
-                            }
-                        },
-                        Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None))),
+        if let Ok(mut file) = File::create(&file_path).await {
+            while let Some(chunk) = field.next().await {
+                if let Ok(data) = chunk {
+                    if file.write_all(&data).await.is_err() {
+                        return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
                     }
+                } else {
+                    return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
                 }
-            },
-            Err(_) => return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None))),
+            }
+        } else {
+            return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
         }
     }
-    match InferenceType::from_str(&*model_type) {
-        Ok(inference_type) => {
-            let new_task = Task::new(uuid, model_filename, media_filename, inference_type).await;
-            FileManager::add_pre_process_task(new_task).await;
-            HttpResponse::Ok().json(OperationStatus::new(true, None))
-        },
-        Err(_) => HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid inference type.".to_string())))),
+    if let Ok(inference_type) = InferenceType::from_str(&*model_type) {
+        let new_task = Task::new(uuid, model_filename, media_filename, inference_type).await;
+        FileManager::add_pre_process_task(new_task).await;
+        HttpResponse::Ok().json(OperationStatus::new(true, None))
+    } else {
+        HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid inference type.".to_string()))))
     }
 }

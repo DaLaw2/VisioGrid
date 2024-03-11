@@ -4,17 +4,13 @@ const originalContent = {
 };
 
 function showUploadOptions(option) {
-    const options = ['YOLO', 'ONNX'];
+    const options = ['PyTorch', 'ONNX'];
     for (const opt of options) {
         const container = document.getElementById(opt);
         if (opt === option) {
             container.style.display = 'block';
-            if (!container.innerHTML) {
-                container.innerHTML = originalContent[opt];
-            }
         } else {
             container.style.display = 'none';
-            container.innerHTML = '';
         }
     }
 }

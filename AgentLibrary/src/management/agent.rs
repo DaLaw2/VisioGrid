@@ -17,6 +17,7 @@ use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
 use crate::connection::channel::{ControlChannel, DataChannel};
 use crate::connection::packet::agent_information_packet::AgentInformationPacket;
+use crate::connection::packet::alive_reply_packet::AliveReplyPacket;
 use crate::connection::packet::performance_packet::PerformancePacket;
 use crate::management::monitor::Monitor;
 use crate::utils::config::Config;
@@ -89,9 +90,6 @@ impl Agent {
             Self::performance(for_performance).await;
         });
         tokio::spawn(async move {
-            Self::management(for_management).await;
-        });
-        tokio::spawn(async move {
             Self::create_data_channel(agent).await;
         });
     }
@@ -153,38 +151,24 @@ impl Agent {
         }
     }
 
-    async fn management(agent: Arc<RwLock<Agent>>) {
+    async fn process_task(agent: Arc<RwLock<Agent>>) {
+
+    }
+
+    async fn idle(agent: Arc<RwLock<Agent>>) {
         let config = Config::now().await;
         while !agent.read().await.terminate {
-            let mut agent_instance = agent.write().await;
-            if let Some(data_channel_receiver) = &mut agent_instance.data_channel_receiver {
+            if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
-                    reply = data_channel_receiver.task_info_packet.recv() => {
-                        drop(agent_instance);
-                        if let Err(entry) = Self::process_task(agent.clone()).await {
-                            Logger::add_system_log_entry(entry).await;
-                        }
-                    },
-                    reply = data_channel_receiver.alive_packet.recv() => {
-                        drop(agent_instance);
-                        if let Err(entry) = Self::idle(agent.clone()).await {
-                            Logger::add_system_log_entry(entry).await;
-                        }
-                    },
+                    biased;
+                    reply = data_channel_receiver.alive_packet.recv() => {},
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
-            } else {
-                sleep(Duration::from_millis(config.internal_timestamp)).await;
+            }
+            if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
+                data_channel_sender.send(AliveReplyPacket::new()).await;
             }
         }
-    }
-
-    async fn process_task(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
-
-    }
-
-    async fn idle(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
-
     }
 
     async fn create_data_channel(agent: Arc<RwLock<Agent>>) {

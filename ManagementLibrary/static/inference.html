@@ -16,35 +16,33 @@
     <div class="row justify-content-center">
         <div class="col-md-6">
             <form id="uploadForm">
+                <h1>Inference</h1>
+                <p>Select the format of the model you want to upload:</p>
                 <div class="form-group">
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="modelType" value="YOLO" id="yoloRadio" onclick="showUploadOptions('YOLO')">
-                        <label class="form-check-label" for="yoloRadio">YOLO</label>
+                        <input class="form-check-input" type="radio" name="modelType" value="PyTorch" id="pyTorchRadio" onclick="showUploadOptions('PyTorch')">
+                        <label class="form-check-label" for="pyTorchRadio">PyTorch</label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="modelType" value="ONNX" id="onnxRadio" onclick="showUploadOptions('ONNX')">
                         <label class="form-check-label" for="onnxRadio">ONNX</label>
                     </div>
                 </div>
-                <div id="YOLO" class="upload-option">
+                <div id="PyTorch" class="upload-option">
                     <div class="form-group">
-                        <label for="ptFile">YOLO Model</label>
-                        <input type="file" class="form-control-file" name="ptFile" accept=".pt" id="ptFile" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="yoloInferenceFile">Inference files</label>
-                        <input type="file" class="form-control-file" name="yoloInferenceFile" id="yoloInferenceFile" required>
+                        <label for="pyTorchModel">PyTorch Model</label>
+                        <input type="file" class="form-control-file" name="pyTorchModel" accept=".pt, .pth" id="pyTorchModel" required>
                     </div>
                 </div>
                 <div id="ONNX" class="upload-option">
                     <div class="form-group">
-                        <label for="onnxFile">ONNX Model</label>
-                        <input type="file" class="form-control-file" name="onnxFile" accept=".onnx" id="onnxFile" required>
+                        <label for="onnxModel">ONNX Model</label>
+                        <input type="file" class="form-control-file" name="onnxModel" accept=".onnx" id="onnxModel" required>
                     </div>
-                    <div class="form-group">
-                        <label for="onnxInferenceFile">Inference files</label>
-                        <input type="file" class="form-control-file" name="onnxInferenceFile" id="onnxInferenceFile" required>
-                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inferenceFile">Inference file</label>
+                    <input type="file" class="form-control-file" name="inferenceFile" id="inferenceFile" required>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="submitForm()">Upload</button>
             </form>

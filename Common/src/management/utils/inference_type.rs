@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum InferenceType {
-    YOLO,
+    PyTorch,
     ONNX,
 }
 
@@ -13,7 +13,7 @@ impl FromStr for InferenceType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "YOLO" => Ok(InferenceType::YOLO),
+            "PyTorch" => Ok(InferenceType::PyTorch),
             "ONNX" => Ok(InferenceType::ONNX),
             _ => Err(()),
         }
@@ -23,7 +23,7 @@ impl FromStr for InferenceType {
 impl Display for InferenceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
-            InferenceType::YOLO => "YOLO",
+            InferenceType::PyTorch => "PyTorch",
             InferenceType::ONNX => "ONNX",
         })
     }
