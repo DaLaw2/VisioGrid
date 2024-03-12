@@ -10,7 +10,7 @@ use crate::utils::logger::{Logger, LogLevel};
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
-use crate::web::page::{config, inference, javascript, log};
+use crate::web::page::{config, inference, javascript, log, misc};
 
 lazy_static!{
     static ref MANAGEMENT: RwLock<Manager> = RwLock::new(Manager::new());
@@ -47,6 +47,7 @@ impl Manager {
                     .service(inference::initialize())
                     .service(javascript::initialize())
                     .service(log::initialize())
+                    .service(misc::initialize())
             }).bind(format!("127.0.0.1:{}", config.http_server_bind_port));
             match http_server {
                 Ok(http_server) => break http_server,
