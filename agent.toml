@@ -6,3 +6,4 @@ polling_interval = 100
 control_channel_timeout = 10
 data_channel_timeout = 10
 file_transfer_timeout = 5
+confidence_threshold = 0.5

@@ -23,6 +23,7 @@ pub struct Config {
     pub control_channel_timeout: u64,
     pub data_channel_timeout: u64,
     pub file_transfer_timeout: u64,
+    pub confidence_threshold: f64,
 }
 
 impl Config {
@@ -51,6 +52,7 @@ impl Config {
             && Config::validate_second(config.control_channel_timeout)
             && Config::validate_second(config.data_channel_timeout)
             && Config::validate_second(config.file_transfer_timeout)
+            && Config::validate_confidence(config.confidence_threshold)
     }
 
     fn validate_mini_second(second: u64) -> bool {
@@ -63,5 +65,9 @@ impl Config {
 
     fn validate_full_address(address: &str, port: u16) -> bool {
         format!("{}:{}", address, port).to_socket_addrs().is_ok()
+    }
+
+    fn validate_confidence(confidence_threshold: f64) -> bool {
+        !confidence_threshold.is_nan() && confidence_threshold >= 0.0 && confidence_threshold <= 1.0
     }
 }
