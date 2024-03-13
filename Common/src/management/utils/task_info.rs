@@ -1,20 +1,20 @@
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
-use crate::management::utils::inference_type::InferenceType;
+use crate::management::utils::model_type::ModelType;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskInfo {
     uuid: Uuid,
     model_filename: String,
-    inference_type: InferenceType,
+    model_type: ModelType,
 }
 
 impl TaskInfo {
-    pub fn new(uuid: Uuid, model_filename: String, inference_type: InferenceType) -> Self {
+    pub fn new(uuid: Uuid, model_filename: String, model_type: ModelType) -> Self {
         Self {
             uuid,
             model_filename,
-            inference_type,
+            model_type,
         }
     }
 }

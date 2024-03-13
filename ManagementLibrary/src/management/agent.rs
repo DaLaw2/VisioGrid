@@ -398,7 +398,7 @@ impl Agent {
 
     async fn transfer_task_info(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
         let config = Config::now().await;
-        let task_info = TaskInfo::new(image_task.task_uuid.clone(), image_task.model_filename.clone(), image_task.inference_type);
+        let task_info = TaskInfo::new(image_task.task_uuid.clone(), image_task.model_filename.clone(), image_task.model_type);
         let task_info_data = serde_json::to_vec(&task_info)
             .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized task info data.".to_string()))?;
         let timer = Instant::now();

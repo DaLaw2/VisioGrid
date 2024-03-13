@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use crate::management::utils::image_task::ImageTask;
 use crate::management::result_repository::ResultRepository;
-use crate::management::utils::inference_type::InferenceType;
+use crate::management::utils::model_type::ModelType;
 
 #[derive(Debug, Copy, Clone)]
 pub enum TaskStatus {
@@ -23,12 +23,12 @@ pub struct Task {
     pub error: Result<(), String>,
     pub model_filename: String,
     pub media_filename: String,
-    pub inference_type: InferenceType,
+    pub model_type: ModelType,
     pub result: Vec<ImageTask>,
 }
 
 impl Task {
-    pub async fn new(uuid: Uuid, model_filename: String, media_filename: String, inference_type: InferenceType) -> Self {
+    pub async fn new(uuid: Uuid, model_filename: String, media_filename: String, model_type: ModelType) -> Self {
         Self {
             uuid,
             status: TaskStatus::Waiting,
@@ -38,7 +38,7 @@ impl Task {
             error: Ok(()),
             model_filename,
             media_filename,
-            inference_type,
+            model_type,
             result: Vec::new(),
         }
     }

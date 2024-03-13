@@ -2,7 +2,7 @@ use uuid::Uuid;
 use std::path::PathBuf;
 use crate::management::utils::task::Task;
 use crate::management::utils::bounding_box::BoundingBox;
-use crate::management::utils::inference_type::InferenceType;
+use crate::management::utils::model_type::ModelType;
 
 #[derive(Debug, Clone)]
 pub struct ImageTask {
@@ -12,7 +12,7 @@ pub struct ImageTask {
     pub image_filename: String,
     pub model_filepath: PathBuf,
     pub image_filepath: PathBuf,
-    pub inference_type: InferenceType,
+    pub model_type: ModelType,
     pub bounding_boxes: Vec<BoundingBox>,
     pub cache: bool,
 }
@@ -29,7 +29,7 @@ impl ImageTask {
             image_filename,
             model_filepath,
             image_filepath,
-            inference_type: task.inference_type,
+            model_type: task.model_type,
             bounding_boxes: Vec::new(),
             cache: false,
         }

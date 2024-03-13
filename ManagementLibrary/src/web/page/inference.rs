@@ -11,7 +11,7 @@ use crate::management::utils::task::Task;
 use crate::utils::static_files::StaticFiles;
 use crate::management::file_manager::FileManager;
 use crate::web::utils::response::OperationStatus;
-use crate::management::utils::inference_type::InferenceType;
+use crate::management::utils::model_type::ModelType;
 
 pub fn initialize() -> Scope {
     web::scope("/inference")
@@ -77,8 +77,8 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
             return HttpResponse::InternalServerError().json(web::Json(OperationStatus::new(false, None)))
         }
     }
-    if let Ok(inference_type) = InferenceType::from_str(&*model_type) {
-        let new_task = Task::new(uuid, model_filename, media_filename, inference_type).await;
+    if let Ok(model_type) = ModelType::from_str(&*model_type) {
+        let new_task = Task::new(uuid, model_filename, media_filename, model_type).await;
         FileManager::add_pre_process_task(new_task).await;
         HttpResponse::Ok().json(OperationStatus::new(true, None))
     } else {

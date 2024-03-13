@@ -3,28 +3,31 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub enum InferenceType {
+pub enum ModelType {
+    TorchScript,
     PyTorch,
     ONNX,
 }
 
-impl FromStr for InferenceType {
+impl FromStr for ModelType {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "PyTorch" => Ok(InferenceType::PyTorch),
-            "ONNX" => Ok(InferenceType::ONNX),
+            "TorchScript" => Ok(ModelType::TorchScript),
+            "PyTorch" => Ok(ModelType::PyTorch),
+            "ONNX" => Ok(ModelType::ONNX),
             _ => Err(()),
         }
     }
 }
 
-impl Display for InferenceType {
+impl Display for ModelType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
-            InferenceType::PyTorch => "PyTorch",
-            InferenceType::ONNX => "ONNX",
+            ModelType::TorchScript => "TorchScript",
+            ModelType::PyTorch => "PyTorch",
+            ModelType::ONNX => "ONNX",
         })
     }
 }
