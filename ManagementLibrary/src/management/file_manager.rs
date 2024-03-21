@@ -343,15 +343,15 @@ impl FileManager {
             .map_err(|err| format!("FileManager: Cannot read file {image_path}.\nReason: {err}", image_path = image_path.display()))?
             .to_rgb8();
         for bounding_box in &image_task.bounding_boxes {
-            let base_rectangle = Rect::at(bounding_box.x1 as i32, bounding_box.y1 as i32).of_size(bounding_box.x2 - bounding_box.x1, bounding_box.y2 - bounding_box.y1);
+            let base_rectangle = Rect::at(bounding_box.xmin as i32, bounding_box.ymin as i32).of_size(bounding_box.xmax - bounding_box.xmin, bounding_box.ymax - bounding_box.ymin);
             for i in 0..config.border_width {
                 let offset_rect = Rect::at(base_rectangle.left() - i as i32, base_rectangle.top() - i as i32).of_size(base_rectangle.width() + 2 * i, base_rectangle.height() + 2 * i);
                 draw_hollow_rect_mut(&mut image, offset_rect, border_color);
             }
             let scale = Scale::uniform(config.font_size);
             let text = format!("{name}: {confidence:.2}%", name = bounding_box.name, confidence = bounding_box.confidence);
-            let position_x = bounding_box.x1 as i32;
-            let position_y = (bounding_box.y2 + config.border_width + 10) as i32;
+            let position_x = bounding_box.xmin as i32;
+            let position_y = (bounding_box.ymax + config.border_width + 10) as i32;
             draw_text_mut(&mut image, text_color, position_x, position_y, scale, &font, &text);
         }
         Ok(image)
