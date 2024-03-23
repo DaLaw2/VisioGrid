@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Config</title>
+    <link rel="icon" href="/misc/config.ico" type="image/x-icon"/>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="/javascript/config.js"></script>
+    <script type="text/javascript">window.onload = loadCurrentConfig;</script>
+</head>
+<body>
+<div class="container mt-5">
+    <h2>Config</h2>
+    <form id="config-form" class="mt-4">
+        <div class="form-group">
+            <label for="internal_timestamp">Internal Timestamp (ms):</label>
+            <input type="number" class="form-control" id="internal_timestamp" name="internal_timestamp" min="1" max="60000" required>
+        </div>
+        <div class="form-group">
+            <label for="agent_listen_port">Agent Listen Port :</label>
+            <input type="number" class="form-control" id="agent_listen_port" name="agent_listen_port" min="1" max="65535" required>
+        </div>
+        <div class="form-group">
+            <label for="http_server_bind_port">HTTP Server Bind Port :</label>
+            <input type="number" class="form-control" id="http_server_bind_port" name="http_server_bind_port" min="1" max="65535" required>
+        </div>
+        <div class="form-group">
+            <label for="bind_retry_duration">Bind Retry Duration (s):</label>
+            <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" min="1" max="86400" required>
+        </div>
+        <div class="form-group">
+            <label for="agent_idle_duration">Agent Idle Duration (s):</label>
+            <input type="number" class="form-control" id="agent_idle_duration" name="agent_idle_duration" min="1" max="86400" required>
+        </div>
+        <div class="form-group">
+            <label for="polling_interval">Polling Interval (ms):</label>
+            <input type="number" class="form-control" id="polling_interval" name="polling_interval" min="1" max="60000" required>
+        </div>
+        <div class="form-group">
+            <label for="control_channel_timeout">Control Channel timeout (s):</label>
+            <input type="number" class="form-control" id="control_channel_timeout" name="control_channel_timeout" min="1" max="86400" required>
+        </div>
+        <div class="form-group">
+            <label for="data_channel_timeout">Data Channel timeout (s):</label>
+            <input type="number" class="form-control" id="data_channel_timeout" name="data_channel_timeout" min="1" max="86400" required>
+        </div>
+        <div class="form-group">
+            <label for="file_transfer_timeout">File Transfer timeout (s):</label>
+            <input type="number" class="form-control" id="file_transfer_timeout" name="file_transfer_timeout" min="1" max="86400" required>
+        </div>
+        <div class="form-group">
+            <label for="dedicated_port_range_start">Dedicated Port Range :</label>
+            <div class="d-flex align-items-center">
+                <input type="number" class="form-control" id="dedicated_port_range_start" name="dedicated_port_range_start" min="1" max="65535" required>
+                <span class="mx-2">~</span>
+                <label for="dedicated_port_range_end"></label>
+                <input type="number" class="form-control" id="dedicated_port_range_end" name="dedicated_port_range_end" min="1" max="65535" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="font_path">Font Path :</label>
+            <input type="text" class="form-control" id="font_path" name="font_path" required>
+        </div>
+        <div class="form-group">
+            <label for="border_width">Border Width (px):</label>
+            <input type="number" class="form-control" id="border_width" name="border_width" min="1" required>
+        </div>
+        <div class="form-group">
+            <label for="font_size">Font Size (pt):</label>
+            <input type="number" class="form-control" id="font_size" name="font_size" min="1" step="0.1" required>
+        </div>
+        <div class="form-group">
+            <label>Border Color:</label>
+            <div class="d-flex align-items-center">
+                <label class="mx-2" for="border_color_r">R</label>
+                <input type="number" class="form-control mx-1" id="border_color_r" min="0" max="255" required>
+                <label class="mx-2" for="border_color_g">G</label>
+                <input type="number" class="form-control mx-1" id="border_color_g" min="0" max="255" required>
+                <label class="mx-2" for="border_color_b">B</label>
+                <input type="number" class="form-control mx-1" id="border_color_b" min="0" max="255" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Text Color:</label>
+            <div class="d-flex align-items-center">
+                <label class="mx-2" for="text_color_r">R</label>
+                <input type="number" class="form-control mx-1" id="text_color_r" min="0" max="255" required>
+                <label class="mx-2" for="text_color_g">G</label>
+                <input type="number" class="form-control mx-1" id="text_color_g" min="0" max="255" required>
+                <label class="mx-2" for="text_color_b">B</label>
+                <input type="number" class="form-control mx-1" id="text_color_b" min="0" max="255" required>
+            </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>
+    </form>
+    <p class="mt-4 text-muted">Some settings will take effect after a restart system.</p>
+</div>
+</body>
+</html>
