@@ -1,6 +1,8 @@
+use std::path::PathBuf;
 use tokio::fs;
 use lazy_static::lazy_static;
 use tokio::sync::RwLock;
+use crate::utils::static_files::StaticFiles;
 use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {
@@ -32,5 +34,11 @@ impl FileManager {
             }
         };
         Logger::add_system_log(LogLevel::INFO, "File Manager: Cleanup completed.".to_string()).await;
+    }
+
+    pub async fn extract_embed_file(file_path: PathBuf) -> Result<(), String> {
+        let data = StaticFiles::get("file_path")
+            .map_err(|_| "Does not exist in static files.")?;
+
     }
 }

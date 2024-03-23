@@ -1,4 +1,5 @@
 pub mod logger;
+pub mod static_files;
 
 use tokio::sync::mpsc;
 use crate::connection::packet::base_packet::BasePacket;

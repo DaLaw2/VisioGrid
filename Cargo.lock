@@ -33,6 +33,7 @@ name = "Common"
 version = "1.0.0"
 dependencies = [
  "chrono",
+ "rust-embed",
  "serde",
  "tokio",
  "uuid",
