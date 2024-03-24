@@ -1,16 +1,16 @@
 use uuid::Uuid;
 use crate::management::utils::image_task::ImageTask;
-use crate::management::result_repository::ResultRepository;
 use crate::management::utils::model_type::ModelType;
+use crate::management::result_repository::ResultRepository;
 
 #[derive(Debug, Copy, Clone)]
 pub enum TaskStatus {
-    PreProcessing,
     Waiting,
+    PreProcessing,
     Processing,
     PostProcessing,
-    Fail,
     Success,
+    Fail,
 }
 
 #[derive(Debug, Clone)]

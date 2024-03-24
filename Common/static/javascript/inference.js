@@ -1,20 +1,3 @@
-const originalContent = {
-    'YOLO': document.getElementById('YOLO').innerHTML,
-    'ONNX': document.getElementById('ONNX').innerHTML,
-};
-
-function showUploadOptions(option) {
-    const options = ['PyTorch', 'ONNX'];
-    for (const opt of options) {
-        const container = document.getElementById(opt);
-        if (opt === option) {
-            container.style.display = 'block';
-        } else {
-            container.style.display = 'none';
-        }
-    }
-}
-
 function submitForm() {
     const originalFormData = new FormData(document.getElementById('uploadForm'));
     const filteredFormData = new FormData();

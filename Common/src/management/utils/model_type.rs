@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum ModelType {
-    TorchScript,
-    PyTorch,
-    ONNX,
+    Ultralytics,
+    YOLOv4,
+    YOLOv7,
 }
 
 impl FromStr for ModelType {
@@ -14,9 +14,9 @@ impl FromStr for ModelType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "TorchScript" => Ok(ModelType::TorchScript),
-            "PyTorch" => Ok(ModelType::PyTorch),
-            "ONNX" => Ok(ModelType::ONNX),
+            "Ultralytics" => Ok(ModelType::Ultralytics),
+            "YOLOv4" => Ok(ModelType::YOLOv4),
+            "YOLOv7" => Ok(ModelType::YOLOv7),
             _ => Err(()),
         }
     }
@@ -25,9 +25,9 @@ impl FromStr for ModelType {
 impl Display for ModelType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
-            ModelType::TorchScript => "TorchScript",
-            ModelType::PyTorch => "PyTorch",
-            ModelType::ONNX => "ONNX",
+            ModelType::Ultralytics => "Ultralytics",
+            ModelType::YOLOv4 => "YOLOv4",
+            ModelType::YOLOv7 => "YOLOv7",
         })
     }
 }

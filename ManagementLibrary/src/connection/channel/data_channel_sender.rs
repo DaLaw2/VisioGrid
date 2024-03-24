@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use tokio::sync::{mpsc, oneshot};
-use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::packet::Packet;
+use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::channel::send_thread::SendThread;
 
@@ -18,7 +18,7 @@ impl DataChannelSender {
     pub fn new(agent_id: Uuid, socket_tx: WriteHalf) -> Self {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let mut send_thread = SendThread::new(agent_id, socket_tx, sender_rx, stop_signal_rx);
+        let mut send_thread = SendThread::new(socket_tx, sender_rx, stop_signal_rx);
         tokio::spawn(async move {
             send_thread.run().await;
         });

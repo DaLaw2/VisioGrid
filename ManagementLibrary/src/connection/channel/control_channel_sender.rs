@@ -18,7 +18,7 @@ impl ControlChannelSender {
     pub fn new(agent_id: Uuid, socket_tx: WriteHalf) -> Self {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let mut send_thread = SendThread::new(agent_id, socket_tx, sender_rx, stop_signal_rx);
+        let mut send_thread = SendThread::new(socket_tx, sender_rx, stop_signal_rx);
         tokio::spawn(async move {
             send_thread.run().await;
         });

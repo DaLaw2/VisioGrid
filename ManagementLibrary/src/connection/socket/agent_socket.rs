@@ -12,6 +12,7 @@ pub struct AgentSocket {
 
 impl AgentSocket {
     pub async fn new() -> Self {
+        //unimplemented!("Unable to end normally when failed");
         let listener = loop {
             let config = Config::now().await;
             let port = config.agent_listen_port;
@@ -29,6 +30,7 @@ impl AgentSocket {
     }
 
     pub async fn get_connection(&mut self) -> (SocketStream, SocketAddr) {
+        //unimplemented!("The loop cannot be ended when there is no connection");
         let (stream, address) = loop {
             if let Ok(connection) = self.listener.accept().await {
                 break connection;

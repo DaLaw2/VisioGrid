@@ -71,7 +71,7 @@ impl Agent {
                         .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to parse information.".to_string()))?;
                     agent_information = Some(information);
                     let confirm = serde_json::to_vec(&ConfirmType::ReceiveAgentInformationSuccess)
-                        .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized confirm type.".to_string()))?;
+                        .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized confirm data.".to_string()))?;
                     control_channel_sender.send(ConfirmPacket::new(confirm)).await;
                 },
                 reply = control_channel_receiver.performance_packet.recv() => {
@@ -154,7 +154,7 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while !agent.read().await.terminate {
             if timer.elapsed() > timeout_duration {
-                Logger::add_agent_log(uuid, LogLevel::WARNING, "Agent: Control Channel timeout.".to_string()).await;
+                Logger::add_agent_log(uuid, LogLevel::INFO, "Agent: Control Channel timeout.".to_string()).await;
                 Agent::terminate(agent).await;
                 return;
             }
@@ -189,6 +189,7 @@ impl Agent {
 
     #[allow(unused_assignments)]
     async fn task_management(agent: Arc<RwLock<Agent>>) {
+        //unimplemented!("The code needs to be split here. Need review the code.");
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
         let mut data_channel_available = true;
@@ -211,7 +212,7 @@ impl Agent {
                         break;
                     }
                     if timeout_timer.elapsed() > timeout_duration {
-                        Logger::add_agent_log(uuid, LogLevel::WARNING, "Agent: Data Channel timeout.".to_string()).await;
+                        Logger::add_agent_log(uuid, LogLevel::INFO, "Agent: Data Channel timeout.".to_string()).await;
                         TaskManager::submit_image_task(image_task, false).await;
                         Agent::terminate(agent.clone()).await;
                         return;
@@ -282,7 +283,7 @@ impl Agent {
                     let timeout_duration = Duration::from_secs(config.control_channel_timeout);
                     while !agent.read().await.terminate && timer.elapsed() <= idle_duration {
                         if timeout_timer.elapsed() > timeout_duration {
-                            Logger::add_agent_log(uuid, LogLevel::WARNING, "Agent: Data Channel timeout.".to_string()).await;
+                            Logger::add_agent_log(uuid, LogLevel::INFO, "Agent: Data Channel timeout.".to_string()).await;
                             Agent::terminate(agent.clone()).await;
                             return;
                         }
@@ -352,7 +353,7 @@ impl Agent {
             }
             if timer.elapsed() > timeout_duration {
                 PortPool::free_port(port).await;
-                Err(LogEntry::new(LogLevel::ERROR, "Agent: Create Data Channel timeout.".to_string()))?;
+                Err(LogEntry::new(LogLevel::INFO, "Agent: Create Data Channel timeout.".to_string()))?;
             }
             if timer.elapsed() > polling_times * polling_interval {
                 agent.write().await.control_channel_sender.send(DataChannelPortPacket::new(port)).await;
@@ -361,8 +362,9 @@ impl Agent {
             select! {
                 biased;
                 connection = listener.accept() => {
-                    if let Ok(connection) = connection {
-                        break connection;
+                    match connection {
+                        Ok(connection) => break connection,
+                        Err(err) => Err(LogEntry::new(LogLevel::ERROR, format!("Agent: Failed to establish connection.\nReason: {}", err)))?
                     }
                 },
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
@@ -391,14 +393,14 @@ impl Agent {
             Agent::transfer_file(agent.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
             Agent::create_data_channel(agent.clone()).await?;
-            Err(LogEntry::new(LogLevel::WARNING, "Agent: Data Channel is not available.".to_string()))?
+            Err(LogEntry::new(LogLevel::ERROR, "Agent: Data Channel is not available.".to_string()))?
         }
         Ok(())
     }
 
     async fn transfer_task_info(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
         let config = Config::now().await;
-        let task_info = TaskInfo::new(image_task.task_uuid.clone(), image_task.model_filename.clone(), image_task.model_type);
+        let task_info = TaskInfo::new(image_task.task_uuid, image_task.model_filename.clone(), image_task.model_type);
         let task_info_data = serde_json::to_vec(&task_info)
             .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized task info data.".to_string()))?;
         let timer = Instant::now();
@@ -433,6 +435,7 @@ impl Agent {
 
     #[allow(unused_assignments)]
     async fn transfer_file(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), LogEntry> {
+        //unimplemented!("The code needs to be split here");
         let config = Config::now().await;
         let filesize = fs::metadata(&filepath).await
             .map_err(|err| LogEntry::new(LogLevel::ERROR, format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display())))?
@@ -484,7 +487,7 @@ impl Agent {
                     biased;
                     reply = data_channel_receiver.file_transfer_reply_packet.recv() => {
                         let packet = reply
-                            .ok_or(LogEntry::new(LogLevel::ERROR, "Agent: Channel has been closed.".to_string()))?;
+                            .ok_or(LogEntry::new(LogLevel::INFO, "Agent: Channel has been closed.".to_string()))?;
                         clear_unbounded_channel(&mut data_channel_receiver.file_transfer_reply_packet).await;
                         let file_transfer_result = serde_json::from_slice::<FileTransferResult>(packet.as_data_byte())
                             .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to parse file transfer result.".to_string()))?;
@@ -512,23 +515,19 @@ impl Agent {
         self.uuid
     }
 
-    pub fn agent_information(&self) -> &AgentInformation {
-        &self.information
+    pub fn agent_information(&self) -> AgentInformation {
+        self.information.clone()
     }
 
-    pub fn idle_unused(&self) -> &Performance {
-        &self.idle_unused
+    pub fn idle_unused(&self) -> Performance {
+        self.idle_unused.clone()
     }
 
-    pub fn realtime_usage(&self) -> &Performance {
-        &self.realtime_usage
+    pub fn realtime_usage(&self) -> Performance {
+        self.realtime_usage.clone()
     }
 
     pub fn image_tasks(&mut self) -> &mut VecDeque<ImageTask> {
         &mut self.image_task
-    }
-
-    pub fn mut_realtime_usage(&mut self) -> &mut Performance {
-        &mut self.realtime_usage
     }
 }

@@ -39,12 +39,11 @@ impl ReceiveThread {
                                 Ok(())
                             },
                         };
-                        if result.is_err() {
-                            Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Receive Thread: Unable to submit packet to receiver.".to_string()).await;
-                            break;
+                        if let Err(err) = result {
+                            Logger::add_agent_log(self.agent_id, LogLevel::ERROR, format!("Receive Thread: Unable to submit packet to receiver.\nReason: {}", err)).await;
+                            return;
                         }
                     } else {
-                        Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Receive Thread: Agent disconnect.".to_string()).await;
                         break;
                     }
                 },

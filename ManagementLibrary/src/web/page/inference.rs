@@ -45,15 +45,15 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
         }
         let (field_name, mut file_name) = match (content_disposition.get_name(), content_disposition.get_filename()) {
             (Some(field_name), Some(file_name)) => (field_name, sanitize(file_name)),
-            _ => continue,
+            _ => return HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid payload.".to_string())))),
         };
         if file_name.is_empty() {
             return HttpResponse::BadRequest().json(web::Json(OperationStatus::new(false, Some("Invalid filename.".to_string()))));
         }
-        file_name = format!("{}_{}_{}", uuid, model_type, file_name);
+        file_name = format!("{}_{}", uuid, file_name);
         let file_extension = Path::new(&file_name).extension().and_then(|os_str| os_str.to_str()).unwrap_or("");
         let file_path = match (field_name, file_extension) {
-            ("pyTorchModel" | "onnxModel", "pt" | "pth" | "onnx") => {
+            ("modelFile", "pt" | "pth" | "onnx") => {
                 model_filename = file_name.clone();
                 Path::new(".").join("SavedModel").join(file_name)
             },
