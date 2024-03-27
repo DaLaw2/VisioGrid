@@ -1,4 +1,7 @@
 pub use Common::utils::logger::*;
+pub use Common::{info_entry, warning_entry, error_entry};
+pub use crate::{logging_info, logging_warning, logging_error, logging_entry};
+
 use uuid::Uuid;
 use lazy_static::lazy_static;
 use chrono::{DateTime, Local};
@@ -33,14 +36,14 @@ impl Logger {
         LOGGER.write().await
     }
 
-    pub async fn add_system_log(level: LogLevel, message: String) {
+    pub async fn add_system_log<T: Into<String>>(level: LogLevel, message: T) {
         let log_entry = LogEntry::new(level, message);
         println!("{log_entry}");
         let mut logger = Self::instance_mut().await;
         logger.system_log.push_back(log_entry);
     }
 
-    pub async fn add_agent_log(agent_id: Uuid, level: LogLevel, message: String) {
+    pub async fn add_agent_log<T: Into<String>>(agent_id: Uuid, level: LogLevel, message: T) {
         let log_entry = LogEntry::new(level, message);
         let mut logger = Self::instance_mut().await;
         if !logger.agent_log.contains_key(&agent_id) {
@@ -89,4 +92,44 @@ impl Logger {
     pub fn format_logs(logs: &VecDeque<LogEntry>) -> String {
         logs.iter().map(LogEntry::to_string).collect::<Vec<_>>().join("\n")
     }
+}
+
+#[macro_export]
+macro_rules! logging_info {
+    ($msg:expr) => {
+        Logger::add_system_log(LogLevel::INFO, $msg).await;
+    };
+    ($uuid:expr, $msg:expr) => {
+        Logger::add_agent_log($uuid, LogLevel::INFO, $msg).await;
+    };
+}
+
+#[macro_export]
+macro_rules! logging_warning {
+    ($msg:expr) => {
+        Logger::add_system_log(LogLevel::WARNING, $msg).await;
+    };
+    ($uuid:expr, $msg:expr) => {
+        Logger::add_agent_log($uuid, LogLevel::WARNING, $msg).await;
+    };
+}
+
+#[macro_export]
+macro_rules! logging_error {
+    ($msg:expr) => {
+        Logger::add_system_log(LogLevel::ERROR, $msg).await;
+    };
+    ($uuid:expr, $msg:expr) => {
+        Logger::add_agent_log($uuid, LogLevel::ERROR, $msg).await;
+    };
+}
+
+#[macro_export]
+macro_rules! logging_entry {
+    ($entry:expr) => {
+        Logger::add_system_log_entry($entry).await;
+    };
+    ($uuid:expr, $entry:expr) => {
+        Logger::add_agent_log_entry($uuid, $entry).await;
+    };
 }

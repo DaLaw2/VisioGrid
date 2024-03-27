@@ -10,6 +10,7 @@ use crate::utils::logger::{Logger, LogLevel};
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
+use crate::{logging_entry, logging_error, logging_info};
 use crate::web::page::{config, inference, javascript, log, misc};
 
 lazy_static!{
@@ -52,25 +53,25 @@ impl Manager {
             match http_server {
                 Ok(http_server) => break http_server,
                 Err(err) => {
-                    Logger::add_system_log(LogLevel::ERROR, format!("Management: Http service bind port failed.\nReason: {err}")).await;
+                    logging_error!(format!("Management: Http service bind port failed.\nReason: {err}"));
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
             }
         };
-        Logger::add_system_log(LogLevel::INFO, "Management: Web service ready.".to_string()).await;
-        Logger::add_system_log(LogLevel::INFO, "Management: Online.".to_string()).await;
+        logging_info!("Management: Web service ready.");
+        logging_info!("Management: Online.");
         if let Err(err) = http_server.run().await {
-            Logger::add_system_log(LogLevel::ERROR, format!("Management: Error while web service running.\nReason: {err}")).await
+            logging_error!(format!("Management: Error while web service running.\nReason: {err}"));
         }
     }
 
     pub async fn terminate() {
-        Logger::add_system_log(LogLevel::INFO, "Management: Terminating.".to_string()).await;
+        logging_info!("Management: Terminating.");
         AgentManager::terminate().await;
         FileManager::terminate().await;
         Self::instance_mut().await.terminate = true;
-        Logger::add_system_log(LogLevel::INFO, "Management: Termination complete.".to_string()).await;
+        logging_info!("Management: Termination complete.");
     }
 
     async fn register_agent() {
@@ -83,9 +84,9 @@ impl Manager {
                 match agent {
                     Ok(agent) => {
                         AgentManager::add_agent(agent).await;
-                        Logger::add_system_log(LogLevel::INFO, format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}")).await;
+                        logging_info!(format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}"));
                     },
-                    Err(entry) => Logger::add_agent_log_entry(agent_id, entry).await,
+                    Err(entry) => logging_entry!(agent_id, entry),
                 }
             }
         });

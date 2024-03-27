@@ -1,8 +1,8 @@
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
+use crate::utils::logger::*;
 use crate::connection::packet::Packet;
-use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::WriteHalf;
 
 type SenderRX = mpsc::UnboundedReceiver<Box<dyn Packet + Send>>;
@@ -30,7 +30,7 @@ impl SendThread {
                     match reply {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                Logger::add_system_log(LogLevel::ERROR, "Send Thread: Management disconnect.".to_string()).await;
+                                logging_error!("Send Thread: Management disconnect.");
                                 return;
                             }
                         },

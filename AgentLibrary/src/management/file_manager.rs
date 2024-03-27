@@ -1,9 +1,11 @@
-use std::path::{Path, PathBuf};
 use tokio::fs;
-use lazy_static::lazy_static;
 use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
+use std::path::PathBuf;
 use tokio::sync::RwLock;
+use tokio::io::AsyncWriteExt;
+use lazy_static::lazy_static;
+use tokio::process::Command as AsyncCommand;
+use crate::utils::logger::*;
 use crate::utils::static_files::StaticFiles;
 use crate::utils::logger::{Logger, LogLevel};
 
@@ -15,30 +17,33 @@ pub struct FileManager;
 
 impl FileManager {
     pub async fn initialize() {
-        Logger::add_system_log(LogLevel::INFO, "File Manager: Initializing.".to_string()).await;
+        logging_info!("File Manager: Initializing.");
         let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => Logger::add_system_log(LogLevel::INFO, format!("File Manager: Create {} folder successfully.", folder_name)).await,
-                Err(err) => Logger::add_system_log(LogLevel::ERROR, format!("File Manager: Cannot create {} folder.\nReason: {}", folder_name, err)).await
+                Ok(_) => logging_info!(format!("File Manager: Create {} folder successfully.", folder_name)),
+                Err(err) => logging_error!(format!("File Manager: Cannot create {} folder.\nReason: {}", folder_name, err)),
             }
         }
-        if let Err(err) = Self::extract_embed_folders().await {
-            Logger::add_system_log(LogLevel::ERROR, err).await;
+        if let Err(err) = Self::clone_repository().await {
+            logging_error!(err);
         }
-        Logger::add_system_log(LogLevel::INFO, "File Manager: Initialization completed.".to_string()).await;
+        if let Err(err) = Self::extract_embed_folders().await {
+            logging_error!(err);
+        }
+        logging_info!("File Manager: Initialization completed.");
     }
 
     pub async fn cleanup() {
-        Logger::add_system_log(LogLevel::INFO, "File Manager: Cleaning up.".to_string()).await;
+        logging_info!("File Manager: Cleaning up.");
         let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => Logger::add_system_log(LogLevel::INFO, format!("File Manager: Deleted {} folder successfully.", folder_name)).await,
-                Err(err) => Logger::add_system_log(LogLevel::ERROR, format!("File Manager: Cannot delete {} folder.\nReason: {}", folder_name, err)).await
+                Ok(_) => logging_info!(format!("File Manager: Deleted {} folder successfully.", folder_name)),
+                Err(err) => logging_error!(format!("File Manager: Cannot delete {} folder.\nReason: {}", folder_name, err)),
             }
         };
-        Logger::add_system_log(LogLevel::INFO, "File Manager: Cleanup completed.".to_string()).await;
+        logging_info!("File Manager: Cleanup completed.");
     }
 
     pub async fn extract_embed_folders() -> Result<(), String> {
@@ -58,6 +63,29 @@ impl FileManager {
                         .map_err(|err| format!("File Manager: Unable to write data to file.\nReason: {}", err))?;
                 }
             }
+        }
+        Ok(())
+    }
+
+    pub async fn clone_repository() -> Result<(), String> {
+        let yolov4_repository = "https://github.com/WongKinYiu/PyTorch_YOLOv4";
+        let yolov7_repository = "https://github.com/WongKinYiu/yolov7";
+        #[cfg(target_os = "windows")]
+            let mut status = AsyncCommand::new("cmd")
+            .arg("/C")
+            .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
+            .status()
+            .await
+            .map_err(|err| format!("File Manager: Fail to clone repository.\nReason: {}", err))?;
+        #[cfg(target_os = "linux")]
+        let mut status = AsyncCommand::new("sh")
+            .arg("-c")
+            .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
+            .status()
+            .await
+            .map_err(|err| format!("File Manager: Fail to clone repository.\nReason: {}", err))?;
+        if !status.success() {
+            Err("File Manager: An error occur in clone repository.".to_string())?
         }
         Ok(())
     }

@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logger::*;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::channel::control_channel_receive_thread::ReceiveThread;
@@ -45,11 +45,11 @@ impl ControlChannelReceiver {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 match stop_signal.send(()) {
-                    Ok(_) => Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Control Channel: Destroyed Receiver successfully.".to_string()).await,
-                    Err(_) => Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await
+                    Ok(_) => logging_info!(self.agent_id, "Control Channel: Destroyed Receiver successfully."),
+                    Err(_) => logging_error!(self.agent_id, "Control Channel: Failed to destroy Receiver."),
                 }
             },
-            None => Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Control Channel: Failed to destroy Receiver.".to_string()).await,
+            None => logging_error!(self.agent_id, "Control Channel: Failed to destroy Receiver."),
         }
     }
 }

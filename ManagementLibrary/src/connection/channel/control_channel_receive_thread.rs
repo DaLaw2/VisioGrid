@@ -1,9 +1,10 @@
+use gstreamer::loggable_error;
 use uuid::Uuid;
 use tokio::select;
 use tokio::sync::oneshot;
+use crate::utils::logger::*;
 use crate::connection::packet::Packet;
 use crate::connection::packet::PacketType;
-use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::channel::control_channel_receiver::ReceiverTX;
 
@@ -35,12 +36,12 @@ impl ReceiveThread {
                             PacketType::AgentInformationPacket => self.receiver_tx.agent_information_packet.send(packet),
                             PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
                             _ => {
-                                Logger::add_agent_log(self.agent_id, LogLevel::WARNING, "Receive Thread: Receive unknown packet.".to_string()).await;
+                                logging_warning!(self.agent_id, "Receive Thread: Receive unknown packet.");
                                 Ok(())
                             },
                         };
                         if let Err(err) = result {
-                            Logger::add_agent_log(self.agent_id, LogLevel::ERROR, format!("Receive Thread: Unable to submit packet to receiver.\nReason: {}", err)).await;
+                            logging_error!(self.agent_id, format!("Receive Thread: Unable to submit packet to receiver.\nReason: {}", err));
                             return;
                         }
                     } else {

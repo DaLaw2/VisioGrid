@@ -1,6 +1,6 @@
 use tokio::sync::oneshot;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logger::*;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::channel::data_channel_receive_thread::ReceiveThread;
@@ -52,9 +52,9 @@ impl DataChannelReceiver {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 let _ = stop_signal.send(());
-                Logger::add_system_log(LogLevel::INFO, "Data Channel: Destroyed Receiver successfully.".to_string()).await;
+                logging_info!("Data Channel: Destroyed Receiver successfully.");
             },
-            None => Logger::add_system_log(LogLevel::ERROR, "Data Channel: Failed to destroy Receiver.".to_string()).await,
+            None => logging_error!("Data Channel: Failed to destroy Receiver."),
         }
     }
 }

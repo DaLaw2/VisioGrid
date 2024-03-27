@@ -3,14 +3,14 @@ import json
 from ultralytics import YOLO
 
 class BoundingBox:
-    def __init__(self, box: list, name: str, confidences: float):
+    def __init__(self, box: list, name: str, confidence: float):
         self.xmin, self.ymin, self.xmax, self.ymax = box
         self.xmin = int(self.xmin)
         self.xmax = int(self.xmax)
         self.ymin = int(self.ymin)
         self.ymax = int(self.ymax)
         self.name = name
-        self.confidences = confidences
+        self.confidence = confidence
 
     def to_dict(self):
         return {
@@ -19,7 +19,7 @@ class BoundingBox:
             "ymin": self.ymin,
             "ymax": self.ymax,
             "name": self.name,
-            "confidences": self.confidences
+            "confidence": self.confidence
         }
 
 def panic(*args, **kwargs):

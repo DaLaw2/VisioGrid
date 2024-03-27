@@ -1,6 +1,6 @@
 use tokio::select;
 use tokio::sync::oneshot;
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logger::*;
 use crate::connection::packet::Packet;
 use crate::connection::packet::PacketType;
 use crate::connection::socket::socket_stream::ReadHalf;
@@ -36,17 +36,17 @@ impl ReceiveThread {
                                 PacketType::StillProcessPacket => self.receiver_tx.still_process_packet.send(packet),
                                 PacketType::TaskInfoPacket => self.receiver_tx.task_info_packet.send(packet),
                                 _ => {
-                                    Logger::add_system_log(LogLevel::WARNING, "Receive Thread: Receive unknown packet.".to_string()).await;
+                                    logging_warning!("Receive Thread: Receive unknown packet.");
                                     Ok(())
                                 },
                             };
                             if result.is_err() {
-                                Logger::add_system_log(LogLevel::INFO, "Receive Thread: Unable to submit packet to receiver.".to_string()).await;
+                                logging_info!("Receive Thread: Unable to submit packet to receiver.");
                                 break;
                             }
                         },
                         Err(_) => {
-                            Logger::add_system_log(LogLevel::INFO, "Receive Thread: Agent disconnect.".to_string()).await;
+                            logging_info!("Receive Thread: Agent disconnect.");
                             break;
                         },
                     }

@@ -27,11 +27,11 @@ impl Display for LogLevel {
 }
 
 impl LogEntry {
-    pub fn new(level: LogLevel, message: String) -> Self {
+    pub fn new<T: Into<String>>(level: LogLevel, message: T) -> Self {
         Self {
             timestamp: Local::now(),
             level,
-            message,
+            message: message.into(),
         }
     }
 }
@@ -41,4 +41,25 @@ impl Display for LogEntry {
         let str = format!("{} [{}] {}", self.timestamp.format("%Y/%m/%d %H:%M:%S").to_string(), self.level.to_string(), self.message);
         write!(f, "{}", str)
     }
+}
+
+#[macro_export]
+macro_rules! info_entry {
+    ($msg:expr) => {
+        LogEntry::new(LogLevel::INFO, $msg)
+    };
+}
+
+#[macro_export]
+macro_rules! error_entry {
+    ($msg:expr) => {
+        LogEntry::new(LogLevel::ERROR, $msg)
+    };
+}
+
+#[macro_export]
+macro_rules! warning_entry {
+    ($msg:expr) => {
+        LogEntry::new(LogLevel::WARNING, $msg)
+    };
 }

@@ -6,7 +6,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::management::agent::Agent;
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logger::*;
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::management::utils::image_task::ImageTask;
@@ -73,7 +73,7 @@ impl TaskManager {
                     let agent_ram = match AgentManager::get_agent(agent_id).await {
                         Some(agent) => agent.read().await.idle_unused().ram,
                         None => {
-                            Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Agent {agent_id} does not exist.")).await;
+                            logging_warning!(format!("Task Manager: Agent {agent_id} does not exist."));
                             0.0
                         }
                     };
@@ -89,7 +89,7 @@ impl TaskManager {
                     }
                 }
                 if !assigned {
-                    Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid)).await;
+                    logging_warning!(format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid));
                     Self::submit_image_task(image_task, false).await;
                 }
             }
@@ -98,7 +98,7 @@ impl TaskManager {
                 let mut image_folder = match fs::read_dir(&image_folder).await {
                     Ok(image_folder) => image_folder,
                     Err(_) => {
-                        Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read folder {image_folder}.", image_folder = image_folder.display())).await;
+                        logging_error!(format!("Task Manager: Cannot read folder {image_folder}.", image_folder = image_folder.display()));
                         return;
                     }
                 };
@@ -118,7 +118,7 @@ impl TaskManager {
                         let agent_ram = match AgentManager::get_agent(agent_id).await {
                             Some(agent) => agent.read().await.idle_unused().ram,
                             None => {
-                                Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Agent {agent_id} does not exist.")).await;
+                                logging_error!(format!("Task Manager: Agent {agent_id} does not exist."));
                                 0.0
                             }
                         };
@@ -135,7 +135,7 @@ impl TaskManager {
                         }
                     }
                     if !assigned {
-                        Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid)).await;
+                        logging_warning!(format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid));
                         Self::submit_image_task(image_task, false).await;
                     }
                     image_id += 1;
@@ -144,7 +144,7 @@ impl TaskManager {
             _ => {
                 let error_message = format!("Task Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
                 Self::task_panic(&task.uuid, error_message.clone()).await;
-                Logger::add_system_log(LogLevel::INFO, error_message).await;
+                logging_error!(error_message);
             }
         }
     }
@@ -165,7 +165,7 @@ impl TaskManager {
                 let agent_ram = match AgentManager::get_agent(agent_id).await {
                     Some(agent) => agent.read().await.idle_unused().ram,
                     None => {
-                        Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Agent {agent_id} does not exist.")).await;
+                        logging_error!(format!("Task Manager: Agent {agent_id} does not exist."));
                         continue;
                     }
                 };
@@ -179,7 +179,7 @@ impl TaskManager {
                 }
             }
             if !assigned {
-                Logger::add_system_log(LogLevel::WARNING, format!("Task Manager: Task {task_id} cannot be reassigned to any agent.", task_id = image_task.task_uuid)).await;
+                logging_warning!(format!("Task Manager: Task {task_id} cannot be reassigned to any agent.", task_id = image_task.task_uuid));
                 Self::submit_image_task(image_task, false).await;
             }
         }
@@ -247,7 +247,7 @@ impl TaskManager {
                     complete = true;
                 }
             }
-            None => Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Task {task_id} does not exist.", task_id = uuid)).await,
+            None => logging_error!(format!("Task Manager: Task {task_id} does not exist.", task_id = uuid)),
         }
         if complete {
             if let Some(task) = task_manager.tasks.remove(&uuid) {
@@ -260,7 +260,7 @@ impl TaskManager {
         let model_filesize = match fs::metadata(model_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(_) => {
-                Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {model_filepath}.", model_filepath = model_filepath.display())).await;
+                logging_error!(format!("Task Manager: Cannot read file {model_filepath}.", model_filepath = model_filepath.display()));
                 0
             }
         };
@@ -271,7 +271,7 @@ impl TaskManager {
         let image_filesize = match fs::metadata(image_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(_) => {
-                Logger::add_system_log(LogLevel::ERROR, format!("Task Manager: Cannot read file {image_filepath}.", image_filepath = image_filepath.display())).await;
+                logging_error!(format!("Task Manager: Cannot read file {image_filepath}.", image_filepath = image_filepath.display()));
                 0
             }
         };

@@ -4,6 +4,7 @@ use std::time::Duration;
 use tokio::select;
 use tokio::sync::RwLock;
 use tokio::time::{Instant, sleep};
+use Common::{error_entry, info_entry};
 use Common::management::utils::performance::Performance;
 use crate::utils::clear_unbounded_channel;
 use crate::utils::logger::{Logger, LogLevel};
@@ -19,6 +20,7 @@ use crate::connection::channel::{ControlChannel, DataChannel};
 use crate::connection::packet::agent_information_packet::AgentInformationPacket;
 use crate::connection::packet::alive_reply_packet::AliveReplyPacket;
 use crate::connection::packet::performance_packet::PerformancePacket;
+use crate::{logging_error, logging_info, logging_warning};
 use crate::management::monitor::Monitor;
 use crate::utils::config::Config;
 
@@ -34,7 +36,7 @@ impl Agent {
     pub async fn new(socket_stream: SocketStream) -> Result<Self, LogEntry> {
         let config = Config::now().await;
         let information = serde_json::to_vec(&Monitor::get_system_info().await)
-            .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized agent information.".to_string()))?;
+            .map_err(|_| error_entry!("Agent: Unable to serialized agent information."))?;
         let (mut control_channel_sender, mut control_channel_receiver) = ControlChannel::new(socket_stream);
         let mut information_confirm = false;
         let timer = Instant::now();
@@ -47,7 +49,7 @@ impl Agent {
                     control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
                 } else {
                     let performance = serde_json::to_vec(&Monitor::get_performance().await)
-                        .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()))?;
+                        .map_err(|_| error_entry!("Agent: Unable to serialized performance data."))?;
                     control_channel_sender.send(PerformancePacket::new(performance)).await;
                 }
                 polling_times += 1;
@@ -56,10 +58,10 @@ impl Agent {
                 biased;
                 reply = control_channel_receiver.confirm_packet.recv() => {
                     let packet = reply
-                        .ok_or(LogEntry::new(LogLevel::INFO, "Agent: Channel has been closed.".to_string()))?;
+                        .ok_or(info_entry!("Agent: Channel has been closed."))?;
                     clear_unbounded_channel(&mut control_channel_receiver.confirm_packet).await;
                     let confirm = serde_json::from_slice::<ConfirmType>(packet.as_data_byte())
-                        .map_err(|_| LogEntry::new(LogLevel::ERROR, "Agent: Unable to parse confirm type.".to_string()))?;
+                        .map_err(|_| error_entry!("Agent: Unable to parse confirm type."))?;
                     match confirm {
                         ConfirmType::ReceiveAgentInformationSuccess => {
                             information_confirm = true;
@@ -80,7 +82,7 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Err(LogEntry::new(LogLevel::INFO, "Agent: Fail create instance. Connection Channel timeout.".to_string()))
+        Err(info_entry!("Agent: Fail create instance. Connection Channel timeout."))
     }
 
     pub async fn run(agent: Arc<RwLock<Agent>>) {
@@ -95,7 +97,7 @@ impl Agent {
     }
 
     pub async fn terminate(agent: Arc<RwLock<Agent>>) {
-        Logger::add_system_log(LogLevel::INFO, "Agent: Terminating agent.".to_string()).await;
+        logging_info!("Agent: Terminating agent.");
         let mut agent = agent.write().await;
         agent.terminate = true;
         agent.control_channel_sender.disconnect().await;
@@ -106,7 +108,7 @@ impl Agent {
         if let Some(data_channel_receiver) = &mut agent.data_channel_receiver {
             data_channel_receiver.disconnect().await;
         }
-        Logger::add_system_log(LogLevel::INFO, "Agent: Termination complete.".to_string()).await;
+        logging_info!("Agent: Termination complete.");
     }
 
     async fn performance(agent: Arc<RwLock<Agent>>) {
@@ -118,7 +120,7 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while !agent.read().await.terminate {
             if timeout_timer.elapsed() > timeout_duration {
-                Logger::add_system_log(LogLevel::WARNING, "Agent: Control Channel timeout.".to_string()).await;
+                logging_warning!("Agent: Control Channel timeout.");
                 Agent::terminate(agent).await;
                 return;
             }
@@ -127,7 +129,7 @@ impl Agent {
                 if let Ok(performance) = serde_json::to_vec(&performance) {
                     agent.write().await.control_channel_sender.send(PerformancePacket::new(performance)).await;
                 } else {
-                    Logger::add_system_log(LogLevel::ERROR, "Agent: Unable to serialized performance data.".to_string()).await;
+                    logging_error!("Agent: Unable to serialized performance data.");
                 }
             }
             let mut agent = agent.write().await;
@@ -139,10 +141,10 @@ impl Agent {
                         if let Ok(_) = serde_json::from_slice::<ConfirmType>(packet.as_data_byte()) {
                             timeout_timer = Instant::now();
                         } else {
-                            Logger::add_system_log(LogLevel::INFO, "Agent: Unable to parse confirm data.".to_string()).await;
+                            logging_error!("Agent: Unable to parse confirm data.");
                         }
                     } else {
-                        Logger::add_system_log(LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                        logging_info!("Agent: Channel has been closed.");
                         return;
                     }
                 },
@@ -189,11 +191,11 @@ impl Agent {
                             if bytes.len() == 2 {
                                 port = Some(u16::from_be_bytes([bytes[0], bytes[1]]))
                             } else {
-                                Logger::add_system_log(LogLevel::INFO, "Agent: Unable to parse port data.".to_string()).await;
+                                logging_info!("Agent: Unable to parse port data.");
                                 continue;
                             }
                         } else {
-                            Logger::add_system_log(LogLevel::INFO, "Agent: Channel has been closed.".to_string()).await;
+                            logging_info!("Agent: Channel has been closed.");
                             return;
                         }
                     },
@@ -210,7 +212,7 @@ impl Agent {
                     agent.data_channel_receiver = Some(data_channel_receiver);
                 }
             } else {
-                Logger::add_system_log(LogLevel::INFO, "Agent: Internal server error.".to_string()).await;
+                logging_info!("Agent: Internal server error.");
                 return;
             }
         }

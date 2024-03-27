@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use tokio::sync::{mpsc, oneshot};
+use crate::utils::logger::*;
 use crate::connection::packet::Packet;
-use crate::utils::logger::{Logger, LogLevel};
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::channel::send_thread::SendThread;
 
@@ -33,18 +33,18 @@ impl DataChannelSender {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 match stop_signal.send(()) {
-                    Ok(_) => Logger::add_agent_log(self.agent_id, LogLevel::INFO, "Data Channel: Destroyed Sender successfully.".to_string()).await,
-                    Err(_) => Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Data Channel: Failed to destroy Sender.".to_string()).await,
+                    Ok(_) => logging_info!(self.agent_id, "Data Channel: Destroyed Sender successfully."),
+                    Err(_) => logging_error!(self.agent_id, "Data Channel: Failed to destroy Sender."),
                 }
             },
-            None => Logger::add_agent_log(self.agent_id, LogLevel::ERROR, "Data Channel: Failed to destroy Sender.".to_string()).await,
+            None => logging_error!(self.agent_id, "Data Channel: Failed to destroy Sender."),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if let Err(err) = self.sender_tx.send(packet) {
-            Logger::add_agent_log(self.agent_id, LogLevel::ERROR, format!("Data Channel: Unable to submit packet to Send Thread.\nReason: {}", err)).await;
+            logging_error!(self.agent_id, format!("Data Channel: Unable to submit packet to Send Thread.\nReason: {}", err));
         }
     }
 }

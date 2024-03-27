@@ -1,5 +1,5 @@
 use tokio::sync::{mpsc, oneshot};
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logger::*;
 use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::channel::send_thread::SendThread;
@@ -30,16 +30,16 @@ impl ControlChannelSender {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 let _ = stop_signal.send(());
-                Logger::add_system_log(LogLevel::INFO, "Control Channel: Destroyed Sender successfully.".to_string()).await;
+                logging_info!("Control Channel: Destroyed Sender successfully.");
             },
-            None => Logger::add_system_log(LogLevel::ERROR, "Control Channel: Failed to destroy Sender.".to_string()).await,
+            None => logging_error!("Control Channel: Failed to destroy Sender."),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if let Err(err) = self.sender_tx.send(packet) {
-            Logger::add_system_log(LogLevel::ERROR, format!("Control Channel: Unable to submit packet to Send Thread.\nReason: {}", err)).await;
+            logging_error!(format!("Control Channel: Unable to submit packet to Send Thread.\nReason: {}", err));
         }
     }
 }

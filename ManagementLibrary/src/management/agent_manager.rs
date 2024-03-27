@@ -7,10 +7,10 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use futures::stream::{self, StreamExt};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::utils::logger::*;
 use crate::management::utils::performance::Performance;
 use crate::utils::config::Config;
 use crate::management::agent::Agent;
-use crate::utils::logger::{Logger, LogLevel};
 
 lazy_static! {
     static ref AGENT_MANAGER: RwLock<AgentManager> = RwLock::new(AgentManager::new());
@@ -45,13 +45,13 @@ impl AgentManager {
         tokio::spawn(async {
             Self::update_performance().await;
         });
-        Logger::add_system_log(LogLevel::INFO, "Agent Manager: Online.".to_string()).await;
+        logging_info!("Agent Manager: Online.");
     }
 
     pub async fn terminate() {
-        Logger::add_system_log(LogLevel::INFO, "Agent Manager: Terminating.".to_string()).await;
+        logging_info!("Agent Manager: Terminating.");
         Self::instance_mut().await.terminate = true;
-        Logger::add_system_log(LogLevel::INFO, "Agent Manager: Termination complete.".to_string()).await;
+        logging_info!("Agent Manager: Termination complete.");
     }
 
     async fn update_performance() {
@@ -72,7 +72,7 @@ impl AgentManager {
         let agent_id = agent.uuid();
         let mut agent_cluster = Self::instance_mut().await;
         if agent_cluster.agents.contains_key(&agent_id) {
-            Logger::add_system_log(LogLevel::ERROR, "Agent Manager: Agent is already inside.".to_string()).await;
+            logging_error!("Agent Manager: Agent is already inside.");
             return;
         }
         let agent = Arc::new(RwLock::new(agent));
