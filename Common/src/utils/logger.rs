@@ -1,6 +1,8 @@
 use std::fmt::Display;
 use chrono::{DateTime, Local};
 
+pub use crate::{info_entry, warning_entry, error_entry};
+
 #[derive(Copy, Clone)]
 pub enum LogLevel {
     INFO,

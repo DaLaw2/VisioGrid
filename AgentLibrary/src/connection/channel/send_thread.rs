@@ -30,7 +30,7 @@ impl SendThread {
                     match reply {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                logging_error!("Send Thread: Management disconnect.");
+                                logging_info!("Send Thread: Management disconnect.");
                                 return;
                             }
                         },

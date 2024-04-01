@@ -6,11 +6,10 @@ use actix_web::{App, HttpServer};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::utils::config::Config;
 use crate::management::agent::Agent;
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logger::*;
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
-use crate::{logging_entry, logging_error, logging_info};
 use crate::web::page::{config, inference, javascript, log, misc};
 
 lazy_static!{

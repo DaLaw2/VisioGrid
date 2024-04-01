@@ -4,11 +4,10 @@ use std::time::Duration;
 use tokio::select;
 use tokio::sync::RwLock;
 use tokio::time::{Instant, sleep};
-use Common::{error_entry, info_entry};
-use Common::management::utils::performance::Performance;
+use crate::management::utils::performance::Performance;
+use uuid::Uuid;
 use crate::utils::clear_unbounded_channel;
-use crate::utils::logger::{Logger, LogLevel};
-use crate::utils::logger::LogEntry;
+use crate::utils::logger::*;
 use crate::connection::packet::Packet;
 use crate::management::utils::confirm_type::ConfirmType;
 use crate::connection::socket::socket_stream::SocketStream;
@@ -20,12 +19,12 @@ use crate::connection::channel::{ControlChannel, DataChannel};
 use crate::connection::packet::agent_information_packet::AgentInformationPacket;
 use crate::connection::packet::alive_reply_packet::AliveReplyPacket;
 use crate::connection::packet::performance_packet::PerformancePacket;
-use crate::{logging_error, logging_info, logging_warning};
 use crate::management::monitor::Monitor;
 use crate::utils::config::Config;
 
 pub struct Agent {
     terminate: bool,
+    previous_task: Option<Uuid>,
     control_channel_sender: ControlChannelSender,
     control_channel_receiver: ControlChannelReceiver,
     data_channel_sender: Option<DataChannelSender>,
@@ -92,7 +91,7 @@ impl Agent {
             Self::performance(for_performance).await;
         });
         tokio::spawn(async move {
-            Self::create_data_channel(agent).await;
+            Self::create_data_channel(for_management).await;
         });
     }
 
@@ -154,7 +153,25 @@ impl Agent {
     }
 
     async fn process_task(agent: Arc<RwLock<Agent>>) {
+        let config = Config::now().await;
+        while !agent.read().await.terminate {
 
+        }
+    }
+
+    async fn receive_task_info(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
+        let config = Config::now().await;
+        while !agent.read().await.terminate {
+            if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
+                select! {
+                    reply = data_channel_receiver.task_info_packet.recv() => {
+
+                    },
+                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                }
+            }
+        }
+        Ok(())
     }
 
     async fn idle(agent: Arc<RwLock<Agent>>) {
@@ -163,7 +180,7 @@ impl Agent {
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     biased;
-                    reply = data_channel_receiver.alive_packet.recv() => {},
+                    _ = data_channel_receiver.alive_packet.recv() => {},
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             }
@@ -177,9 +194,6 @@ impl Agent {
         let config = Config::now().await;
         let mut port: Option<u16> = None;
         while !agent.read().await.terminate {
-            if agent.read().await.data_channel_sender.is_some() {
-                sleep(Duration::from_millis(config.internal_timestamp)).await;
-            }
             {
                 let mut agent = agent.write().await;
                 select! {
@@ -191,11 +205,11 @@ impl Agent {
                             if bytes.len() == 2 {
                                 port = Some(u16::from_be_bytes([bytes[0], bytes[1]]))
                             } else {
-                                logging_info!("Agent: Unable to parse port data.");
+                                logging_error!("Agent: Unable to parse port data.");
                                 continue;
                             }
                         } else {
-                            logging_info!("Agent: Channel has been closed.");
+                            logging_warning!("Agent: Channel has been closed.");
                             return;
                         }
                     },
@@ -212,7 +226,7 @@ impl Agent {
                     agent.data_channel_receiver = Some(data_channel_receiver);
                 }
             } else {
-                logging_info!("Agent: Internal server error.");
+                logging_error!("Agent: Port data not ready.");
                 return;
             }
         }

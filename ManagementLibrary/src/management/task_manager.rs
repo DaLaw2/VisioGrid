@@ -73,7 +73,7 @@ impl TaskManager {
                     let agent_ram = match AgentManager::get_agent(agent_id).await {
                         Some(agent) => agent.read().await.idle_unused().ram,
                         None => {
-                            logging_warning!(format!("Task Manager: Agent {agent_id} does not exist."));
+                            logging_error!(format!("Task Manager: Agent {agent_id} does not exist."));
                             0.0
                         }
                     };

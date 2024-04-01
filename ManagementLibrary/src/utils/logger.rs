@@ -97,39 +97,39 @@ impl Logger {
 #[macro_export]
 macro_rules! logging_info {
     ($msg:expr) => {
-        Logger::add_system_log(LogLevel::INFO, $msg).await;
+        Logger::add_system_log(LogLevel::INFO, $msg).await
     };
     ($uuid:expr, $msg:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::INFO, $msg).await;
+        Logger::add_agent_log($uuid, LogLevel::INFO, $msg).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_warning {
     ($msg:expr) => {
-        Logger::add_system_log(LogLevel::WARNING, $msg).await;
+        Logger::add_system_log(LogLevel::WARNING, $msg).await
     };
     ($uuid:expr, $msg:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::WARNING, $msg).await;
+        Logger::add_agent_log($uuid, LogLevel::WARNING, $msg).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_error {
     ($msg:expr) => {
-        Logger::add_system_log(LogLevel::ERROR, $msg).await;
+        Logger::add_system_log(LogLevel::ERROR, $msg).await
     };
     ($uuid:expr, $msg:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::ERROR, $msg).await;
+        Logger::add_agent_log($uuid, LogLevel::ERROR, $msg).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_entry {
     ($entry:expr) => {
-        Logger::add_system_log_entry($entry).await;
+        Logger::add_system_log_entry($entry).await
     };
     ($uuid:expr, $entry:expr) => {
-        Logger::add_agent_log_entry($uuid, $entry).await;
+        Logger::add_agent_log_entry($uuid, $entry).await
     };
 }

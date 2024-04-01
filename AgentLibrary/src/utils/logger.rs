@@ -1,9 +1,10 @@
+pub use Common::utils::logger::*;
+pub use Common::{info_entry, warning_entry, error_entry};
+pub use crate::{logging_info, logging_warning, logging_error, logging_entry};
+
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-pub use Common::utils::logger::*;
-pub use crate::{logging_info, logging_warning, logging_error, logging_entry};
 
 lazy_static! {
     static ref LOGGER: RwLock<Logger> = RwLock::new(Logger::new());
@@ -52,27 +53,27 @@ impl Logger {
 #[macro_export]
 macro_rules! logging_info {
     ($msg:expr) => {
-        Logger::add_system_log(LogLevel::INFO, $msg).await;
+        Logger::add_system_log(LogLevel::INFO, $msg).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_warning {
     ($msg:expr) => {
-        Logger::add_system_log(LogLevel::WARNING, $msg).await;
+        Logger::add_system_log(LogLevel::WARNING, $msg).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_error {
     ($msg:expr) => {
-        Logger::add_system_log(LogLevel::ERROR, $msg).await;
+        Logger::add_system_log(LogLevel::ERROR, $msg).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_entry {
     ($entry:expr) => {
-        Logger::add_system_log_entry($entry).await;
+        Logger::add_system_log_entry($entry).await
     };
 }

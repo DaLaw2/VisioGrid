@@ -25,6 +25,7 @@ dependencies = [
  "sysinfo",
  "tokio",
  "toml",
+ "uuid",
 ]
 
 [[package]]

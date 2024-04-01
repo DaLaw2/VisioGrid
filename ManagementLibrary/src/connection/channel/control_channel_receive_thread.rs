@@ -1,4 +1,3 @@
-use gstreamer::loggable_error;
 use uuid::Uuid;
 use tokio::select;
 use tokio::sync::oneshot;

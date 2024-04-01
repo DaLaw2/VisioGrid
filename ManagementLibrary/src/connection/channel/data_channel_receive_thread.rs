@@ -43,7 +43,7 @@ impl ReceiveThread {
                             },
                         };
                         if let Err(err) = result {
-                            logging_info!(self.agent_id, format!("Receive Thread: Unable to submit packet to receiver.\nReason: {}", err));
+                            logging_error!(self.agent_id, format!("Receive Thread: Unable to submit packet to receiver.\nReason: {}", err));
                             return;
                         }
                     } else {

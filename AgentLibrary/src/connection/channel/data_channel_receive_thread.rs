@@ -41,12 +41,12 @@ impl ReceiveThread {
                                 },
                             };
                             if result.is_err() {
-                                logging_info!("Receive Thread: Unable to submit packet to receiver.");
+                                logging_error!("Receive Thread: Unable to submit packet to receiver.");
                                 break;
                             }
                         },
                         Err(_) => {
-                            logging_info!("Receive Thread: Agent disconnect.");
+                            logging_info!("Receive Thread: Management disconnect.");
                             break;
                         },
                     }
