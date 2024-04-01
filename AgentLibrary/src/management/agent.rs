@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use tokio::time::{Instant, sleep};
 use crate::management::utils::performance::Performance;
 use uuid::Uuid;
+use crate::management::utils::task_info::TaskInfo;
 use crate::utils::clear_unbounded_channel;
 use crate::utils::logger::*;
 use crate::connection::packet::Packet;
@@ -155,23 +156,34 @@ impl Agent {
     async fn process_task(agent: Arc<RwLock<Agent>>) {
         let config = Config::now().await;
         while !agent.read().await.terminate {
+            let task_info = Self::receive_task_info(agent.clone()).await;
+            if let Err(err) = task_info {
 
+            }
         }
     }
 
-    async fn receive_task_info(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
+    async fn receive_task_info(agent: Arc<RwLock<Agent>>) -> Result<TaskInfo, LogEntry> {
         let config = Config::now().await;
         while !agent.read().await.terminate {
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     reply = data_channel_receiver.task_info_packet.recv() => {
-
+                        let packet = reply
+                            .ok_or(warning_entry!("Agent: Channel has been closed."))?;
+                        clear_unbounded_channel(&mut data_channel_receiver.task_info_packet).await;
+                        let task_info = serde_json::from_slice::<TaskInfo>(packet.as_data_byte())
+                            .map_err(|_| error_entry!("Agent: Unable to parse file transfer result."))?;
+                        return Ok(task_info);
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
+            } else {
+                sleep(Duration::from_secs(config.agent_idle_interval)).await;
+                Err(warning_entry!("Agent: Data Channel is not available."))?
             }
         }
-        Ok(())
+        Err(info_entry!("Agent: Terminating. Receive task info cancel."))
     }
 
     async fn idle(agent: Arc<RwLock<Agent>>) {
@@ -180,7 +192,7 @@ impl Agent {
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     biased;
-                    _ = data_channel_receiver.alive_packet.recv() => {},
+                    _ = data_channel_receiver.alive_packet.recv() => clear_unbounded_channel(&mut data_channel_receiver.alive_packet).await,
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             }
