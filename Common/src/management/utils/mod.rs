@@ -1,6 +1,7 @@
 pub mod agent_information;
 pub mod bounding_box;
 pub mod confirm_type;
+pub mod agent_state;
 pub mod file_header;
 pub mod file_transfer_result;
 pub mod format;

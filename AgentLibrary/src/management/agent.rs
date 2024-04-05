@@ -154,27 +154,34 @@ impl Agent {
     }
 
     async fn process_task(agent: Arc<RwLock<Agent>>) {
-        let config = Config::now().await;
         while !agent.read().await.terminate {
-            let task_info = Self::receive_task_info(agent.clone()).await;
-            if let Err(err) = task_info {
+            let task_info = match Self::receive_task_info(agent.clone()).await {
+                Ok(task_info) => task_info,
+                Err(entry) => {
+                    logging_entry!(entry);
+                    continue;
+                }
+            };
 
-            }
         }
     }
 
     async fn receive_task_info(agent: Arc<RwLock<Agent>>) -> Result<TaskInfo, LogEntry> {
         let config = Config::now().await;
+        let timer = Instant::now();
+        let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         while !agent.read().await.terminate {
+            if timer.elapsed() > timeout_duration {
+                Err(info_entry!("Data Channel timeout."))?;
+            }
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     reply = data_channel_receiver.task_info_packet.recv() => {
                         let packet = reply
                             .ok_or(warning_entry!("Agent: Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.task_info_packet).await;
-                        let task_info = serde_json::from_slice::<TaskInfo>(packet.as_data_byte())
-                            .map_err(|_| error_entry!("Agent: Unable to parse file transfer result."))?;
-                        return Ok(task_info);
+                        return serde_json::from_slice::<TaskInfo>(packet.as_data_byte())
+                            .map_err(|_| error_entry!("Agent: Unable to parse task info."));
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
@@ -185,6 +192,8 @@ impl Agent {
         }
         Err(info_entry!("Agent: Terminating. Receive task info cancel."))
     }
+
+    async fn receive_file(agent: Arc<RwLock<Agent>>)
 
     async fn idle(agent: Arc<RwLock<Agent>>) {
         let config = Config::now().await;
