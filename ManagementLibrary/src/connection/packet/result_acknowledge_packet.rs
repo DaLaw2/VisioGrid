@@ -1,24 +1,24 @@
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
-pub struct FileTransferReplyPacket {
+pub struct ResultAcknowledgePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl FileTransferReplyPacket {
-    pub fn new(data: Vec<u8>) -> Self {
+impl ResultAcknowledgePacket {
+    pub fn new() -> Self {
         Self {
-            length: length_to_byte(16 + data.len()),
-            id: PacketType::FileTransferReplyPacket.as_byte(),
-            data,
-            packet_type: PacketType::FileTransferReplyPacket
+            length: length_to_byte(16),
+            id: PacketType::ResultAcknowledgePacket.as_byte(),
+            data: Vec::new(),
+            packet_type: PacketType::ResultAcknowledgePacket,
         }
     }
 }
 
-impl Packet for FileTransferReplyPacket {
+impl Packet for ResultAcknowledgePacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }

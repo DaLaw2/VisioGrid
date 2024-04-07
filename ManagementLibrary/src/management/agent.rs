@@ -27,6 +27,7 @@ use crate::management::utils::file_header::FileHeader;
 use crate::management::utils::performance::Performance;
 use crate::connection::packet::alive_packet::AlivePacket;
 use crate::connection::socket::socket_stream::SocketStream;
+use crate::connection::packet::control_packet::ControlPacket;
 use crate::management::utils::prevent_reenter::PreventReenter;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
@@ -35,14 +36,13 @@ use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::management::utils::file_transfer_result::FileTransferResult;
 use crate::connection::channel::data_channel_sender::DataChannelSender;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
-use crate::connection::packet::control_packet::ControlPacket;
 use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
 use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
-use crate::connection::packet::agent_information_acknowledge_packet::AgentInformationAcknowledgePacket;
+use crate::connection::packet::result_acknowledge_packet::ResultAcknowledgePacket;
 use crate::connection::packet::performance_acknowledge_packet::PerformanceAcknowledgePacket;
-
+use crate::connection::packet::agent_information_acknowledge_packet::AgentInformationAcknowledgePacket;
 
 pub struct Agent {
     uuid: Uuid,
@@ -67,8 +67,8 @@ impl Agent {
         while timer.elapsed() <= timeout_duration {
             select! {
                 biased;
-                reply = control_channel_receiver.agent_information_packet.recv() => {
-                    let packet = &reply
+                packet = control_channel_receiver.agent_information_packet.recv() => {
+                    let packet = &packet
                         .ok_or(warning_entry!("Agent: Channel has been closed."))?;
                     clear_unbounded_channel(&mut control_channel_receiver.agent_information_packet).await;
                     let information = serde_json::from_slice::<AgentInformation>(packet.as_data_byte())
@@ -76,8 +76,8 @@ impl Agent {
                     agent_information = Some(information);
                     control_channel_sender.send(AgentInformationAcknowledgePacket::new()).await;
                 },
-                reply = control_channel_receiver.performance_packet.recv() => {
-                    let packet = &reply
+                packet = control_channel_receiver.performance_packet.recv() => {
+                    let packet = &packet
                         .ok_or(warning_entry!("Agent: Channel has been closed."))?;
                     clear_unbounded_channel(&mut control_channel_receiver.performance_packet).await;
                     let realtime_usage = serde_json::from_slice::<Performance>(packet.as_data_byte())
@@ -137,8 +137,8 @@ impl Agent {
             let mut agent = agent.write().await;
             select! {
                 biased;
-                reply = agent.control_channel_receiver.performance_packet.recv() => {
-                    if let Some(packet) = &reply {
+                packet = agent.control_channel_receiver.performance_packet.recv() => {
+                    if let Some(packet) = &packet {
                         clear_unbounded_channel(&mut agent.control_channel_receiver.performance_packet).await;
                         if let Ok(performance) = serde_json::from_slice::<Performance>(packet.as_data_byte()) {
                             agent.realtime_usage = performance;
@@ -161,14 +161,13 @@ impl Agent {
 
     async fn management(agent: Arc<RwLock<Agent>>) {
         let uuid = agent.read().await.uuid;
+        let config = Config::now().await;
         loop {
-            let config = Config::now().await;
             let state = AgentManager::get_state(uuid).await;
             match state {
                 AgentState::CreateDataChannel => {
                     Self::control_agent(agent.clone(), AgentState::CreateDataChannel).await;
                     Self::create_data_channel(agent.clone()).await;
-                    AgentManager::store_state(uuid, AgentState::None).await;
                 },
                 AgentState::Terminate => {
                     Self::control_agent(agent.clone(), AgentState::Terminate).await;
@@ -207,27 +206,29 @@ impl Agent {
                     break;
                 }
                 if timer.elapsed() > polling_times * polling_interval {
-                    let agent = agent.write().await;
+                    let mut agent = agent.write().await;
                     agent.control_channel_sender.send(ControlPacket::new(control_state_data.clone())).await;
                     polling_times += 1;
                 }
                 let mut agent = agent.write().await;
                 select! {
-                    reply = agent.control_channel_receiver.control_acknowledge_packet.recv() => {
-                        if reply.is_none() {
+                    biased;
+                    packet = agent.control_channel_receiver.control_acknowledge_packet.recv() => {
+                        if packet.is_some() {
+                            clear_unbounded_channel(&mut agent.control_channel_receiver.control_acknowledge_packet).await;
+                            return;
+                        } else {
                             logging_warning!(uuid, "Agent: Channel has been closed.");
                             break;
                         }
-                        clear_unbounded_channel(&mut agent.control_channel_receiver.control_acknowledge_packet).await;
-                        return;
                     },
-                    _ = sleep(Duration::from_millis(config.internal_timestamp)).await => continue,
+                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             }
-            AgentManager::store_state(uuid, AgentState::Terminate).await;
         } else {
             logging_error!(uuid, "Agent: Unable to serialized control state data.");
         }
+        AgentManager::store_state(uuid, AgentState::Terminate).await;
     }
 
     async fn process_task(agent: Arc<RwLock<Agent>>, image_task: &mut ImageTask) -> bool {
@@ -246,8 +247,8 @@ impl Agent {
     async fn transfer_task(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
         let uuid = agent.read().await.uuid;
         if agent.write().await.data_channel_sender.is_some() {
-            let need_transfer_model = if let Some(last_task) = &agent.read().await.previous_task_uuid {
-                image_task.task_uuid != *last_task
+            let need_transfer_model = if let Some(last_task_uuid) = &agent.read().await.previous_task_uuid {
+                image_task.task_uuid != *last_task_uuid
             } else {
                 true
             };
@@ -275,6 +276,7 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while AgentManager::get_state(uuid).await != AgentState::Terminate {
             if timer.elapsed() > timeout_duration {
+                AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
                 Err(warning_entry!("Agent: Transfer task info timeout."))?
             }
             if timer.elapsed() > polling_times * polling_interval {
@@ -294,10 +296,14 @@ impl Agent {
             match agent.data_channel_receiver.as_mut() {
                 Some(data_channel_receiver) => {
                     select! {
-                        reply = data_channel_receiver.task_info_reply_packet.recv() => {
-                            reply.ok_or(warning_entry!("Agent: Channel has been closed."))?;
-                            clear_unbounded_channel(&mut data_channel_receiver.task_info_reply_packet).await;
-                            return Ok(())
+                        packet = data_channel_receiver.task_info_acknowledge_packet.recv() => {
+                            if packet.is_some() {
+                                clear_unbounded_channel(&mut data_channel_receiver.task_info_acknowledge_packet).await;
+                                return Ok(())
+                            } else {
+                                AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                                Err(warning_entry!("Agent: Channel has been closed."))?;
+                            }
                         },
                         _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                     }
@@ -319,25 +325,58 @@ impl Agent {
 
     async fn transfer_file_header(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), LogEntry> {
         let uuid = agent.read().await.uuid;
+        let config = Config::now().await;
         let filesize = fs::metadata(&filepath).await
             .map_err(|err| error_entry!(format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display())))?
             .len();
-        if AgentManager::get_state(uuid).await == AgentState::Terminate {
-            Err(info_entry!("Agent: Terminating. File transfer cancel."))?;
-        }
-        let mut agent = agent.write().await;
-        match agent.data_channel_sender.as_mut() {
-            Some(data_channel_sender) => {
-                let file_header = serde_json::to_vec(&FileHeader::new(filename.clone(), filesize as usize))
-                    .map_err(|_| error_entry!("Agent: Unable to serialized file header data."))?;
-                data_channel_sender.send(FileHeaderPacket::new(file_header)).await;
-            },
-            None => {
+        let file_header = FileHeader::new(filename.clone(), filesize as usize);
+        let file_header_data = serde_json::to_vec(&file_header)
+            .map_err(|_| error_entry!("Agent: Unable to serialized file header data."))?;
+        let timer = Instant::now();
+        let mut polling_times = 0_u32;
+        let polling_interval = Duration::from_millis(config.polling_interval);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout);
+        loop {
+            if AgentManager::get_state(uuid).await == AgentState::Terminate {
+                Err(info_entry!("Agent: Terminating. File transfer cancel."))?;
+            }
+            if timer.elapsed() > timeout_duration {
                 AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-                Err(warning_entry!("Agent: Data Channel is not available."))?
-            },
+                Err(warning_entry!("Agent: Data Channel timeout."))?;
+            }
+            if timer.elapsed() > polling_times * polling_interval {
+                let mut agent = agent.write().await;
+                match agent.data_channel_sender.as_mut() {
+                    Some(data_channel_sender) => data_channel_sender.send(FileHeaderPacket::new(file_header_data.clone())).await,
+                    None => {
+                        AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                        Err(warning_entry!("Agent: Data Channel is not available."))?
+                    },
+                }
+                polling_times += 1;
+            }
+            let mut agent = agent.write().await;
+            match agent.data_channel_receiver.as_mut() {
+                Some(data_channel_receiver) => {
+                    select! {
+                        packet = data_channel_receiver.file_header_acknowledge_packet.recv() => {
+                            if packet.is_some() {
+                                clear_unbounded_channel(&mut data_channel_receiver.file_header_acknowledge_packet).await;
+                                return Ok(())
+                            } else {
+                                AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                                Err(warning_entry!("Agent: Channel has been closed."))?;
+                            }
+                        },
+                        _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                    }
+                },
+                None => {
+                    AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                    Err(warning_entry!("Agent: Data Channel is not available."))?
+                },
+            }
         }
-        Ok(())
     }
 
     async fn transfer_file_body(agent: Arc<RwLock<Agent>>, filepath: &PathBuf) -> Result<Vec<Vec<u8>>, LogEntry> {
@@ -381,25 +420,35 @@ impl Agent {
         let time = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);
         let mut require_resend = Vec::new();
-        while time.elapsed() < timeout_duration {
+        loop {
             {
                 if AgentManager::get_state(uuid).await == AgentState::Terminate {
                     Err(info_entry!("Agent: Terminating. File transfer cancel."))?;
+                }
+                if time.elapsed() > timeout_duration {
+                    AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                    Err(warning_entry!("Agent: File transfer timeout."))?;
                 }
                 let mut agent = agent.write().await;
                 match agent.data_channel_receiver.as_mut() {
                     Some(data_channel_receiver) => {
                         select! {
                             biased;
-                            reply = data_channel_receiver.file_transfer_reply_packet.recv() => {
-                                let packet = reply
-                                    .ok_or(warning_entry!("Agent: Channel has been closed."))?;
-                                clear_unbounded_channel(&mut data_channel_receiver.file_transfer_reply_packet).await;
-                                let file_transfer_result = serde_json::from_slice::<FileTransferResult>(packet.as_data_byte())
-                                    .map_err(|_| error_entry!("Agent: Unable to parse file transfer result."))?;
-                                match file_transfer_result.into() {
-                                    Some(missing_chunks) => require_resend = missing_chunks,
-                                    None => return Ok(()),
+                            packet = data_channel_receiver.file_transfer_result_packet.recv() => {
+                                match packet {
+                                    Some(packet) => {
+                                        clear_unbounded_channel(&mut data_channel_receiver.file_transfer_result_packet).await;
+                                        let file_transfer_result = serde_json::from_slice::<FileTransferResult>(packet.as_data_byte())
+                                            .map_err(|_| error_entry!("Agent: Unable to parse file transfer result."))?;
+                                        match file_transfer_result.into() {
+                                            Some(missing_chunks) => require_resend = missing_chunks,
+                                            None => return Ok(()),
+                                        }
+                                    },
+                                    None => {
+                                        AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                                        Err(warning_entry!("Agent: Channel has been closed."))?;
+                                    },
                                 }
                             },
                             _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
@@ -429,12 +478,12 @@ impl Agent {
                 }
             }
         }
-        Err(warning_entry!("Agent: File transfer timeout."))
     }
 
     async fn waiting_result(agent: Arc<RwLock<Agent>>, image_task: &mut ImageTask) -> Result<(), LogEntry> {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
+        let mut agent_process_error: Option<String> = None;
         let mut polling_times = 0_u32;
         let polling_timer = Instant::now();
         let polling_interval = Duration::from_millis(config.polling_interval);
@@ -461,26 +510,27 @@ impl Agent {
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     biased;
-                    reply = data_channel_receiver.still_process_reply_packet.recv() => {
-                        if reply.is_some() {
-                            clear_unbounded_channel(&mut data_channel_receiver.still_process_reply_packet).await;
+                    packet = data_channel_receiver.still_process_acknowledge_packet.recv() => {
+                        if packet.is_some() {
+                            clear_unbounded_channel(&mut data_channel_receiver.still_process_acknowledge_packet).await;
                             timeout_timer = Instant::now();
                         } else {
                             AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
                             Err(warning_entry!("Agent: Channel has been closed."))?;
                         }
                     },
-                    reply = data_channel_receiver.result_packet.recv() => {
-                        if let Some(reply_packet) = &reply {
+                    packet = data_channel_receiver.result_packet.recv() => {
+                        if let Some(packet) = &packet {
                             clear_unbounded_channel(&mut data_channel_receiver.result_packet).await;
-                            if let Ok(task_result) = serde_json::from_slice::<TaskResult>(reply_packet.as_data_byte()) {
+                            if let Ok(task_result) = serde_json::from_slice::<TaskResult>(packet.as_data_byte()) {
                                 match task_result.into() {
                                     Ok(bounding_box) => {
                                         image_task.bounding_boxes = bounding_box;
                                         break;
                                     },
                                     Err(err) => {
-                                        Err(error_entry!(format!("Agent: An error occurred while processing.\nReason: {err}")))?;
+                                        agent_process_error = Some(err);
+                                        break;
                                     },
                                 }
                             } else {
@@ -497,6 +547,16 @@ impl Agent {
                 AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
                 Err(warning_entry!("Agent: Data Channel is not available."))?;
             }
+        }
+        match &mut agent.write().await.data_channel_sender {
+            Some(data_channel_sender) => data_channel_sender.send(ResultAcknowledgePacket::new()).await,
+            None => {
+                AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                Err(warning_entry!("Agent: Data Channel is not available."))?;
+            }
+        }
+        if let Err(err) = agent_process_error {
+            Err(error_entry!(format!("Agent: An error occurred while processing.\nReason: {err}")))?;
         }
         Ok(())
     }
@@ -536,9 +596,9 @@ impl Agent {
                 if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                     select! {
                         biased;
-                        reply = data_channel_receiver.alive_reply_packet.recv() => {
-                            if reply.is_some() {
-                                clear_unbounded_channel(&mut data_channel_receiver.alive_reply_packet).await;
+                        packet = data_channel_receiver.alive_acknowledge_packet.recv() => {
+                            if packet.is_some() {
+                                clear_unbounded_channel(&mut data_channel_receiver.alive_acknowledge_packet).await;
                                 timeout_timer = Instant::now();
                             } else {
                                 AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
@@ -558,11 +618,13 @@ impl Agent {
     }
 
     async fn create_data_channel(agent: Arc<RwLock<Agent>>) {
+        let uuid = agent.read().await.uuid;
         match Self::create_listener(agent.clone()).await {
             Ok((listener, port)) => {
                 if let Err(entry) = Self::accept_connection(agent, listener, port).await {
                     logging_entry!(entry);
                 }
+                AgentManager::reset_state(uuid).await;
             },
             Err(entry) => logging_entry!(entry),
         }
@@ -600,6 +662,7 @@ impl Agent {
             }
             if timer.elapsed() > timeout_duration {
                 PortPool::free_port(port).await;
+                AgentManager::store_state(uuid, AgentState::Terminate).await;
                 Err(warning_entry!("Agent: Create Data Channel timeout."))?;
             }
             if timer.elapsed() > polling_times * polling_interval {

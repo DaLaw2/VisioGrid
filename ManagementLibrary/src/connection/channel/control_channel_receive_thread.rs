@@ -33,6 +33,7 @@ impl ReceiveThread {
                         let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
                         let result = match packet_type {
                             PacketType::AgentInformationPacket => self.receiver_tx.agent_information_packet.send(packet),
+                            PacketType::ControlAcknowledgePacket => self.receiver_tx.control_acknowledge_packet.send(packet),
                             PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
                             _ => {
                                 logging_warning!(self.agent_id, "Receive Thread: Receive unknown packet.");

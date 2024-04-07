@@ -1,24 +1,24 @@
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
-pub struct AliveReplyPacket {
+pub struct ControlAcknowledgePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl AliveReplyPacket {
+impl ControlAcknowledgePacket {
     pub fn new() -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::AliveReplyPacket.as_byte(),
+            id: PacketType::ControlAcknowledgePacket.as_byte(),
             data: Vec::new(),
-            packet_type: PacketType::AliveReplyPacket
+            packet_type: PacketType::ControlAcknowledgePacket
         }
     }
 }
 
-impl Packet for AliveReplyPacket {
+impl Packet for ControlAcknowledgePacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }

@@ -1,0 +1,4 @@
+1. Modifying config during runtime may cause config to be inconsistent in different functions.
+2. An error occurs when creating Http Server, and it will not end normally.
+3. Unable to end normally when retrying to bind port
+4. FileManager performs cleanup without waiting for the execution thread to end

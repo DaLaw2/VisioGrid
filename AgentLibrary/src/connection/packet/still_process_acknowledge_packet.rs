@@ -1,24 +1,24 @@
 use crate::connection::packet::{Packet, PacketType, length_to_byte};
 
-pub struct StillProcessReplyPacket {
+pub struct StillProcessAcknowledgePacket {
     length: Vec<u8>,
     id: Vec<u8>,
     data: Vec<u8>,
     packet_type: PacketType,
 }
 
-impl StillProcessReplyPacket {
+impl StillProcessAcknowledgePacket {
     pub fn new() -> Self {
         Self {
             length: length_to_byte(16),
-            id: PacketType::StillProcessReplyPacket.as_byte(),
+            id: PacketType::StillProcessAcknowledgePacket.as_byte(),
             data: Vec::new(),
-            packet_type: PacketType::StillProcessReplyPacket
+            packet_type: PacketType::StillProcessAcknowledgePacket
         }
     }
 }
 
-impl Packet for StillProcessReplyPacket {
+impl Packet for StillProcessAcknowledgePacket {
     fn as_length_byte(&self) -> &[u8] {
         &self.length
     }

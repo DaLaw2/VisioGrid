@@ -18,7 +18,7 @@ use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
 use crate::connection::channel::{ControlChannel, DataChannel};
 use crate::connection::packet::agent_information_packet::AgentInformationPacket;
-use crate::connection::packet::alive_reply_packet::AliveReplyPacket;
+use crate::connection::packet::alive_acknowledge_packet::AliveAcknowledgePacket;
 use crate::connection::packet::performance_packet::PerformancePacket;
 use crate::management::monitor::Monitor;
 use crate::utils::config::Config;
@@ -206,7 +206,7 @@ impl Agent {
                 }
             }
             if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
-                data_channel_sender.send(AliveReplyPacket::new()).await;
+                data_channel_sender.send(AliveAcknowledgePacket::new()).await;
             }
         }
     }

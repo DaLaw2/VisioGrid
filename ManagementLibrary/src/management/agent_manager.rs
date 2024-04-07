@@ -1,17 +1,19 @@
 use std::cmp::Ordering;
-use uuid::Uuid;
-use std::sync::Arc;
-use tokio::time::sleep;
-use std::time::Duration;
-use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+
 use futures::stream::{self, StreamExt};
+use lazy_static::lazy_static;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::time::sleep;
+use uuid::Uuid;
+
+use crate::management::agent::Agent;
 use crate::management::utils::agent_state::AgentState;
-use crate::utils::logger::*;
 use crate::management::utils::performance::Performance;
 use crate::utils::config::Config;
-use crate::management::agent::Agent;
+use crate::utils::logger::*;
 
 lazy_static! {
     static ref AGENT_MANAGER: RwLock<AgentManager> = RwLock::new(AgentManager::new());
@@ -105,7 +107,21 @@ impl AgentManager {
 
     pub async fn store_state(uuid: Uuid, state: AgentState) {
         let mut agent_manager = Self::instance_mut().await;
-        agent_manager.state.insert(uuid, state);
+        match agent_manager.state.get(&uuid) {
+            Some(origin_state) => {
+                if state >= *origin_state {
+                    agent_manager.state.insert(uuid, state);
+                }
+            },
+            None => {
+                agent_manager.state.insert(uuid, state);
+            },
+        }
+    }
+
+    pub async fn reset_state(uuid: Uuid) {
+        let mut agent_manager = Self::instance_mut().await;
+        agent_manager.state.insert(uuid, AgentState::None);
     }
 
     pub async fn get_state(uuid: Uuid) -> AgentState {
@@ -118,7 +134,7 @@ impl AgentManager {
                 let mut agent_manager = Self::instance_mut().await;
                 agent_manager.state.insert(uuid, AgentState::None);
                 AgentState::None
-            },
+            }
         }
     }
 

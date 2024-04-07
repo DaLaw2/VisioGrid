@@ -32,11 +32,12 @@ impl ReceiveThread {
                     if let Ok(packet) = packet {
                         let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
                         let result = match packet_type {
-                            PacketType::AliveReplyPacket => self.receiver_tx.alive_reply_packet.send(packet),
-                            PacketType::FileTransferReplyPacket => self.receiver_tx.file_transfer_reply_packet.send(packet),
+                            PacketType::AliveAcknowledgePacket => self.receiver_tx.alive_acknowledge_packet.send(packet),
+                            PacketType::FileHeaderAcknowledgePacket => self.receiver_tx.file_header_acknowledge_packet.send(packet),
+                            PacketType::FileTransferResultPacket => self.receiver_tx.file_transfer_result_packet.send(packet),
                             PacketType::ResultPacket => self.receiver_tx.result_packet.send(packet),
-                            PacketType::StillProcessReplyPacket => self.receiver_tx.still_process_reply_packet.send(packet),
-                            PacketType::TaskInfoReplyPacket => self.receiver_tx.task_info_reply_packet.send(packet),
+                            PacketType::StillProcessAcknowledgePacket => self.receiver_tx.still_process_acknowledge_packet.send(packet),
+                            PacketType::TaskInfoAcknowledgePacket => self.receiver_tx.task_info_acknowledge_packet.send(packet),
                             _ => {
                                 logging_warning!(self.agent_id, "Receive Thread: Receive unknown packet.");
                                 Ok(())

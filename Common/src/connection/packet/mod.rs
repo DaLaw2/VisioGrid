@@ -1,8 +1,3 @@
-extern crate proc_macro;
-use quote::quote;
-use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
-
 pub mod base_packet;
 
 pub trait Packet: Send {
@@ -21,61 +16,25 @@ pub trait Packet: Send {
 pub enum PacketType {
     BasePacket,
     AgentInformationPacket,
+    AgentInformationAcknowledgePacket,
     AlivePacket,
-    AliveReplyPacket,
-    ConfirmPacket,
-    ControlStatePacket,
+    AliveAcknowledgePacket,
+    ControlPacket,
+    ControlAcknowledgePacket,
     DataChannelPortPacket,
     FileBodyPacket,
     FileHeaderPacket,
-    FileHeaderReplyPacket,
-    FileTransferReplyPacket,
+    FileHeaderAcknowledgePacket,
+    FileTransferResultPacket,
     PerformancePacket,
+    PerformanceAcknowledgePacket,
     ResultPacket,
+    ResultAcknowledgePacket,
     StillProcessPacket,
-    StillProcessReplyPacket,
+    StillProcessAcknowledgePacket,
     TaskInfoPacket,
-    TaskInfoReplyPacket,
+    TaskInfoAcknowledgePacket,
 }
-
-#[proc_macro_derive(Packet)]
-pub fn packet_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-    let expanded = quote! {
-        impl Packet for #name {
-            fn as_length_byte(&self) -> &[u8] {
-                &self.length
-            }
-            fn as_id_byte(&self) -> &[u8] {
-                &self.id
-            }
-            fn as_data_byte(&self) -> &[u8] {
-                &self.data
-            }
-            fn clone_length_byte(&self) -> Vec<u8> {
-                self.length.clone()
-            }
-            fn clone_id_byte(&self) -> Vec<u8> {
-                self.id.clone()
-            }
-            fn clone_data_byte(&self) -> Vec<u8> {
-                self.data.clone()
-            }
-            fn data_to_string(&self) -> String {
-                String::from_utf8_lossy(&*self.data.clone()).to_string()
-            }
-            fn packet_type(&self) -> PacketType {
-                self.packet_type
-            }
-            fn equal(&self, packet_type: PacketType) -> bool {
-                self.packet_type.eq(&packet_type)
-            }
-        }
-    };
-    TokenStream::from(expanded)
-}
-
 
 impl PacketType {
     pub fn as_byte(&self) -> Vec<u8> {
@@ -89,20 +48,24 @@ impl PacketType {
         let id = usize::from_be_bytes(byte_array);
         match id {
             1 => PacketType::AgentInformationPacket,
-            2 => PacketType::AlivePacket,
-            3 => PacketType::AliveReplyPacket,
-            4 => PacketType::ConfirmPacket,
-            5 => PacketType::ControlStatePacket,
-            6 => PacketType::DataChannelPortPacket,
-            7 => PacketType::FileBodyPacket,
-            8 => PacketType::FileHeaderPacket,
-            9 => PacketType::FileTransferReplyPacket,
-            10 => PacketType::PerformancePacket,
-            11 => PacketType::ResultPacket,
-            12 => PacketType::StillProcessPacket,
-            13 => PacketType::StillProcessReplyPacket,
-            14 => PacketType::TaskInfoPacket,
-            15 => PacketType::TaskInfoReplyPacket,
+            2 => PacketType::AgentInformationAcknowledgePacket,
+            3 => PacketType::AlivePacket,
+            4 => PacketType::AliveAcknowledgePacket,
+            5 => PacketType::ControlPacket,
+            6 => PacketType::ControlAcknowledgePacket,
+            7 => PacketType::DataChannelPortPacket,
+            8 => PacketType::FileBodyPacket,
+            9 => PacketType::FileHeaderPacket,
+            10 => PacketType::FileHeaderAcknowledgePacket,
+            11 => PacketType::FileTransferResultPacket,
+            12 => PacketType::PerformancePacket,
+            13 => PacketType::PerformanceAcknowledgePacket,
+            14 => PacketType::ResultPacket,
+            15 => PacketType::ResultAcknowledgePacket,
+            16 => PacketType::StillProcessPacket,
+            17 => PacketType::StillProcessAcknowledgePacket,
+            18 => PacketType::TaskInfoPacket,
+            19 => PacketType::TaskInfoAcknowledgePacket,
             _ => PacketType::BasePacket,
         }
     }
