@@ -38,6 +38,45 @@ pub enum PacketType {
     TaskInfoReplyPacket,
 }
 
+#[proc_macro_derive(Packet)]
+pub fn packet_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+    let expanded = quote! {
+        impl Packet for #name {
+            fn as_length_byte(&self) -> &[u8] {
+                &self.length
+            }
+            fn as_id_byte(&self) -> &[u8] {
+                &self.id
+            }
+            fn as_data_byte(&self) -> &[u8] {
+                &self.data
+            }
+            fn clone_length_byte(&self) -> Vec<u8> {
+                self.length.clone()
+            }
+            fn clone_id_byte(&self) -> Vec<u8> {
+                self.id.clone()
+            }
+            fn clone_data_byte(&self) -> Vec<u8> {
+                self.data.clone()
+            }
+            fn data_to_string(&self) -> String {
+                String::from_utf8_lossy(&*self.data.clone()).to_string()
+            }
+            fn packet_type(&self) -> PacketType {
+                self.packet_type
+            }
+            fn equal(&self, packet_type: PacketType) -> bool {
+                self.packet_type.eq(&packet_type)
+            }
+        }
+    };
+    TokenStream::from(expanded)
+}
+
+
 impl PacketType {
     pub fn as_byte(&self) -> Vec<u8> {
         let id: usize = *self as usize;
