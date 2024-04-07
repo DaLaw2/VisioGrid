@@ -25,10 +25,8 @@ use crate::management::utils::agent_state::AgentState;
 use crate::management::utils::task_result::TaskResult;
 use crate::management::utils::file_header::FileHeader;
 use crate::management::utils::performance::Performance;
-use crate::management::utils::confirm_type::ConfirmType;
 use crate::connection::packet::alive_packet::AlivePacket;
 use crate::connection::socket::socket_stream::SocketStream;
-use crate::connection::packet::confirm_packet::ConfirmPacket;
 use crate::management::utils::prevent_reenter::PreventReenter;
 use crate::connection::packet::task_info_packet::TaskInfoPacket;
 use crate::connection::packet::file_body_packet::FileBodyPacket;
@@ -37,10 +35,14 @@ use crate::connection::packet::file_header_packet::FileHeaderPacket;
 use crate::management::utils::file_transfer_result::FileTransferResult;
 use crate::connection::channel::data_channel_sender::DataChannelSender;
 use crate::connection::packet::still_process_packet::StillProcessPacket;
+use crate::connection::packet::control_packet::ControlPacket;
 use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
 use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::packet::data_channel_port_packet::DataChannelPortPacket;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
+use crate::connection::packet::agent_information_acknowledge_packet::AgentInformationAcknowledgePacket;
+use crate::connection::packet::performance_acknowledge_packet::PerformanceAcknowledgePacket;
+
 
 pub struct Agent {
     uuid: Uuid,
@@ -72,9 +74,7 @@ impl Agent {
                     let information = serde_json::from_slice::<AgentInformation>(packet.as_data_byte())
                         .map_err(|_| error_entry!("Agent: Unable to parse information."))?;
                     agent_information = Some(information);
-                    let confirm = serde_json::to_vec(&ConfirmType::ReceiveAgentInformationSuccess)
-                        .map_err(|_| error_entry!("Agent: Unable to serialized confirm data."))?;
-                    control_channel_sender.send(ConfirmPacket::new(confirm)).await;
+                    control_channel_sender.send(AgentInformationAcknowledgePacket::new()).await;
                 },
                 reply = control_channel_receiver.performance_packet.recv() => {
                     let packet = &reply
@@ -84,9 +84,7 @@ impl Agent {
                         .map_err(|_| error_entry!("Agent: Unable to parse performance."))?;
                     let information = agent_information
                         .ok_or(error_entry!("Agent: Agent information not ready."))?;
-                    let confirm = serde_json::to_vec(&ConfirmType::ReceivePerformanceSuccess)
-                        .map_err(|_| error_entry!("Agent: Unable to serialized confirm data."))?;
-                    control_channel_sender.send(ConfirmPacket::new(confirm)).await;
+                    control_channel_sender.send(PerformanceAcknowledgePacket::new()).await;
                     let residual_usage = Performance::calc_residual_usage(&information, &realtime_usage);
                     let agent = Self {
                         uuid,
@@ -143,14 +141,9 @@ impl Agent {
                     if let Some(packet) = &reply {
                         clear_unbounded_channel(&mut agent.control_channel_receiver.performance_packet).await;
                         if let Ok(performance) = serde_json::from_slice::<Performance>(packet.as_data_byte()) {
-                            if let Ok(confirm) = serde_json::to_vec(&ConfirmType::ReceivePerformanceSuccess) {
-                                agent.realtime_usage = performance;
-                                agent.control_channel_sender.send(ConfirmPacket::new(confirm)).await;
-                                timer = Instant::now();
-                            } else {
-                                logging_error!(uuid, "Agent: Unable to serialized confirm data.");
-                                continue;
-                            }
+                            agent.realtime_usage = performance;
+                            agent.control_channel_sender.send(PerformanceAcknowledgePacket::new()).await;
+                            timer = Instant::now();
                         } else {
                             logging_error!(uuid, "Agent: Unable to parse performance.");
                             continue;
@@ -163,42 +156,91 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Agent::terminate(agent).await;
+        AgentManager::store_state(uuid, AgentState::Terminate).await;
     }
 
-    #[allow(unused_assignments)]
     async fn management(agent: Arc<RwLock<Agent>>) {
         let uuid = agent.read().await.uuid;
         loop {
             let config = Config::now().await;
             let state = AgentManager::get_state(uuid).await;
             match state {
-                AgentState::CreateDataChannel => Self::create_data_channel(agent.clone()).await,
-                AgentState::Terminate => return,
+                AgentState::CreateDataChannel => {
+                    Self::control_agent(agent.clone(), AgentState::CreateDataChannel).await;
+                    Self::create_data_channel(agent.clone()).await;
+                    AgentManager::store_state(uuid, AgentState::None).await;
+                },
+                AgentState::Terminate => {
+                    Self::control_agent(agent.clone(), AgentState::Terminate).await;
+                    Self::terminate(agent).await;
+                    return;
+                },
                 _ => {
                     if let Some(mut image_task) = agent.write().await.image_task.pop_front() {
-                        AgentManager::store_state(uuid, AgentState::ProcessTask).await;
-                        let mut success = true;
-                        if let Err(entry) = Self::process_task(agent.clone(), &mut image_task).await {
-                            logging_entry!(uuid, entry);
-                            success = false;
-                        }
+                        let state = AgentState::ProcessTask;
+                        AgentManager::store_state(uuid, state).await;
+                        Self::control_agent(agent.clone(), state).await;
+                        let success = Self::process_task(agent.clone(), &mut image_task).await;
                         TaskManager::submit_image_task(image_task, success).await;
                     } else {
-                        AgentManager::store_state(uuid, AgentState::Idle(config.agent_idle_duration)).await;
-                        if let Err(entry) = Self::idle(agent.clone()).await {
-                            logging_entry!(uuid, entry)
-                        }
+                        let state = AgentState::Idle(config.agent_idle_duration);
+                        AgentManager::store_state(uuid, state).await;
+                        Self::control_agent(agent.clone(), state).await;
+                        Self::idle(agent.clone()).await;
                     }
                 },
             }
         }
     }
 
-    async fn process_task(agent: Arc<RwLock<Agent>>, image_task: &mut ImageTask) -> Result<(), LogEntry> {
-        Self::transfer_task(agent.clone(), image_task).await?;
-        Self::waiting_result(agent, image_task).await?;
-        Ok(())
+    async fn control_agent(agent: Arc<RwLock<Agent>>, state: AgentState) {
+        let uuid = agent.read().await.uuid;
+        let config = Config::now().await;
+        let timer = Instant::now();
+        let mut polling_times = 0_u32;
+        let polling_interval = Duration::from_millis(config.polling_interval);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout);
+        if let Ok(control_state_data) = serde_json::to_vec(&state) {
+            loop {
+                if timer.elapsed() > timeout_duration {
+                    logging_warning!(uuid, "Agent: Transfer control packet timeout.");
+                    break;
+                }
+                if timer.elapsed() > polling_times * polling_interval {
+                    let agent = agent.write().await;
+                    agent.control_channel_sender.send(ControlPacket::new(control_state_data.clone())).await;
+                    polling_times += 1;
+                }
+                let mut agent = agent.write().await;
+                select! {
+                    reply = agent.control_channel_receiver.control_acknowledge_packet.recv() => {
+                        if reply.is_none() {
+                            logging_warning!(uuid, "Agent: Channel has been closed.");
+                            break;
+                        }
+                        clear_unbounded_channel(&mut agent.control_channel_receiver.control_acknowledge_packet).await;
+                        return;
+                    },
+                    _ = sleep(Duration::from_millis(config.internal_timestamp)).await => continue,
+                }
+            }
+            AgentManager::store_state(uuid, AgentState::Terminate).await;
+        } else {
+            logging_error!(uuid, "Agent: Unable to serialized control state data.");
+        }
+    }
+
+    async fn process_task(agent: Arc<RwLock<Agent>>, image_task: &mut ImageTask) -> bool {
+        let uuid = agent.read().await.uuid;
+        if let Err(entry) = Self::transfer_task(agent.clone(), image_task).await {
+            logging_entry!(uuid, entry);
+            return false;
+        }
+        if let Err(entry) = Self::waiting_result(agent, image_task).await {
+            logging_entry!(uuid, entry);
+            return false;
+        }
+        true
     }
 
     async fn transfer_task(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
@@ -233,7 +275,7 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while AgentManager::get_state(uuid).await != AgentState::Terminate {
             if timer.elapsed() > timeout_duration {
-                Err(info_entry!("Agent: Transfer task info timeout."))?
+                Err(warning_entry!("Agent: Transfer task info timeout."))?
             }
             if timer.elapsed() > polling_times * polling_interval {
                 let mut agent = agent.write().await;
@@ -269,40 +311,35 @@ impl Agent {
         Err(info_entry!("Agent: Terminating. Transfer task info cancel."))
     }
 
-    #[allow(unused_assignments)]
     async fn transfer_file(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), LogEntry> {
         Self::transfer_file_header(agent.clone(), filename, filepath).await?;
         let sent_packets = Self::transfer_file_body(agent.clone(), filepath).await?;
         Self::retransmit_file(agent, sent_packets).await
     }
 
-    #[inline(always)]
     async fn transfer_file_header(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), LogEntry> {
         let uuid = agent.read().await.uuid;
         let filesize = fs::metadata(&filepath).await
             .map_err(|err| error_entry!(format!("Agent: Cannot read file {filepath}.\nReason: {err}", filepath = filepath.display())))?
             .len();
-        {
-            if AgentManager::get_state(uuid).await == AgentState::Terminate {
-                Err(info_entry!("Agent: Terminating. File transfer cancel."))?;
-            }
-            let mut agent = agent.write().await;
-            match agent.data_channel_sender.as_mut() {
-                Some(data_channel_sender) => {
-                    let file_header = serde_json::to_vec(&FileHeader::new(filename.clone(), filesize as usize))
-                        .map_err(|_| error_entry!("Agent: Unable to serialized file header data."))?;
-                    data_channel_sender.send(FileHeaderPacket::new(file_header)).await;
-                },
-                None => {
-                    AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-                    Err(warning_entry!("Agent: Data Channel is not available."))?
-                },
-            }
+        if AgentManager::get_state(uuid).await == AgentState::Terminate {
+            Err(info_entry!("Agent: Terminating. File transfer cancel."))?;
+        }
+        let mut agent = agent.write().await;
+        match agent.data_channel_sender.as_mut() {
+            Some(data_channel_sender) => {
+                let file_header = serde_json::to_vec(&FileHeader::new(filename.clone(), filesize as usize))
+                    .map_err(|_| error_entry!("Agent: Unable to serialized file header data."))?;
+                data_channel_sender.send(FileHeaderPacket::new(file_header)).await;
+            },
+            None => {
+                AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
+                Err(warning_entry!("Agent: Data Channel is not available."))?
+            },
         }
         Ok(())
     }
 
-    #[inline(always)]
     async fn transfer_file_body(agent: Arc<RwLock<Agent>>, filepath: &PathBuf) -> Result<Vec<Vec<u8>>, LogEntry> {
         let uuid = agent.read().await.uuid;
         let mut sequence_number = 0_usize;
@@ -337,7 +374,7 @@ impl Agent {
         Ok(sent_packets)
     }
 
-    #[inline(always)]
+    #[allow(unused_assignments)]
     async fn retransmit_file(agent: Arc<RwLock<Agent>>, sent_packets: Vec<Vec<u8>>) -> Result<(), LogEntry> {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
@@ -464,7 +501,7 @@ impl Agent {
         Ok(())
     }
 
-    async fn idle(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
+    async fn idle(agent: Arc<RwLock<Agent>>) {
         if let Some(image_task) = TaskManager::steal_task(agent.clone()).await {
             Agent::add_task(agent.clone(), image_task).await;
         } else {
@@ -483,14 +520,16 @@ impl Agent {
             while AgentManager::get_state(uuid).await != AgentState::Terminate && timer.elapsed() <= idle_duration {
                 if timeout_timer.elapsed() > timeout_duration {
                     AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-                    Err(warning_entry!("Agent: Data Channel timeout."))?;
+                    logging_warning!(uuid, "Agent: Data Channel timeout.");
+                    return;
                 }
                 if timer.elapsed() > polling_times * polling_interval {
                     if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
                         data_channel_sender.send(AlivePacket::new()).await
                     } else {
                         AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-                        Err(warning_entry!("Agent: Data Channel is not available."))?;
+                        logging_warning!("Agent: Data Channel is not available.");
+                        return;
                     }
                     polling_times += 1;
                 }
@@ -503,18 +542,19 @@ impl Agent {
                                 timeout_timer = Instant::now();
                             } else {
                                 AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-                                Err(warning_entry!("Agent: Channel has been closed."))?;
+                                logging_warning!(uuid, "Agent: Channel has been closed.");
+                                return;
                             }
                         },
                         _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                     }
                 } else {
                     AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-                    Err(warning_entry!("Agent: Data Channel is not available."))?;
+                    logging_warning!(uuid, "Agent: Data Channel is not available.");
+                    return;
                 }
             }
         }
-        Ok(())
     }
 
     async fn create_data_channel(agent: Arc<RwLock<Agent>>) {

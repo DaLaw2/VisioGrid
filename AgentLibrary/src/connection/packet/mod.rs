@@ -1,4 +1,5 @@
 pub mod alive_reply_packet;
+pub mod file_header_reply_packet;
 pub mod file_transfer_reply_packet;
 pub mod agent_information_packet;
 pub mod performance_packet;

@@ -63,11 +63,11 @@ impl Agent {
                     let confirm = serde_json::from_slice::<ConfirmType>(packet.as_data_byte())
                         .map_err(|_| error_entry!("Agent: Unable to parse confirm type."))?;
                     match confirm {
-                        ConfirmType::ReceiveAgentInformationSuccess => {
+                        ConfirmType::ReceivedAgentInformation => {
                             information_confirm = true;
                             continue
                         },
-                        ConfirmType::ReceivePerformanceSuccess => {
+                        ConfirmType::ReceivedPerformance => {
                             let agent = Self {
                                 terminate: false,
                                 control_channel_sender,

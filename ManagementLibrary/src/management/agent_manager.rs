@@ -20,7 +20,7 @@ lazy_static! {
 pub struct AgentManager {
     size: usize,
     agents: HashMap<Uuid, Arc<RwLock<Agent>>>,
-    flag: HashMap<Uuid, AgentState>,
+    state: HashMap<Uuid, AgentState>,
     performance: HashMap<Uuid, Performance>,
     terminate: bool,
 }
@@ -30,7 +30,7 @@ impl AgentManager {
         Self {
             size: 0_usize,
             agents: HashMap::new(),
-            flag: HashMap::new(),
+            state: HashMap::new(),
             performance: HashMap::new(),
             terminate: false,
         }
@@ -80,7 +80,7 @@ impl AgentManager {
         }
         let agent = Arc::new(RwLock::new(agent));
         agent_manager.agents.insert(agent_id, agent.clone());
-        agent_manager.flag.insert(agent_id, AgentState::CreateDataChannel);
+        agent_manager.state.insert(agent_id, AgentState::CreateDataChannel);
         agent_manager.size += 1;
         Agent::run(agent).await;
     }
@@ -105,20 +105,20 @@ impl AgentManager {
 
     pub async fn store_state(uuid: Uuid, state: AgentState) {
         let mut agent_manager = Self::instance_mut().await;
-        agent_manager.flag.insert(uuid, state);
+        agent_manager.state.insert(uuid, state);
     }
 
     pub async fn get_state(uuid: Uuid) -> AgentState {
         let agent_manager = Self::instance().await;
-        let state = agent_manager.flag.get(&uuid).cloned();
+        let state = agent_manager.state.get(&uuid).cloned();
         drop(agent_manager);
         match state {
+            Some(state) => state,
             None => {
                 let mut agent_manager = Self::instance_mut().await;
-                agent_manager.flag.insert(uuid, AgentState::None);
+                agent_manager.state.insert(uuid, AgentState::None);
                 AgentState::None
             },
-            Some(state) => state,
         }
     }
 

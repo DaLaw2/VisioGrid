@@ -1,3 +1,8 @@
+extern crate proc_macro;
+use quote::quote;
+use proc_macro::TokenStream;
+use syn::{parse_macro_input, DeriveInput};
+
 pub mod base_packet;
 
 pub trait Packet: Send {
@@ -19,9 +24,11 @@ pub enum PacketType {
     AlivePacket,
     AliveReplyPacket,
     ConfirmPacket,
+    ControlStatePacket,
     DataChannelPortPacket,
     FileBodyPacket,
     FileHeaderPacket,
+    FileHeaderReplyPacket,
     FileTransferReplyPacket,
     PerformancePacket,
     ResultPacket,
@@ -46,16 +53,17 @@ impl PacketType {
             2 => PacketType::AlivePacket,
             3 => PacketType::AliveReplyPacket,
             4 => PacketType::ConfirmPacket,
-            5 => PacketType::DataChannelPortPacket,
-            6 => PacketType::FileBodyPacket,
-            7 => PacketType::FileHeaderPacket,
-            8 => PacketType::FileTransferReplyPacket,
-            9 => PacketType::PerformancePacket,
-            10 => PacketType::ResultPacket,
-            11 => PacketType::StillProcessPacket,
-            12 => PacketType::StillProcessReplyPacket,
-            13 => PacketType::TaskInfoPacket,
-            14 => PacketType::TaskInfoReplyPacket,
+            5 => PacketType::ControlStatePacket,
+            6 => PacketType::DataChannelPortPacket,
+            7 => PacketType::FileBodyPacket,
+            8 => PacketType::FileHeaderPacket,
+            9 => PacketType::FileTransferReplyPacket,
+            10 => PacketType::PerformancePacket,
+            11 => PacketType::ResultPacket,
+            12 => PacketType::StillProcessPacket,
+            13 => PacketType::StillProcessReplyPacket,
+            14 => PacketType::TaskInfoPacket,
+            15 => PacketType::TaskInfoReplyPacket,
             _ => PacketType::BasePacket,
         }
     }
