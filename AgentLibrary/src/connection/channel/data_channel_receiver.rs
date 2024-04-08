@@ -1,9 +1,19 @@
 use tokio::sync::oneshot;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::channel::data_channel_receive_thread::ReceiveThread;
+
+pub struct ReceiverTX {
+    pub alive_packet: UnboundedSender<BasePacket>,
+    pub file_body_packet: UnboundedSender<BasePacket>,
+    pub file_header_packet: UnboundedSender<BasePacket>,
+    pub file_transfer_end_packet: UnboundedSender<BasePacket>,
+    pub result_acknowledge_packet: UnboundedSender<BasePacket>,
+    pub still_process_packet: UnboundedSender<BasePacket>,
+    pub task_info_packet: UnboundedSender<BasePacket>,
+}
 
 pub struct DataChannelReceiver {
     stop_signal_tx: Option<oneshot::Sender<()>>,
@@ -60,20 +70,13 @@ impl DataChannelReceiver {
         self.task_info_packet.close();
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                let _ = stop_signal.send(());
-                logging_info!("Data Channel: Destroyed Receiver successfully.");
+                if stop_signal.send(()).is_ok() {
+                    logging_information!("Data Channel", "Successfully destroyed the Receiver", "");
+                } else {
+                    logging_error!("Data Channel", "Failed to destroy Receiver", "");
+                }
             },
-            None => logging_error!("Data Channel: Failed to destroy Receiver."),
+            None => logging_error!("Data Channel", "Failed to destroy Receiver", ""),
         }
     }
-}
-
-pub struct ReceiverTX {
-    pub alive_packet: UnboundedSender<BasePacket>,
-    pub file_body_packet: UnboundedSender<BasePacket>,
-    pub file_header_packet: UnboundedSender<BasePacket>,
-    pub file_transfer_end_packet: UnboundedSender<BasePacket>,
-    pub result_acknowledge_packet: UnboundedSender<BasePacket>,
-    pub still_process_packet: UnboundedSender<BasePacket>,
-    pub task_info_packet: UnboundedSender<BasePacket>,
 }

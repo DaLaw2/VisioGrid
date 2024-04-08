@@ -5,9 +5,9 @@ use tokio::sync::RwLock;
 use tokio::io::AsyncWriteExt;
 use lazy_static::lazy_static;
 use tokio::process::Command as AsyncCommand;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::utils::static_files::StaticFiles;
-use crate::utils::logger::{Logger, LogLevel};
+use crate::utils::logging::{Logger, LogLevel};
 
 lazy_static! {
     static ref FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager {});
@@ -17,12 +17,12 @@ pub struct FileManager;
 
 impl FileManager {
     pub async fn initialize() {
-        logging_info!("File Manager: Initializing.");
+        logging_info!("File Manager", "Initializing.");
         let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => logging_info!(format!("File Manager: Create {} folder successfully.", folder_name)),
-                Err(err) => logging_error!(format!("File Manager: Cannot create {} folder.\nReason: {}", folder_name, err)),
+                Ok(_) => logging_info!(format!("File Manager", "Create {} folder successfully.", folder_name)),
+                Err(err) => logging_error!(format!("File Manager", "Cannot create {} folder.\nReason: {}", folder_name, err)),
             }
         }
         if let Err(err) = Self::clone_repository().await {
@@ -31,11 +31,11 @@ impl FileManager {
         if let Err(err) = Self::extract_embed_folders().await {
             logging_error!(err);
         }
-        logging_info!("File Manager: Initialization completed.");
+        logging_info!("File Manager", "Initialization completed.");
     }
 
     pub async fn cleanup() {
-        logging_info!("File Manager: Cleaning up.");
+        logging_info!("File Manager", "Cleaning up.");
         let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
@@ -43,7 +43,7 @@ impl FileManager {
                 Err(err) => logging_error!(format!("File Manager: Cannot delete {} folder.\nReason: {}", folder_name, err)),
             }
         };
-        logging_info!("File Manager: Cleanup completed.");
+        logging_info!("File Manager", "Cleanup completed.");
     }
 
     pub async fn extract_embed_folders() -> Result<(), String> {

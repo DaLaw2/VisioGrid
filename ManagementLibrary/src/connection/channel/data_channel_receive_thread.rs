@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use tokio::select;
 use tokio::sync::oneshot;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::connection::packet::Packet;
 use crate::connection::packet::PacketType;
 use crate::connection::socket::socket_stream::ReadHalf;
@@ -39,15 +39,16 @@ impl ReceiveThread {
                             PacketType::StillProcessAcknowledgePacket => self.receiver_tx.still_process_acknowledge_packet.send(packet),
                             PacketType::TaskInfoAcknowledgePacket => self.receiver_tx.task_info_acknowledge_packet.send(packet),
                             _ => {
-                                logging_warning!(self.agent_id, "Receive Thread: Receive unknown packet.");
+                                logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet", "");
                                 Ok(())
                             },
                         };
-                        if let Err(err) = result {
-                            logging_error!(self.agent_id, format!("Receive Thread: Unable to submit packet to receiver.\nReason: {}", err));
+                        if result.is_err() {
+                            logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed", "");
                             return;
                         }
                     } else {
+                        logging_notice!(self.agent_id, "Receive Thread", "Management side disconnected", "");
                         return;
                     }
                 },

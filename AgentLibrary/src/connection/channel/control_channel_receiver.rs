@@ -1,9 +1,16 @@
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
 use crate::connection::channel::control_channel_receive_thread::ReceiveThread;
+
+pub struct ReceiverTX {
+    pub agent_information_acknowledge_packet: mpsc::UnboundedSender<BasePacket>,
+    pub control_packet: mpsc::UnboundedSender<BasePacket>,
+    pub data_channel_port_packet: mpsc::UnboundedSender<BasePacket>,
+    pub performance_acknowledge_packet: mpsc::UnboundedSender<BasePacket>,
+}
 
 pub struct ControlChannelReceiver {
     stop_signal_tx: Option<oneshot::Sender<()>>,
@@ -46,17 +53,13 @@ impl ControlChannelReceiver {
         self.performance_acknowledge_packet.close();
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                let _ = stop_signal.send(());
-                logging_info!("Control Channel: Destroyed Receiver successfully.");
+                if stop_signal.send(()).is_ok() {
+                    logging_information!("Control Channel", "Successfully destroyed Receiver", "");
+                } else {
+                    logging_error!("Control Channel", "Failed to destroy Receiver", "");
+                }
             },
-            None => logging_error!("Control Channel: Failed to destroy Receiver."),
+            None => logging_error!("Control Channel", "Failed to destroy Receiver", ""),
         }
     }
-}
-
-pub struct ReceiverTX {
-    pub agent_information_acknowledge_packet: mpsc::UnboundedSender<BasePacket>,
-    pub control_packet: mpsc::UnboundedSender<BasePacket>,
-    pub data_channel_port_packet: mpsc::UnboundedSender<BasePacket>,
-    pub performance_acknowledge_packet: mpsc::UnboundedSender<BasePacket>,
 }

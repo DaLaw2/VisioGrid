@@ -7,8 +7,9 @@ use tokio::sync::RwLock;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use std::collections::HashMap;
+use tokio::fs::File;
 use tokio::time::{Instant, sleep};
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::utils::config::Config;
 use crate::connection::packet::Packet;
 use crate::management::manager::Manager;
@@ -45,7 +46,7 @@ impl Agent {
         let (mut control_channel_sender, mut control_channel_receiver) = ControlChannel::new(socket_stream);
         let mut information_confirm = false;
         let information = serde_json::to_vec(&Monitor::get_system_info().await)
-            .map_err(|_| error_entry!("Agent: Unable to serialized agent information."))?;
+            .map_err(|_| error_entry!("Agent", "Unable to serialized agent information."))?;
         let timer = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
@@ -56,7 +57,7 @@ impl Agent {
                     control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
                 } else {
                     let performance = serde_json::to_vec(&Monitor::get_performance().await)
-                        .map_err(|_| error_entry!("Agent: Unable to serialized performance data."))?;
+                        .map_err(|_| error_entry!("Agent", "Unable to serialized performance data."))?;
                     control_channel_sender.send(PerformancePacket::new(performance)).await;
                 }
                 polling_times += 1;
@@ -65,16 +66,16 @@ impl Agent {
                 biased;
                 packet = control_channel_receiver.agent_information_acknowledge_packet.recv() => {
                     let packet = packet
-                        .ok_or(info_entry!("Agent: Channel has been closed."))?;
+                        .ok_or(information_entry!("Agent", "Channel has been closed."))?;
                     clear_unbounded_channel(&mut control_channel_receiver.agent_information_acknowledge_packet).await;
                     information_confirm = true;
                 },
                 packet = control_channel_receiver.performance_acknowledge_packet.recv() => {
                     let packet = packet
-                        .ok_or(info_entry!("Agent: Channel has been closed."))?;
+                        .ok_or(information_entry!("Agent", "Channel has been closed."))?;
                     clear_unbounded_channel(&mut control_channel_receiver.performance_acknowledge_packet).await;
                     if !information_confirm {
-                        Err(error_entry!("Agent: Agent information not acknowledge."))?;
+                        Err(error_entry!("Agent", "Agent information not acknowledge."))?;
                     }
                     let agent = Self {
                         previous_task_uuid: None,
@@ -88,7 +89,7 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Err(info_entry!("Agent: Fail create instance. Connection Channel timeout."))
+        Err(information_entry!("Agent", "Fail create instance. Connection Channel timeout."))
     }
 
     pub async fn run(agent: Arc<RwLock<Agent>>) {
@@ -114,7 +115,7 @@ impl Agent {
                 return;
             }
             if timeout_timer.elapsed() > timeout_duration {
-                logging_warning!("Agent: Control Channel timeout.");
+                logging_warning!("Agent", "Control Channel timeout.");
                 break;
             }
             if polling_timer.elapsed() > polling_times * polling_interval {
@@ -122,7 +123,7 @@ impl Agent {
                 if let Ok(performance_data) = serde_json::to_vec(&performance) {
                     agent.write().await.control_channel_sender.send(PerformancePacket::new(performance_data)).await;
                 } else {
-                    logging_error!("Agent: Unable to serialized performance data.");
+                    logging_error!("Agent", "Unable to serialized performance data.");
                 }
             }
             let mut agent = agent.write().await;
@@ -133,7 +134,7 @@ impl Agent {
                         clear_unbounded_channel(&mut agent.control_channel_receiver.performance_acknowledge_packet).await;
                         timeout_timer = Instant::now();
                     } else {
-                        logging_info!("Agent: Channel has been closed.");
+                        logging_info!("Agent", "Channel has been closed.");
                         break;
                     }
                 },
@@ -178,13 +179,13 @@ impl Agent {
                             match serde_json::from_slice::<AgentState>(packet.as_data_byte()) {
                                 Some(state) => Manager::store_state(state).await,
                                 None => {
-                                    logging_error!("Agent: Unable to parse control state.");
+                                    logging_error!("Agent", "Unable to parse control state.");
                                     continue;
                                 },
                             }
                         },
                         None => {
-                            logging_warning!("Agent: Channel has been closed.");
+                            logging_warning!("Agent", "Channel has been closed.");
                             Manager::store_state(AgentState::Terminate).await;
                         },
                     }
@@ -226,30 +227,30 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let task_info = loop {
             if Manager::get_state() == AgentState::Terminate {
-                Err(info_entry!("Agent: Terminating. Receive task info cancel."))?;
+                Err(information_entry!("Agent", "Terminating. Receive task info cancel."))?;
             }
             if timer.elapsed() > timeout_duration {
-                Err(info_entry!("Agent: Data Channel timeout."))?;
+                Err(information_entry!("Agent", "Data Channel timeout."))?;
             }
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     packet = data_channel_receiver.task_info_packet.recv() => {
                         let packet = packet
-                            .ok_or(warning_entry!("Agent: Channel has been closed."))?;
+                            .ok_or(warning_entry!("Agent", "Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.task_info_packet).await;
                         break serde_json::from_slice::<TaskInfo>(packet.as_data_byte())
-                            .map_err(|_| error_entry!("Agent: Unable to parse task info."))?;
+                            .map_err(|_| error_entry!("Agent", "Unable to parse task info."))?;
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                Err(warning_entry!("Agent: Data Channel is not available."))?
+                Err(warning_entry!("Agent", "Data Channel is not available."))?
             }
         };
         if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
             data_channel_sender.send(TaskInfoAcknowledgePacket::new()).await;
         } else {
-            Err(warning_entry!("Agent: Data Channel is not available."))?;
+            Err(warning_entry!("Agent", "Data Channel is not available."))?;
         }
         return Ok(task_info);
     }
@@ -267,30 +268,30 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let file_header = loop {
             if Manager::get_state() == AgentState::Terminate {
-                Err(info_entry!("Agent: Terminating. Receive file header cancel."))?;
+                Err(information_entry!("Agent", "Terminating. Receive file header cancel."))?;
             }
             if timer.elapsed() > timeout_duration {
-                Err(warning_entry!("Agent: Data Channel timeout."))?;
+                Err(warning_entry!("Agent", "Data Channel timeout."))?;
             }
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
                     packet = data_channel_receiver.task_info_packet.recv() => {
                         let packet = packet
-                            .ok_or(warning_entry!("Agent: Channel has been closed."))?;
+                            .ok_or(warning_entry!("Agent", "Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.task_info_packet).await;
                         break serde_json::from_slice::<FileHeader>(packet.as_data_byte())
-                            .map_err(|_| error_entry!("Agent: Unable to parse task info."))?;
+                            .map_err(|_| error_entry!("Agent", "Unable to parse task info."))?;
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                Err(warning_entry!("Agent: Data Channel is not available."))?;
+                Err(warning_entry!("Agent", "Data Channel is not available."))?;
             }
         };
         if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
             data_channel_sender.send(FileHeaderAcknowledgePacket::new()).await;
         } else {
-            Err(warning_entry!("Agent: Data Channel is not available."))?;
+            Err(warning_entry!("Agent", "Data Channel is not available."))?;
         }
         return Ok(file_header);
     }
@@ -303,26 +304,26 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         loop {
             if Manager::get_state() == AgentState::Terminate {
-                Err(info_entry!("Agent: Terminating. Receive file header cancel."))?;
+                Err(information_entry!("Agent", "Terminating. Receive file header cancel."))?;
             }
             if timer.elapsed() > timeout_duration {
-                Err(warning_entry!("Agent: Data Channel timeout."))?;
+                Err(warning_entry!("Agent", "Data Channel timeout."))?;
             }
             if let Some(data_channel_receiver) = agent.write().await.data_channel_receiver.as_mut() {
                 select! {
                     biased;
                     packet = data_channel_receiver.file_body_packet.recv() => {
                         let packet = &packet
-                            .ok_or(warning_entry!("Agent: Channel has been closed."))?;
+                            .ok_or(warning_entry!("Agent", "Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.file_body_packet).await;
                         let (sequence_bytes, file_body) = packet.data.split_at(std::mem::size_of::<usize>());
-                        let sequence_number = usize::from_be_bytes(sequence_bytes.try_into().map_err(|_| error_entry!("Agent: Unable to parse file body."))?);
+                        let sequence_number = usize::from_be_bytes(sequence_bytes.try_into().map_err(|_| error_entry!("Agent", "Unable to parse file body."))?);
                         file_block.insert(sequence_number, Vec::from(file_body));
                         continue;
                     },
                     packet = data_channel_receiver.file_transfer_end_packet.recv() => {
                         let packet = &packet
-                            .ok_or(warning_entry!("Agent: Channel has been closed."))?;
+                            .ok_or(warning_entry!("Agent", "Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.file_transfer_end_packet).await;
                         for sequence_number in 0..file_header.packet_count {
                             if !file_block.contains_key(&sequence_number) {
@@ -333,18 +334,18 @@ impl Agent {
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                Err(warning_entry!("Agent: Data Channel is not available."))?;
+                Err(warning_entry!("Agent", "Data Channel is not available."))?;
             }
             if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
                 if missing_blocks.len() != 0_usize {
                     let result = Some(mem::take(&mut missing_blocks));
                     let result_data = serde_json::to_vec(&result)
-                        .map_err(|_| error_entry!("Agent: Unable to serialized result data."))?;
+                        .map_err(|_| error_entry!("Agent", "Unable to serialized result data."))?;
                     data_channel_sender.send(FileTransferResultPacket::new(result_data)).await;
                 } else {
                     let result: Option<Vec<usize>> = None;
                     let result_data = serde_json::to_vec(&result)
-                        .map_err(|_| error_entry!("Agent: Unable to serialized result data."))?;
+                        .map_err(|_| error_entry!("Agent", "Unable to serialized result data."))?;
                     data_channel_sender.send(FileTransferResultPacket::new(result_data)).await;
                     let mut sorted_blocks: Vec<Vec<u8>> = Vec::with_capacity(file_header.packet_count);
                     for index in 0..file_header.packet_count {
@@ -355,12 +356,14 @@ impl Agent {
                     return Ok(sorted_blocks);
                 };
             } else {
-                Err(warning_entry!("Agent: Data Channel is not available."))?;
+                Err(warning_entry!("Agent", "Data Channel is not available."))?;
             }
         }
     }
 
     async fn create_file(agent: Arc<RwLock<Agent>>, file_body: Vec<Vec<u8>>, save_path: &PathBuf) -> Result<(), LogEntry> {
+        let mut file = File::create(save_path).await
+            .map_err(|_| error_entry!("Agent", "Unable create file."))?;
 
     }
 
@@ -373,7 +376,7 @@ impl Agent {
         let timer = Instant::now();
         loop {
             if Manager::get_state() == AgentState::Terminate {
-                logging_info!("Agent: Terminating. Stop idle.");
+                logging_info!("Agent", "Terminating. Stop idle.");
                 return;
             }
             if timer.elapsed() > idle_duration {
@@ -387,13 +390,13 @@ impl Agent {
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                logging_warning!("Agent: Data Channel is not available.");
+                logging_warning!("Agent", "Data Channel is not available.");
                 return;
             }
             if let Some(data_channel_sender) = &mut agent.data_channel_sender {
                 data_channel_sender.send(AliveAcknowledgePacket::new()).await;
             } else {
-                logging_warning!("Agent: Data Channel is not available.");
+                logging_warning!("Agent", "Data Channel is not available.");
                 return;
             }
         }
@@ -406,12 +409,12 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         loop {
             if Manager::get_state() == AgentState::Terminate {
-                logging_info!("Agent: Terminating. Cancel create data channel.");
+                logging_info!("Agent", "Terminating. Cancel create data channel.");
                 return;
             }
             if timer.elapsed() > timeout_duration {
                 Manager::store_state(AgentState::Terminate).await;
-                logging_warning!("Agent: Control channel timout.");
+                logging_warning!("Agent", "Control channel timout.");
                 return;
             }
             {
@@ -425,12 +428,12 @@ impl Agent {
                             if bytes.len() == 2 {
                                 port = Some(u16::from_be_bytes([bytes[0], bytes[1]]))
                             } else {
-                                logging_error!("Agent: Unable to parse port data.");
+                                logging_error!("Agent", "Unable to parse port data.");
                                 continue;
                             }
                         } else {
                             Manager::store_state(AgentState::Terminate).await;
-                            logging_warning!("Agent: Channel has been closed.");
+                            logging_warning!("Agent", "Channel has been closed.");
                             return;
                         }
                     },
@@ -446,18 +449,18 @@ impl Agent {
                     agent.data_channel_sender = Some(data_channel_sender);
                     agent.data_channel_receiver = Some(data_channel_receiver);
                 } else {
-                    logging_error!("Agent: Unable to create data channel connect.");
+                    logging_error!("Agent", "Unable to create data channel connect.");
                     return;
                 }
             } else {
-                logging_error!("Agent: Port data not ready.");
+                logging_error!("Agent", "Port data not ready.");
                 return;
             }
         }
     }
 
     pub async fn terminate(agent: Arc<RwLock<Agent>>) {
-        logging_info!("Agent: Terminating agent.");
+        logging_info!("Agent", "Terminating agent.");
         let mut agent = agent.write().await;
         agent.control_channel_sender.disconnect().await;
         agent.control_channel_receiver.disconnect().await;
@@ -467,6 +470,6 @@ impl Agent {
         if let Some(data_channel_receiver) = &mut agent.data_channel_receiver {
             data_channel_receiver.disconnect().await;
         }
-        logging_info!("Agent: Termination complete.");
+        logging_info!("Agent", "Termination complete.");
     }
 }

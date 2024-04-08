@@ -1,5 +1,5 @@
 use tokio::sync::{mpsc, oneshot};
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::channel::send_thread::SendThread;
@@ -29,17 +29,20 @@ impl ControlChannelSender {
     pub async fn disconnect(&mut self) {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                let _ = stop_signal.send(());
-                logging_info!("Control Channel: Destroyed Sender successfully.");
+                if stop_signal.send(()).is_ok() {
+                    logging_info!("Control Channel", "Successfully destroyed Sender", "");
+                } else {
+                    logging_error!("Control Channel", "Failed to destroy Sender", "");
+                }
             },
-            None => logging_error!("Control Channel: Failed to destroy Sender."),
+            None => logging_error!("Control Channel", "Failed to destroy Sender", ""),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
-        if let Err(err) = self.sender_tx.send(packet) {
-            logging_error!(format!("Control Channel: Unable to submit packet to Send Thread.\nReason: {}", err));
+        if self.sender_tx.send(packet).is_err() {
+            logging_notice!("Control Channel", "Channel has been closed", "");
         }
     }
 }

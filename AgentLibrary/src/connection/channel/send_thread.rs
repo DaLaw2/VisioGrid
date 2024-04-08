@@ -1,7 +1,7 @@
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 
@@ -26,22 +26,23 @@ impl SendThread {
         loop {
             select! {
                 biased;
-                reply = self.sender_rx.recv() => {
-                    match reply {
+                packet = self.sender_rx.recv() => {
+                    match packet {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                logging_info!("Send Thread: Management disconnect.");
-                                return;
+                                logging_notice!("Send Thread", "Management side disconnected", "");
+                                break;
                             }
                         },
-                        None => return,
+                        None => {
+                            logging_notice!("Send Thread", "Channel has been closed", "");
+                            break;
+                        },
                     }
                 },
-                _ = &mut self.stop_signal_rx => {
-                    let _ = self.socket_tx.shutdown().await;
-                    return;
-                },
+                _ = &mut self.stop_signal_rx => break,
             }
         }
+        let _ = self.socket_tx.shutdown().await;
     }
 }

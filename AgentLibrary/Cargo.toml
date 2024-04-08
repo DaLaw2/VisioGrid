@@ -9,11 +9,11 @@ edition = "2021"
 toml = "0.8.12"
 image = "0.24.9"
 common = "0.1.0"
-chrono = "0.4.35"
-sysinfo = "0.30.7"
+chrono = "0.4.37"
+sysinfo = "0.30.8"
 lazy_static = "1.4.0"
-serde_json = "1.0.114"
+serde_json = "1.0.115"
 Common = { path = "../Common" }
-tokio = { version = "1.36.0", features = ["full"] }
+uuid = { version = "1.8.0", features = ["v4"] }
+tokio = { version = "1.37.0", features = ["full"] }
 serde = { version = "1.0.197", features = ["derive"] }
-uuid = { version = "1.7.0", features = ["v4"] }

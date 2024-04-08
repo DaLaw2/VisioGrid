@@ -6,7 +6,7 @@ use actix_web::{App, HttpServer};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::utils::config::Config;
 use crate::management::agent::Agent;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
@@ -58,19 +58,19 @@ impl Manager {
                 },
             }
         };
-        logging_info!("Management: Web service ready.");
-        logging_info!("Management: Online.");
+        logging_information!("Management: Web service ready.");
+        logging_information!("Management: Online.");
         if let Err(err) = http_server.run().await {
             logging_error!(format!("Management: Error while web service running.\nReason: {err}"));
         }
     }
 
     pub async fn terminate() {
-        logging_info!("Management: Terminating.");
+        logging_information!("Management: Terminating.");
         AgentManager::terminate().await;
         FileManager::terminate().await;
         Self::instance_mut().await.terminate = true;
-        logging_info!("Management: Termination complete.");
+        logging_information!("Management: Termination complete.");
     }
 
     async fn register_agent() {
@@ -83,7 +83,7 @@ impl Manager {
                 match agent {
                     Ok(agent) => {
                         AgentManager::add_agent(agent).await;
-                        logging_info!(format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}"));
+                        logging_information!(format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}"));
                     },
                     Err(entry) => logging_entry!(agent_id, entry),
                 }

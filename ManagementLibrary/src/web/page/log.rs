@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use actix_web::{get, web, Scope, Responder, HttpResponse};
-use crate::utils::logger::Logger;
+use crate::utils::logging::Logger;
 use crate::utils::static_files::StaticFiles;
 
 pub fn initialize() -> Scope {

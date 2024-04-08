@@ -1,6 +1,6 @@
 use uuid::Uuid;
 use tokio::sync::{mpsc, oneshot};
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
 use crate::connection::channel::send_thread::SendThread;
@@ -18,7 +18,7 @@ impl ControlChannelSender {
     pub fn new(agent_id: Uuid, socket_tx: WriteHalf) -> Self {
         let (sender_tx, sender_rx) = mpsc::unbounded_channel();
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let mut send_thread = SendThread::new(socket_tx, sender_rx, stop_signal_rx);
+        let mut send_thread = SendThread::new(agent_id, socket_tx, sender_rx, stop_signal_rx);
         tokio::spawn(async move {
             send_thread.run().await;
         });
@@ -32,19 +32,20 @@ impl ControlChannelSender {
     pub async fn disconnect(&mut self) {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                match stop_signal.send(()) {
-                    Ok(_) => logging_info!(self.agent_id, "Control Channel: Destroyed Sender successfully."),
-                    Err(_) => logging_error!(self.agent_id, "Control Channel: Failed to destroy Sender."),
+                if stop_signal.send(()).is_ok() {
+                    logging_information!(self.agent_id, "Control Channel", "Successfully destroyed Sender", "");
+                } else {
+                    logging_error!(self.agent_id, "Control Channel", "Failed to destroy Sender", "");
                 }
             },
-            None => logging_error!(self.agent_id, "Control Channel: Failed to destroy Sender."),
+            None => logging_error!(self.agent_id, "Control Channel", "Failed to destroy Sender", ""),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
-        if let Err(err) = self.sender_tx.send(packet) {
-            logging_error!(self.agent_id, format!("Control Channel: Unable to submit packet to Send Thread.\nReason: {}", err));
+        if self.sender_tx.send(packet).is_err() {
+            logging_notice!(self.agent_id, "Control Channel", "Channel has been closed", "");
         }
     }
 }

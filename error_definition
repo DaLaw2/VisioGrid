@@ -1,0 +1,8 @@
+LogLevel, chinese, english
+Warning, 收到預期外的封包, Receive unexpected packet,
+Notice, 通道已經被關閉, Channel has been closed,
+Notice, 管理端斷線, Management side disconnected,
+Info, 成功摧毀接收端, Successfully destroyed the Receiver,
+Error, 摧毀接收端失敗, Failed to destroy Receiver,
+Debug, 成功摧毀發送端, Successfully destroyed the Sender,
+Error, 摧毀發送端失敗, Failed to destroy Sender,

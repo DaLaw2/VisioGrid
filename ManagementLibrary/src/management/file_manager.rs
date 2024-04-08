@@ -19,7 +19,7 @@ use std::io::{Error, Read, Write};
 use tokio::task::{JoinError, spawn_blocking};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::utils::config::Config;
 use crate::management::task_manager::TaskManager;
 use crate::management::utils::video_info::VideoInfo;
@@ -62,42 +62,42 @@ impl FileManager {
         tokio::spawn(async {
             Self::post_processing().await;
         });
-        logging_info!("File Manager: Online.");
+        logging_information!("File Manager: Online.");
     }
 
     async fn initialize() {
-        logging_info!("File Manager: Initializing.");
+        logging_information!("File Manager: Initializing.");
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => logging_info!(format!("File Manager: Create {folder_name} folder successfully.")),
+                Ok(_) => logging_information!(format!("File Manager: Create {folder_name} folder successfully.")),
                 Err(err) => logging_error!(format!("File Manager: Cannot create {folder_name} folder.\nReason: {err}")),
             }
         }
         match gstreamer::init() {
-            Ok(_) => logging_info!("File Manager: GStreamer initialization successfully."),
+            Ok(_) => logging_information!("File Manager: GStreamer initialization successfully."),
             Err(err) => logging_error!(format!("File Manager: GStreamer initialization failed.\nReason: {err}")),
         }
-        logging_info!("File Manager: Initialization completed.");
+        logging_information!("File Manager: Initialization completed.");
     }
 
     pub async fn terminate() {
-        logging_info!("File Manager: Terminating.");
+        logging_information!("File Manager: Terminating.");
         Self::instance_mut().await.terminate = true;
         Self::cleanup().await;
-        logging_info!("File Manager: Termination complete.");
+        logging_information!("File Manager: Termination complete.");
     }
 
     async fn cleanup() {
-        logging_info!("File Manager: Cleaning up.");
+        logging_information!("File Manager: Cleaning up.");
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => logging_info!(format!("File Manager: Deleted {folder_name} folder successfully.")),
+                Ok(_) => logging_information!(format!("File Manager: Deleted {folder_name} folder successfully.")),
                 Err(err) => logging_error!(format!("File Manager: Cannot delete {folder_name} folder.\nReason: {err}")),
             }
         };
-        logging_info!("File Manager: Cleanup completed.");
+        logging_information!("File Manager: Cleanup completed.");
     }
 
     pub async fn add_pre_process_task(task: Task) {

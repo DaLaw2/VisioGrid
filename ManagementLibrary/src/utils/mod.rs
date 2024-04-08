@@ -1,5 +1,5 @@
 pub mod config;
-pub mod logger;
+pub mod logging;
 pub mod port_pool;
 
 pub use Common::utils::*;

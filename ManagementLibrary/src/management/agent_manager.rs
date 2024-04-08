@@ -13,7 +13,7 @@ use crate::management::agent::Agent;
 use crate::management::utils::agent_state::AgentState;
 use crate::management::utils::performance::Performance;
 use crate::utils::config::Config;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 
 lazy_static! {
     static ref AGENT_MANAGER: RwLock<AgentManager> = RwLock::new(AgentManager::new());
@@ -50,13 +50,13 @@ impl AgentManager {
         tokio::spawn(async {
             Self::refresh_performance().await;
         });
-        logging_info!("Agent Manager: Online.");
+        logging_information!("Agent Manager: Online.");
     }
 
     pub async fn terminate() {
-        logging_info!("Agent Manager: Terminating.");
+        logging_information!("Agent Manager: Terminating.");
         Self::instance_mut().await.terminate = true;
-        logging_info!("Agent Manager: Termination complete.");
+        logging_information!("Agent Manager: Termination complete.");
     }
 
     async fn refresh_performance() {

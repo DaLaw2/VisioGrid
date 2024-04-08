@@ -1,4 +1,4 @@
-pub mod logger;
+pub mod logging;
 pub mod static_files;
 
 use tokio::sync::mpsc;

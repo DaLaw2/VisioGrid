@@ -6,7 +6,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::management::agent::Agent;
-use crate::utils::logger::*;
+use crate::utils::logging::*;
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::management::utils::image_task::ImageTask;
