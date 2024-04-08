@@ -19,7 +19,6 @@ pub struct Config {
     pub internal_timestamp: u64,
     pub management_address: String,
     pub management_port: u16,
-    pub agent_idle_interval: u64,
     pub polling_interval: u64,
     pub control_channel_timeout: u64,
     pub data_channel_timeout: u64,
@@ -50,7 +49,6 @@ impl Config {
     pub fn validate(config: &Config) -> bool {
         Config::validate_mini_second(config.internal_timestamp)
             && Config::validate_full_address(&config.management_address, config.management_port)
-            && Config::validate_second(config.agent_idle_interval)
             && Config::validate_second(config.control_channel_timeout)
             && Config::validate_second(config.data_channel_timeout)
             && Config::validate_second(config.file_transfer_timeout)

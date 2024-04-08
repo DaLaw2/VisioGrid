@@ -6,6 +6,12 @@ pub struct FileTransferResult {
 }
 
 impl FileTransferResult {
+    pub fn new(result: Option<Vec<usize>>) -> Self {
+        Self {
+            result,
+        }
+    }
+
     pub fn into(self) -> Option<Vec<usize>> {
         self.result
     }

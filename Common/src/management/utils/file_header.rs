@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileHeader {
-    filename: String,
-    filesize: usize,
-    packet_count: usize,
+    pub filename: String,
+    pub filesize: usize,
+    pub packet_count: usize,
 }
 
 impl FileHeader {

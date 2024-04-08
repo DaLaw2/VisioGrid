@@ -4,9 +4,9 @@ use crate::management::utils::model_type::ModelType;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskInfo {
-    uuid: Uuid,
-    model_filename: String,
-    model_type: ModelType,
+    pub uuid: Uuid,
+    pub model_filename: String,
+    pub model_type: ModelType,
 }
 
 impl TaskInfo {

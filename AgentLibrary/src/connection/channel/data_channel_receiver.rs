@@ -10,6 +10,8 @@ pub struct DataChannelReceiver {
     pub alive_packet: UnboundedReceiver<BasePacket>,
     pub file_body_packet: UnboundedReceiver<BasePacket>,
     pub file_header_packet: UnboundedReceiver<BasePacket>,
+    pub file_transfer_end_packet: UnboundedReceiver<BasePacket>,
+    pub result_acknowledge_packet: UnboundedReceiver<BasePacket>,
     pub still_process_packet: UnboundedReceiver<BasePacket>,
     pub task_info_packet: UnboundedReceiver<BasePacket>,
 }
@@ -20,12 +22,16 @@ impl DataChannelReceiver {
         let (alive_packet_tx, alive_packet_rx) = mpsc::unbounded_channel();
         let (file_body_packet_tx, file_body_packet_rx) = mpsc::unbounded_channel();
         let (file_header_packet_tx, file_header_packet_rx) = mpsc::unbounded_channel();
+        let (file_transfer_end_packet_tx, file_transfer_end_packet_rx) = mpsc::unbounded_channel();
+        let (result_acknowledge_packet_tx, result_acknowledge_packet_rx) = mpsc::unbounded_channel();
         let (still_process_packet_tx, still_process_packet_rx) = mpsc::unbounded_channel();
         let (task_info_packet_tx, task_info_packet_rx) = mpsc::unbounded_channel();
         let receiver_tx = ReceiverTX {
             alive_packet: alive_packet_tx,
             file_body_packet: file_body_packet_tx,
             file_header_packet: file_header_packet_tx,
+            file_transfer_end_packet: file_transfer_end_packet_tx,
+            result_acknowledge_packet: result_acknowledge_packet_tx,
             still_process_packet: still_process_packet_tx,
             task_info_packet: task_info_packet_tx,
         };
@@ -38,6 +44,8 @@ impl DataChannelReceiver {
             alive_packet: alive_packet_rx,
             file_body_packet: file_body_packet_rx,
             file_header_packet: file_header_packet_rx,
+            file_transfer_end_packet: file_transfer_end_packet_rx,
+            result_acknowledge_packet: result_acknowledge_packet_rx,
             still_process_packet: still_process_packet_rx,
             task_info_packet: task_info_packet_rx,
         }
@@ -47,6 +55,7 @@ impl DataChannelReceiver {
         self.alive_packet.close();
         self.file_body_packet.close();
         self.file_header_packet.close();
+        self.file_transfer_end_packet.close();
         self.still_process_packet.close();
         self.task_info_packet.close();
         match self.stop_signal_tx.take() {
@@ -63,6 +72,8 @@ pub struct ReceiverTX {
     pub alive_packet: UnboundedSender<BasePacket>,
     pub file_body_packet: UnboundedSender<BasePacket>,
     pub file_header_packet: UnboundedSender<BasePacket>,
+    pub file_transfer_end_packet: UnboundedSender<BasePacket>,
+    pub result_acknowledge_packet: UnboundedSender<BasePacket>,
     pub still_process_packet: UnboundedSender<BasePacket>,
     pub task_info_packet: UnboundedSender<BasePacket>,
 }
