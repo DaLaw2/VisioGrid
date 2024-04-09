@@ -323,7 +323,7 @@ impl Agent {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
         let filesize = fs::metadata(&filepath).await
-            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {filepath} {err}")))?
+            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {} {}", filepath.display(), err)))?
             .len();
         let file_header = FileHeader::new(filename.clone(), filesize as usize);
         let file_header_data = serde_json::to_vec(&file_header)
@@ -377,13 +377,13 @@ impl Agent {
         let mut buffer = vec![0; 1_048_576];
         let mut packets = Vec::new();
         let mut file = File::open(filepath.clone()).await
-            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {filepath} {err}")))?;
+            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {} {}", filepath.display(), err)))?;
         loop {
             if AgentManager::get_state(uuid).await == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             let bytes_read = file.read(&mut buffer).await
-                .map_err(|err| error_entry!("Agent", "An error occurred while reading the file", format!("File: {filepath} {err}")))?;
+                .map_err(|err| error_entry!("Agent", "An error occurred while reading the file", format!("File: {} {}", filepath.display(), err)))?;
             if bytes_read == 0 {
                 return Ok(packets);
             }
@@ -514,7 +514,7 @@ impl Agent {
             Err(warning_entry!("Agent", "Data Channel is not ready"))?;
         }
         let bounding_box = bounding_box
-            .map_err(|err| error_entry!("Agent", "An error occurred during Agent processing", "Err: {}"))?;
+            .map_err(|err| error_entry!("Agent", "An error occurred during Agent processing", format!("Err: {err}")))?;
         image_task.bounding_boxes = bounding_box;
         Ok(())
     }

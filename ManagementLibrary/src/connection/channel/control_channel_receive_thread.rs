@@ -36,16 +36,16 @@ impl ReceiveThread {
                             PacketType::ControlAcknowledgePacket => self.receiver_tx.control_acknowledge_packet.send(packet),
                             PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
                             _ => {
-                                logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet", "");
+                                logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet");
                                 Ok(())
                             },
                         };
                         if result.is_err() {
-                            logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed", "");
+                            logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed");
                             return;
                         }
                     } else {
-                        logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected", "");
+                        logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected");
                         break;
                     }
                 },

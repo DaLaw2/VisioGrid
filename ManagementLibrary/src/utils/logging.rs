@@ -1,6 +1,6 @@
 pub use Common::utils::logging::*;
 pub use Common::{debug_entry, information_entry, notice_entry, warning_entry, error_entry, critical_entry, alert_entry, emergency_entry};
-pub use crate::{logging_debug, logging_information, logging_notice, logging_warning, logging_error, logging_critical, logging_alert, logging_emergency, logging_entry};
+pub use crate::{logging_debug, logging_information, logging_notice, logging_warning, logging_error, logging_critical, logging_alert, logging_emergency, logging_entry, logging_console};
 
 use uuid::Uuid;
 use lazy_static::lazy_static;
@@ -20,7 +20,7 @@ pub struct Logger {
 impl Logger {
     fn new() -> Self {
         let mut system_log = VecDeque::new();
-        let log_entry = LogEntry::new(LogLevel::Information, "Logger", "Log enable.");
+        let log_entry = LogEntry::new(LogLevel::Information, "Logger", "Online now", "");
         system_log.push_back(log_entry);
         Self {
             system_log,
@@ -36,14 +36,14 @@ impl Logger {
         LOGGER.write().await
     }
 
-    pub async fn add_system_log<T: Into<String>>(level: LogLevel, position: T, message: T, debug_info: T) {
+    pub async fn add_system_log<T: Into<String>, U: Into<String>, V: Into<String>>(level: LogLevel, position: T, message: U, debug_info: V) {
         let log_entry = LogEntry::new(level, position, message, debug_info);
-        println!("{log_entry}");
+        Self::logging_console(log_entry.clone());
         let mut logger = Self::instance_mut().await;
         logger.system_log.push_back(log_entry);
     }
 
-    pub async fn add_agent_log<T: Into<String>>(agent_id: Uuid, level: LogLevel, position: T, message: T, debug_info: T) {
+    pub async fn add_agent_log<T: Into<String>, U: Into<String>, V: Into<String>>(agent_id: Uuid, level: LogLevel, position: T, message: U, debug_info: V) {
         let log_entry = LogEntry::new(level, position, message, debug_info);
         let mut logger = Self::instance_mut().await;
         if !logger.agent_log.contains_key(&agent_id) {
@@ -55,7 +55,7 @@ impl Logger {
     }
 
     pub async fn add_system_log_entry(log_entry: LogEntry) {
-        println!("{log_entry}");
+        Self::logging_console(log_entry.clone());
         let mut logger = Self::instance_mut().await;
         logger.system_log.push_back(log_entry);
     }
@@ -68,6 +68,10 @@ impl Logger {
         if let Some(log) = logger.agent_log.get_mut(&agent_id) {
             log.push_back(log_entry);
         }
+    }
+
+    pub fn logging_console(log_entry: LogEntry) {
+        println!("{log_entry}");
     }
 
     pub async fn get_system_logs() -> VecDeque<LogEntry> {
@@ -98,81 +102,105 @@ impl Logger {
 
 #[macro_export]
 macro_rules! logging_debug {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Debug, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Debug, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Debug, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Debug, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Debug, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_information {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Information, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Information, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Information, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Information, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Information, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_notice {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Notice, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Notice, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Notice, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Notice, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Notice, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_warning {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Warning, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Warning, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Warning, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Warning, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Warning, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_error {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Error, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Error, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Error, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Error, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Error, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_critical {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Critical, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Critical, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Critical, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Critical, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Critical, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_alert {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Alert, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Alert, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Alert, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Alert, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Alert, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
 #[macro_export]
 macro_rules! logging_emergency {
+    ($position:expr, $message:expr) => {
+        Logger::add_system_log(LogLevel::Emergency, $position, $message, "").await
+    };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_system_log(LogLevel::Emergency, $position, $message, $debug_info).await
+        Logger::add_system_log(LogLevel::Emergency, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
     ($uuid:expr, $position:expr, $message:expr, $debug_info:expr) => {
-        Logger::add_agent_log($uuid, LogLevel::Emergency, $position, $message, $debug_info).await
+        Logger::add_agent_log($uuid, LogLevel::Emergency, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
     };
 }
 
@@ -183,5 +211,12 @@ macro_rules! logging_entry {
     };
     ($uuid:expr, $entry:expr) => {
         Logger::add_agent_log_entry($uuid, $entry).await
+    };
+}
+
+#[macro_export]
+macro_rules! logging_console {
+    ($entry:expr) => {
+        Logger::logging_console($entry)
     };
 }

@@ -58,19 +58,19 @@ impl Management {
                 },
             }
         };
-        logging_information!("Management", "Web service ready", "");
-        logging_information!("Management", "Online now", "");
+        logging_information!("Management", "Web service ready");
+        logging_information!("Management", "Online now");
         if let Err(err) = http_server.run().await {
             logging_emergency!("Management", "An error occurred while running the web service", format!("Err: {err}"));
         }
     }
 
     pub async fn terminate() {
-        logging_information!("Management", "Termination in progress", "");
+        logging_information!("Management", "Termination in progress");
         AgentManager::terminate().await;
         FileManager::terminate().await;
         Self::instance_mut().await.terminate = true;
-        logging_information!("Management", "Termination complete", "");
+        logging_information!("Management", "Termination complete");
     }
 
     async fn register_agent() {
@@ -83,7 +83,7 @@ impl Management {
                 match agent {
                     Ok(agent) => {
                         AgentManager::add_agent(agent).await;
-                        logging_information!("Management", format!("Agent {agent_ip} is connected"), "");
+                        logging_information!("Management", format!("Agent {agent_ip} is connected"));
                     },
                     Err(entry) => logging_entry!(agent_id, entry),
                 }

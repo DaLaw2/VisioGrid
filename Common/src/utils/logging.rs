@@ -42,7 +42,7 @@ pub struct LogEntry {
 }
 
 impl LogEntry {
-    pub fn new<T: Into<String>>(level: LogLevel, position: T, message: T, debug_info: T) -> Self {
+    pub fn new<T: Into<String>, U: Into<String>, V: Into<String>>(level: LogLevel, position: T, message: U, debug_info: V) -> Self {
         Self {
             level,
             timestamp: Local::now(),
@@ -63,7 +63,7 @@ impl Display for LogEntry {
             format!("[{}] {} {}: {}", level, timestramp, position, message)
         } else {
             let debug_info = self.debug_info.bright_black();
-            format!("[{}] {} {}: {}\n{}", level, timestramp, position, message, debug_info)
+            format!("\n[{}] {} {}: {}\n{}\n", level, timestramp, position, message, debug_info)
         };
         write!(f, "{}", str)
     }
@@ -72,79 +72,79 @@ impl Display for LogEntry {
 #[macro_export]
 macro_rules! debug_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Debug, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Debug, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Debug, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Debug, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! information_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Information, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Information, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Information, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Information, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! notice_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Notice, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Notice, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Notice, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Notice, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! warning_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Warning, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Warning, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Warning, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Warning, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! error_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Error, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Error, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Error, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Error, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! critical_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Critical, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Critical, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Critical, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Critical, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! alert_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Alert, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Alert, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Alert, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Alert, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }
 
 #[macro_export]
 macro_rules! emergency_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Emergency, $position, $message, format!("{}:{}", file!(), line!()))
+        LogEntry::new(LogLevel::Emergency, $position, $message, "")
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
-        LogEntry::new(LogLevel::Emergency, $position, $message, $debug_info)
+        LogEntry::new(LogLevel::Emergency, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
     };
 }

@@ -42,19 +42,19 @@ impl Config {
                     Ok(config_table) => {
                         let config = config_table.config;
                         if !Self::validate(&config) {
-                            logging_emergency!("Config", "Invalid configuration file", "");
+                            logging_console!(emergency_entry!("Config", "Invalid configuration file"));
                             panic!("Invalid configuration file");
                         }
                         config
                     },
                     Err(err) => {
-                        logging_emergency!("Config", "Unable to parse configuration file", format!("Err: {err}"));
+                        logging_console!(emergency_entry!("Config", "Unable to parse configuration file", format!("Err: {err}")));
                         panic!("Unable to parse configuration file");
                     },
                 }
             },
             Err(err) => {
-                logging_emergency!("Config", "Configuration file not found", format!("Err: {err}"));
+                logging_console!(emergency_entry!("Config", "Configuration file not found", format!("Err: {err}")));
                 panic!("Configuration file not found");
             },
         }

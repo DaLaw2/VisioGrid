@@ -33,12 +33,12 @@ impl SendThread {
                     match packet {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                logging_notice!(self.agent_id, "Send Thread", "Management side disconnected", "");
+                                logging_notice!(self.agent_id, "Send Thread", "Management side disconnected");
                                 break;
                             }
                         },
                         None => {
-                            logging_notice!(self.agent_id, "Send Thread", "Channel has been closed", "");
+                            logging_notice!(self.agent_id, "Send Thread", "Channel has been closed");
                             break;
                         },
                     }

@@ -50,13 +50,13 @@ impl AgentManager {
         tokio::spawn(async {
             Self::refresh_performance().await;
         });
-        logging_information!("Agent Manager", "Online now", "");
+        logging_information!("Agent Manager", "Online now");
     }
 
     pub async fn terminate() {
-        logging_information!("Agent Manager", "Termination in progress", "");
+        logging_information!("Agent Manager", "Termination in progress");
         Self::instance_mut().await.terminate = true;
-        logging_information!("Agent Manager", "Termination complete", "");
+        logging_information!("Agent Manager", "Termination complete");
     }
 
     async fn refresh_performance() {
@@ -77,7 +77,7 @@ impl AgentManager {
         let agent_id = agent.uuid();
         let mut agent_manager = Self::instance_mut().await;
         if agent_manager.agents.contains_key(&agent_id) {
-            logging_error!("Agent Manager", "Agent instance already exists", "");
+            logging_error!("Agent Manager", "Agent instance already exists");
             return;
         }
         let agent = Arc::new(RwLock::new(agent));

@@ -33,19 +33,19 @@ impl DataChannelSender {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 if stop_signal.send(()).is_ok() {
-                    logging_information!(self.agent_id, "Data Channel", "Successfully destroyed the Sender", "")
+                    logging_information!(self.agent_id, "Data Channel", "Successfully destroyed the Sender")
                 } else {
-                    logging_error!(self.agent_id, "Data Channel", "Failed to destroy Sender", "")
+                    logging_error!(self.agent_id, "Data Channel", "Failed to destroy Sender")
                 }
             },
-            None => logging_error!(self.agent_id, "Data Channel", "Failed to destroy Sender", ""),
+            None => logging_error!(self.agent_id, "Data Channel", "Failed to destroy Sender"),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if self.sender_tx.send(packet).is_err() {
-            logging_notice!(self.agent_id, "Data Channel", "Channel has been closed", "");
+            logging_notice!(self.agent_id, "Data Channel", "Channel has been closed");
         }
     }
 }

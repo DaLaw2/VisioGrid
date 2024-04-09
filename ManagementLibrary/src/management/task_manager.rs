@@ -73,7 +73,7 @@ impl TaskManager {
                     let agent_ram = match AgentManager::get_agent(agent_id).await {
                         Some(agent) => agent.read().await.idle_unused().ram,
                         None => {
-                            logging_error!("Task Manager", "Agent instance does not exist", "");
+                            logging_error!("Task Manager", "Agent instance does not exist");
                             0.0
                         }
                     };
@@ -89,7 +89,7 @@ impl TaskManager {
                     }
                 }
                 if !assigned {
-                    logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid), "");
+                    logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid));
                     Self::submit_image_task(image_task, false).await;
                 }
             }
@@ -118,7 +118,7 @@ impl TaskManager {
                         let agent_ram = match AgentManager::get_agent(agent_id).await {
                             Some(agent) => agent.read().await.idle_unused().ram,
                             None => {
-                                logging_error!("Task Manager", "Agent instance does not exist", "");
+                                logging_error!("Task Manager", "Agent instance does not exist");
                                 0.0
                             },
                         };
@@ -135,7 +135,7 @@ impl TaskManager {
                         }
                     }
                     if !assigned {
-                        logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid), "");
+                        logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid));
                         Self::submit_image_task(image_task, false).await;
                     }
                     image_id += 1;
@@ -143,7 +143,7 @@ impl TaskManager {
             }
             _ => {
                 Self::task_panic(&task.uuid, "Unsupported file type".to_string()).await;
-                notice_entry!("File Manager", format!("Task {}, unsupported file type", task.uuid), "");
+                notice_entry!("File Manager", format!("Task {}, unsupported file type", task.uuid));
             }
         }
     }
@@ -164,7 +164,7 @@ impl TaskManager {
                 let agent_ram = match AgentManager::get_agent(agent_id).await {
                     Some(agent) => agent.read().await.idle_unused().ram,
                     None => {
-                        logging_error!("Task Manager", "Agent instance does not exist", "");
+                        logging_error!("Task Manager", "Agent instance does not exist");
                         continue;
                     },
                 };
@@ -178,7 +178,7 @@ impl TaskManager {
                 }
             }
             if !assigned {
-                logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", image_task.task_uuid), "");
+                logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", image_task.task_uuid));
                 Self::submit_image_task(image_task, false).await;
             }
         }
@@ -246,7 +246,7 @@ impl TaskManager {
                     complete = true;
                 }
             }
-            None => logging_error!("Task Manager", format!("Task {uuid} does not exist"), ""),
+            None => logging_error!("Task Manager", format!("Task {uuid} does not exist")),
         }
         if complete {
             if let Some(task) = task_manager.tasks.remove(&uuid) {
