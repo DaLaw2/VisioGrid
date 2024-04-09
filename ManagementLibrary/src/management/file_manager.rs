@@ -62,42 +62,42 @@ impl FileManager {
         tokio::spawn(async {
             Self::post_processing().await;
         });
-        logging_information!("File Manager: Online.");
+        logging_information!("File Manager", "Online now", "");
     }
 
     async fn initialize() {
-        logging_information!("File Manager: Initializing.");
+        logging_information!("File Manager", "Initializing", "");
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => logging_information!(format!("File Manager: Create {folder_name} folder successfully.")),
-                Err(err) => logging_error!(format!("File Manager: Cannot create {folder_name} folder.\nReason: {err}")),
+                Ok(_) => logging_information!("File Manager", format!("Creating {folder_name} folder successfully"), ""),
+                Err(err) => logging_critical!("File Manager", format!("Cannot create folder {folder_name}"), format!("Err: {err}")),
             }
         }
         match gstreamer::init() {
-            Ok(_) => logging_information!("File Manager: GStreamer initialization successfully."),
-            Err(err) => logging_error!(format!("File Manager: GStreamer initialization failed.\nReason: {err}")),
+            Ok(_) => logging_information!("File Manager", "GStreamer initialization successful", ""),
+            Err(err) => logging_critical!("File Manager", "GStreamer initialization failed", format!("Err: {err}")),
         }
-        logging_information!("File Manager: Initialization completed.");
+        logging_information!("File Manager", "Initialization completed.", "");
     }
 
     pub async fn terminate() {
-        logging_information!("File Manager: Terminating.");
+        logging_information!("File Manager", "Termination in progress", "");
         Self::instance_mut().await.terminate = true;
         Self::cleanup().await;
-        logging_information!("File Manager: Termination complete.");
+        logging_information!("File Manager", "Termination complete", "");
     }
 
     async fn cleanup() {
-        logging_information!("File Manager: Cleaning up.");
+        logging_information!("File Manager", "Cleaning up", "");
         let folders = ["SavedModel", "SavedFile", "PreProcessing", "PostProcessing", "Result"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => logging_information!(format!("File Manager: Deleted {folder_name} folder successfully.")),
-                Err(err) => logging_error!(format!("File Manager: Cannot delete {folder_name} folder.\nReason: {err}")),
+                Ok(_) => logging_information!("File Manager", format!("Delete {folder_name} folder successfully"), ""),
+                Err(err) => logging_error!("File Manager", format!("Failed to delete {folder_name} folder"), format!("Err: {err}")),
             }
         };
-        logging_information!("File Manager: Cleanup completed.");
+        logging_information!("File Manager", "Cleanup completed", "");
     }
 
     pub async fn add_pre_process_task(task: Task) {
@@ -120,9 +120,8 @@ impl FileManager {
                         Some("mp4") | Some("avi") | Some("mkv") => Self::video_pre_process(task).await,
                         Some("zip") => Self::zip_pre_process(task).await,
                         _ => {
-                            let error_message = format!("File Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
-                            task.panic(error_message.clone()).await;
-                            logging_error!(error_message);
+                            task.panic("Unsupported file type".to_string()).await;
+                            logging_error!("File Manager", format!("Task {}, unsupported file type", task.uuid), "");
                         }
                     }
                 }
@@ -143,9 +142,8 @@ impl FileManager {
                         Some("mp4") | Some("avi") | Some("mkv") => Self::video_post_processing(task).await,
                         Some("zip") => Self::zip_post_processing(task).await,
                         _ => {
-                            let error_message = format!("File Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
-                            task.panic(error_message.clone()).await;
-                            logging_error!(error_message);
+                            task.panic("Unsupported file type".to_string()).await;
+                            logging_error!("File Manager", format!("Task {}, unsupported file type", task.uuid), "");
                         }
                     }
                 }
@@ -163,24 +161,20 @@ impl FileManager {
                 Self::forward_to_task_manager(task).await;
             }
             Err(err) => {
-                let error_message = format!("File Manager: Task {task_id} failed because move image file failed.\nReason: {err}", task_id = task.uuid);
-                task.panic(error_message.clone()).await;
-                logging_error!(error_message);
+                task.panic("Unable to move file".to_string()).await;
+                logging_error!("File Manager", "Unable to move file".to_string(),
+                    format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err));
             }
         }
     }
 
-    async fn extract_pre_processing(source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) -> Result<(), String> {
+    async fn extract_pre_processing(source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) -> Result<(), LogEntry> {
         fs::create_dir(&create_folder).await
-            .map_err(|err| {
-                let create_folder = create_folder.display();
-                format!("File Manager: Cannot create {create_folder} folder.\nReason: {err}")
-            })?;
+            .map_err(|err| error_entry!("File Manager", &format!("Cannot create folder {}", create_folder.display()), format!("Err: {err}")))?;
         fs::rename(&source_path, &destination_path).await
             .map_err(|err| {
-                let source_path = source_path.display();
-                let destination_path = destination_path.display();
-                format!("File Manager: Cannot to move file from {source_path} to {destination_path}.\nReason: {err}")
+                error_entry!("File Manager", "Unable to move file",
+                    format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err))
             })?;
         Ok(())
     }
@@ -189,15 +183,15 @@ impl FileManager {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
-        if let Err(err) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
-            logging_error!(err.clone());
-            task.panic(err).await;
+        if let Err(entry) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
+            task.panic(entry.message.clone()).await;
+            logging_entry!(entry);
             return;
         }
         let video_path = destination_path;
-        if let Err(err) = Self::extract_video_info(&video_path).await {
-            logging_error!(err.clone());
-            task.panic(err).await;
+        if let Err(entry) = Self::extract_video_info(&video_path).await {
+            task.panic(entry.message.clone()).await;
+            logging_entry!(entry);
             return;
         }
         let result = spawn_blocking(move || {
@@ -206,14 +200,14 @@ impl FileManager {
         Self::process_extract_result(task, create_folder, result).await;
     }
 
-    async fn extract_video_info(video_path: &PathBuf) -> Result<(), String> {
+    async fn extract_video_info(video_path: &PathBuf) -> Result<(), LogEntry> {
         let absolute_path = video_path.canonicalize()
-            .map_err(|err| format!("File Manager: Unable to get absolute path.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to get absolute path"))?;
         let clean_path = absolute_path.to_string_lossy().trim_start_matches(r"\\?\").replace("\\", "/");
         let discoverer = Discoverer::new(gstreamer::ClockTime::from_seconds(5))
-            .map_err(|err| format!("File Manager: Failed to create Discoverer element.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let info = discoverer.discover_uri(&*format!("file:///{clean_path}"))
-            .map_err(|err| format!("File Manager: Failed to read video file.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let mut video_info = VideoInfo::default();
         if let Some(stream) = info.video_streams().get(0) {
             video_info.bitrate = stream.bitrate();
@@ -232,38 +226,38 @@ impl FileManager {
         }
         let toml_path = video_path.with_extension("toml");
         let toml_string = toml::to_string(&video_info)
-            .map_err(|err| format!("File Manager: Unable to serialize video info.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to serialize data", format!("Err: {err}")))?;
         fs::write(&toml_path, toml_string).await
-            .map_err(|err| format!("File Manager: Unable to write video info to TOML file.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("Err: {err}")))?;
         Ok(())
     }
 
-    fn extract_video(video_path: PathBuf) -> Result<(), String> {
+    fn extract_video(video_path: PathBuf) -> Result<(), LogEntry> {
         let saved_path = video_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%010d.png"));
         let pipeline = gstreamer::parse::launch(&pipeline_string)
-            .map_err(|err| format!("File Manager: GStreamer cannot parse pipeline.\nReason: {err}"))?;
-        let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
+        let bus = pipeline.bus().ok_or(error_entry!("File Manager", "Unable to create instance"))?;
         pipeline.set_state(gstreamer::State::Playing)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
         for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
             match message.view() {
                 gstreamer::MessageView::Eos(..) => break,
                 gstreamer::MessageView::Error(_) => {
                     pipeline.set_state(gstreamer::State::Null)
-                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {err}"))?;
-                    return if let Some(src) = message.src() {
-                        let path = src.path_string();
-                        Err(format!("File Manager: An error occurred in gstreamer.\nError from {path}."))
+                        .map_err(|err| error_entry!("File Manager", "無法設定管線狀態", format!("Err: {err}")))?;
+                    return if let Some(source) = message.src() {
+                        let err = source.path_string();
+                        Err(error_entry!("File Manager", "GStreamer internal error", format!("Err: {err}")))
                     } else {
-                        Err("File Manager: An unknown error occurred in gstreamer.".to_string())
+                        Err(error_entry!("File Manager", "GStreamer internal error"))
                     };
                 }
                 _ => {}
             }
         }
         pipeline.set_state(gstreamer::State::Null)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
         Ok(())
     }
 
@@ -271,9 +265,9 @@ impl FileManager {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
-        if let Err(err) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
-            logging_error!(err.clone());
-            task.panic(err).await;
+        if let Err(entry) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
+            task.panic(entry.message.clone()).await;
+            logging_entry!(entry);
             return;
         }
         let zip_path = destination_path;
@@ -283,24 +277,24 @@ impl FileManager {
         Self::process_extract_result(task, create_folder, result).await;
     }
 
-    fn extract_zip(zip_path: &PathBuf) -> Result<(), String> {
+    fn extract_zip(zip_path: &PathBuf) -> Result<(), LogEntry> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = File::open(zip_path)
-            .map_err(|err| format!("File Manager: Unable to open ZIP file {zip_path}.\nReason: {err}", zip_path = zip_path.display()))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?;
         let mut archive = ZipArchive::new(reader)
-            .map_err(|err| format!("File Manager: Unable to read {zip_path} archive.\nReason: {err}", zip_path = zip_path.display()))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let output_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)
-                .map_err(|err| format!("File Manager: Unable to access {zip_path} entry by index.\nReason: {err}", zip_path = zip_path.display()))?;
+                .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("Err: {err}")))?;
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
                     if allowed_extensions.contains(&extension.to_str().unwrap_or("")) {
                         let output_path = output_folder.join(enclosed_path.file_name().unwrap_or_default());
                         let mut output_file = File::create(&output_path)
-                            .map_err(|_| format!("File Manager: Cannot create output file {output_path}: ", output_path = output_path.display()))?;
+                            .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("Err: {err}")))?;
                         std::io::copy(&mut file, &mut output_file)
-                            .map_err(|err| format!("File Manager: Unable to write to output file {output_path}.\nReason: {err}", output_path = output_path.display()))?;
+                            .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("Err: {err}")))?;
                     }
                 }
             }
@@ -308,40 +302,37 @@ impl FileManager {
         Ok(())
     }
 
-    async fn process_extract_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), String>, JoinError>) {
+    async fn process_extract_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), LogEntry>, JoinError>) {
         match result {
             Ok(Ok(_)) => {
                 match Self::file_count(&created_folder).await {
                     Ok(count) => {
                         task.update_unprocessed(count).await;
                         Self::forward_to_task_manager(task).await;
-                    }
-                    Err(err) => {
-                        let created_folder = created_folder.display();
-                        let error_message = format!("File Manager: An error occurred while reading folder {created_folder}.\nReason: {err}");
-                        task.panic(error_message.clone()).await;
-                        logging_error!(error_message);
-                    }
+                    },
+                    Err(entry) => {
+                        task.panic("Unable to read folder".to_string()).await;
+                        logging_entry!(entry);
+                    },
                 }
-            }
-            Ok(Err(err)) => {
-                task.panic(err.clone()).await;
-                logging_error!(err);
-            }
+            },
+            Ok(Err(entry)) => {
+                task.panic(entry.message.clone()).await;
+                logging_entry!(entry);
+            },
             Err(err) => {
-                let error_message = format!("File Manager: Task {task_id} panic.\nReason: {err}", task_id = task.uuid);
-                task.panic(error_message.clone()).await;
-                logging_error!(error_message);
-            }
+                task.panic("Panic occurs during execution".to_string()).await;
+                logging_critical!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
+            },
         }
     }
 
-    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &Font<'_>) -> Result<RgbImage, String> {
+    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &Font<'_>) -> Result<RgbImage, LogEntry> {
         let border_color = Rgb(config.border_color);
         let text_color = Rgb(config.text_color);
         let image_path = image_task.image_filepath.clone();
         let mut image = image::open(&image_path)
-            .map_err(|err| format!("FileManager: Cannot read file {image_path}.\nReason: {err}", image_path = image_path.display()))?
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?
             .to_rgb8();
         for bounding_box in &image_task.bounding_boxes {
             let base_rectangle = Rect::at(bounding_box.xmin as i32, bounding_box.ymin as i32).of_size(bounding_box.xmax - bounding_box.xmin, bounding_box.ymax - bounding_box.ymin);
@@ -371,45 +362,39 @@ impl FileManager {
                                 match image.save(&saved_path) {
                                     Ok(_) => Self::forward_to_repository(task).await,
                                     Err(err) => {
-                                        let saved_path = saved_path.display();
-                                        let error_message = format!("File Manager: Unable to write to output file {saved_path}.\nReason: {err}");
-                                        task.panic(error_message.clone()).await;
-                                        logging_error!(error_message);
-                                    }
+                                        task.panic("Unable to write file".to_string()).await;
+                                        logging_error!("File Manager", "Unable to write file", format!("Err: {err}"));
+                                    },
                                 }
-                            }
-                            Err(err) => {
-                                task.panic(err.clone()).await;
-                                logging_error!(err);
-                            }
+                            },
+                            Err(entry) => {
+                                task.panic(entry.message.clone()).await;
+                                logging_entry!(entry);
+                            },
                         }
                     } else {
-                        let error_message = "FileManager: Unable to parse font data.".to_string();
-                        task.panic(error_message.clone()).await;
-                        logging_error!(error_message);
+                        task.panic("Unable to parse font data".to_string()).await;
+                        logging_error!("File Manager", "Unable to parse font data", "");
                     }
-                }
+                },
                 Err(err) => {
-                    let error_message = format!("FileManager: Cannot read file {font_path}.\nReason: {err}");
-                    task.panic(error_message.clone()).await;
-                    logging_error!(error_message);
-                }
+                    let error_message = "Unable to read file".to_string();
+                    task.panic(error_message).await;
+                    logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
+                },
             }
         } else {
-            //Impossible, it means that an ImageTask is missing.
-            let error_message = "FileManager: Internal server error.\nReason: Image Task Disappeared.".to_string();
-            task.panic(error_message.clone()).await;
-            logging_error!(error_message);
+            task.panic("Missing tasks".to_string()).await;
+            logging_error!("File Manager", "Missing tasks", "");
         }
     }
 
-    async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) -> Result<(), String> {
+    async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) -> Result<(), LogEntry> {
         fs::create_dir(&create_folder).await
-            .map_err(|err| format!("File Manager: Cannot create {create_folder} folder.\nReason: {err}", create_folder = create_folder.display()))?;
+            .map_err(|err| error_entry!("File Manager", format!("Cannot create folder {create_folder}"), format!("Err: {err}")))?;
         let config = Config::now().await;
-        let font_path = &config.font_path;
         let font_data = fs::read(&config.font_path).await
-            .map_err(|err| format!("FileManager: Cannot read file {font_path}.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?;
         let font = Font::try_from_bytes(&font_data)
             .ok_or("FileManager: Unable to parse font data.".to_string())?;
         for image_task in &task.result {
@@ -425,9 +410,9 @@ impl FileManager {
         let video_info_path = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("toml");
         let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
         let create_folder = target_path.with_extension("");
-        if let Err(err) = Self::recombination_pre_processing(&mut task, &create_folder).await {
-            task.panic(err.clone()).await;
-            logging_error!(err);
+        if let Err(entry) = Self::recombination_pre_processing(&mut task, &create_folder).await {
+            task.panic(entry.message.clone()).await;
+            logging_entry!(entry);
             return;
         }
         let result = spawn_blocking(move || {
@@ -436,9 +421,9 @@ impl FileManager {
         Self::process_recombination_result(task, result).await;
     }
 
-    fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, target_path: PathBuf) -> Result<(), String> {
+    fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, target_path: PathBuf) -> Result<(), LogEntry> {
         let toml_str = std::fs::read_to_string(video_info_path)
-            .map_err(|err| format!("File Manager: Unable to read video info file.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", format!("Unable to read file {}", video_info_path.display()), format!("Err: {err}")))?;
         let video_info: VideoInfo = toml::from_str(&toml_str).unwrap_or_default();
         let bitrate = video_info.bitrate;
         let encoder = match video_info.format.as_str() {
@@ -456,21 +441,21 @@ impl FileManager {
         };
         let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, target_path);
         let pipeline = gstreamer::parse::launch(&pipeline_string)
-            .map_err(|err| format!("File Manager: Unable to create GStreamer pipeline.\nReason: {err}"))?;
-        let bus = pipeline.bus().ok_or("File Manager: Unable to get pipeline bus.".to_string())?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {}", err)))?;
+        let bus = pipeline.bus().ok_or(error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         pipeline.set_state(gstreamer::State::Playing)
-            .map_err(|err| format!("File Manager: Unable to set pipeline to playing.\nReason: {err}"))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {}", err)))?;
         for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
             match message.view() {
                 gstreamer::MessageView::Eos(..) => break,
                 gstreamer::MessageView::Error(_) => {
                     pipeline.set_state(gstreamer::State::Null)
-                        .map_err(|err| format!("File Manager: Unable to set pipeline to null.\nReason: {err}"))?;
-                    return if let Some(src) = message.src() {
-                        let path = src.path_string();
-                        Err(format!("File Manager: An error occurred in gstreamer.\nError from {path}."))
+                        .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {}", err)))?;
+                    return if let Some(source) = message.src() {
+                        let err = source.path_string();
+                        Err(error_entry!("File Manager", "GStreamer internal error", format!("Err: {}", err)))
                     } else {
-                        Err("File Manager: An unknown error occurred in gstreamer.".to_string())
+                        Err(error_entry!("File Manager", "GStreamer internal error"))
                     };
                 }
                 _ => {}
@@ -484,9 +469,9 @@ impl FileManager {
     async fn zip_post_processing(mut task: Task) {
         let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
         let create_folder = target_path.with_extension("");
-        if let Err(err) = Self::recombination_pre_processing(&mut task, &create_folder).await {
-            task.panic(err.clone()).await;
-            logging_error!(err);
+        if let Err(entry) = Self::recombination_pre_processing(&mut task, &create_folder).await {
+            task.panic(entry.message.clone()).await;
+            logging_entry!(entry);
             return;
         }
         let result = spawn_blocking(move || {
@@ -495,46 +480,49 @@ impl FileManager {
         Self::process_recombination_result(task, result).await;
     }
 
-    fn recombination_zip(source_folder: PathBuf, target_path: PathBuf) -> Result<(), String> {
-        let file = File::create(&target_path).map_err(|err| format!("File Manager: Unable to create ZIP file.\nReason: {err}"))?;
+    fn recombination_zip(source_folder: PathBuf, target_path: PathBuf) -> Result<(), LogEntry> {
+        let file = File::create(&target_path).map_err(|err| error_entry!("File Manager", "Unable to create file", format!("Err: {err}")))?;
         let mut zip = ZipWriter::new(file);
         let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
         for entry in std::fs::read_dir(&source_folder)
-            .map_err(|err| format!("File Manager: Unable to read source directory.\nReason: {err}"))?
+            .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Err: {err}")))?
         {
-            let entry = entry.map_err(|err| format!("File Manager: Unable to process directory entry.\nReason: {err}"))?;
+            let entry = entry.map_err(|err|
+                error_entry!("File Manager", "An error occurred while reading the folder", format!("Err: {err}")))?;
             let path = entry.path();
-            let file_name = path.file_name().ok_or("File Manager: Unable to get file name.")?.to_string_lossy();
+            let file_name = path.file_name().ok_or(
+                error_entry!("File Manager", "Invalid file")
+            )?.to_string_lossy();
             zip.start_file(file_name, options)
-                .map_err(|err| format!("File Manager: Error starting a new file in ZIP.\nReason: {err}"))?;
+                .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("Err: {err}")))?;
             let mut file_contents = Vec::new();
             File::open(&path)
-                .map_err(|err| format!("File Manager: Error opening file for reading.\nReason: {err}"))?
+                .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?
                 .read_to_end(&mut file_contents)
-                .map_err(|err| format!("File Manager: Error reading file contents.\nReason: {err}"))?;
+                .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("Err: {err}")))?;
             zip.write_all(&file_contents)
-                .map_err(|err| format!("File Manager: Error writing file contents to ZIP.\nReason: {err}"))?;
+                .map_err(|err| error_entry!("File Manager", "An error occurred while writing the file", format!("Err: {err}")))?;
         }
-        zip.finish().map_err(|err| format!("File Manager: Error finishing ZIP file.\nReason: {err}"))?;
+        zip.finish()
+            .map_err(|err| error_entry!("File Manager", "An error occurred while writing the file", format!("Err: {err}")))?;
         Ok(())
     }
 
-    async fn process_recombination_result(task: Task, result: Result<Result<(), String>, JoinError>) {
+    async fn process_recombination_result(task: Task, result: Result<Result<(), LogEntry>, JoinError>) {
         match result {
             Ok(Ok(_)) => Self::forward_to_repository(task).await,
-            Ok(Err(err)) => {
-                task.panic(err.clone()).await;
-                logging_error!(err);
+            Ok(Err(entry)) => {
+                task.panic(entry.message.clone()).await;
+                logging_entry!(entry);
             }
             Err(err) => {
-                let error_message = format!("File Manager: Task {task_id} panic.\nReason: {err}", task_id = task.uuid);
-                task.panic(error_message.clone()).await;
-                logging_error!(error_message);
+                task.panic("Panic occurs during execution".to_string()).await;
+                logging_critical!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
             }
         }
     }
 
-    async fn file_count(path: &PathBuf) -> Result<usize, Error> {
+    async fn file_count(path: &PathBuf) -> Result<usize, LogEntry> {
         let mut dir_entries = fs::read_dir(path).await?;
         let mut count = 0;
         while let Some(entry) = dir_entries.next_entry().await? {

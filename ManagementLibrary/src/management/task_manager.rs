@@ -73,7 +73,7 @@ impl TaskManager {
                     let agent_ram = match AgentManager::get_agent(agent_id).await {
                         Some(agent) => agent.read().await.idle_unused().ram,
                         None => {
-                            logging_error!(format!("Task Manager: Agent {agent_id} does not exist."));
+                            logging_error!("Task Manager", "Agent instance does not exist", "");
                             0.0
                         }
                     };
@@ -89,7 +89,7 @@ impl TaskManager {
                     }
                 }
                 if !assigned {
-                    logging_warning!(format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid));
+                    logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid), "");
                     Self::submit_image_task(image_task, false).await;
                 }
             }
@@ -97,10 +97,10 @@ impl TaskManager {
                 let image_folder = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("");
                 let mut image_folder = match fs::read_dir(&image_folder).await {
                     Ok(image_folder) => image_folder,
-                    Err(_) => {
-                        logging_error!(format!("Task Manager: Cannot read folder {image_folder}.", image_folder = image_folder.display()));
+                    Err(err) => {
+                        logging_error!("Task Manager", "Unable to read folder", format!("Err: {err}"));
                         return;
-                    }
+                    },
                 };
                 let mut image_id = 0_usize;
                 let mut current_agent = 0_usize;
@@ -118,9 +118,9 @@ impl TaskManager {
                         let agent_ram = match AgentManager::get_agent(agent_id).await {
                             Some(agent) => agent.read().await.idle_unused().ram,
                             None => {
-                                logging_error!(format!("Task Manager: Agent {agent_id} does not exist."));
+                                logging_error!("Task Manager", "Agent instance does not exist", "");
                                 0.0
-                            }
+                            },
                         };
                         if agent_ram > ram_usage * 0.7 {
                             if let Some(agent) = AgentManager::get_agent(agent_id).await {
@@ -135,16 +135,15 @@ impl TaskManager {
                         }
                     }
                     if !assigned {
-                        logging_warning!(format!("Task Manager: Task {task_id} cannot be assigned to any agent.", task_id = image_task.task_uuid));
+                        logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid), "");
                         Self::submit_image_task(image_task, false).await;
                     }
                     image_id += 1;
                 }
             }
             _ => {
-                let error_message = format!("Task Manager: Task {task_id} failed because the file extension is not supported.", task_id = task.uuid);
-                Self::task_panic(&task.uuid, error_message.clone()).await;
-                logging_error!(error_message);
+                Self::task_panic(&task.uuid, "Unsupported file type".to_string()).await;
+                notice_entry!("File Manager", format!("Task {}, unsupported file type", task.uuid), "");
             }
         }
     }
@@ -165,9 +164,9 @@ impl TaskManager {
                 let agent_ram = match AgentManager::get_agent(agent_id).await {
                     Some(agent) => agent.read().await.idle_unused().ram,
                     None => {
-                        logging_error!(format!("Task Manager: Agent {agent_id} does not exist."));
+                        logging_error!("Task Manager", "Agent instance does not exist", "");
                         continue;
-                    }
+                    },
                 };
                 if agent_ram > ram_usage * 0.7 {
                     if let Some(agent) = AgentManager::get_agent(agent_id).await {
@@ -179,7 +178,7 @@ impl TaskManager {
                 }
             }
             if !assigned {
-                logging_warning!(format!("Task Manager: Task {task_id} cannot be reassigned to any agent.", task_id = image_task.task_uuid));
+                logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", image_task.task_uuid), "");
                 Self::submit_image_task(image_task, false).await;
             }
         }
@@ -247,7 +246,7 @@ impl TaskManager {
                     complete = true;
                 }
             }
-            None => logging_error!(format!("Task Manager: Task {task_id} does not exist.", task_id = uuid)),
+            None => logging_error!("Task Manager", format!("Task {uuid} does not exist"), ""),
         }
         if complete {
             if let Some(task) = task_manager.tasks.remove(&uuid) {
@@ -259,8 +258,8 @@ impl TaskManager {
     pub async fn estimated_vram_usage(model_filepath: &PathBuf) -> f64 {
         let model_filesize = match fs::metadata(model_filepath).await {
             Ok(metadata) => metadata.len(),
-            Err(_) => {
-                logging_error!(format!("Task Manager: Cannot read file {model_filepath}.", model_filepath = model_filepath.display()));
+            Err(err) => {
+                logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
                 0
             }
         };
@@ -270,8 +269,8 @@ impl TaskManager {
     pub async fn estimated_ram_usage(image_filepath: &PathBuf) -> f64 {
         let image_filesize = match fs::metadata(image_filepath).await {
             Ok(metadata) => metadata.len(),
-            Err(_) => {
-                logging_error!(format!("Task Manager: Cannot read file {image_filepath}.", image_filepath = image_filepath.display()));
+            Err(err) => {
+                logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
                 0
             }
         };

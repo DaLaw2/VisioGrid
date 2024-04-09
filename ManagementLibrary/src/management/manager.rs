@@ -13,14 +13,14 @@ use crate::connection::socket::agent_socket::AgentSocket;
 use crate::web::page::{config, inference, javascript, log, misc};
 
 lazy_static!{
-    static ref MANAGEMENT: RwLock<Manager> = RwLock::new(Manager::new());
+    static ref MANAGEMENT: RwLock<Management> = RwLock::new(Management::new());
 }
 
-pub struct Manager {
+pub struct Management {
     terminate: bool,
 }
 
-impl Manager {
+impl Management {
     fn new() -> Self {
         Self {
             terminate: false,
@@ -52,25 +52,25 @@ impl Manager {
             match http_server {
                 Ok(http_server) => break http_server,
                 Err(err) => {
-                    logging_error!(format!("Management: Http service bind port failed.\nReason: {err}"));
+                    logging_critical!("Management", "Failed to bind port", format!("Err: {err}"));
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                     continue;
                 },
             }
         };
-        logging_information!("Management: Web service ready.");
-        logging_information!("Management: Online.");
+        logging_information!("Management", "Web service ready", "");
+        logging_information!("Management", "Online now", "");
         if let Err(err) = http_server.run().await {
-            logging_error!(format!("Management: Error while web service running.\nReason: {err}"));
+            logging_emergency!("Management", "An error occurred while running the web service", format!("Err: {err}"));
         }
     }
 
     pub async fn terminate() {
-        logging_information!("Management: Terminating.");
+        logging_information!("Management", "Termination in progress", "");
         AgentManager::terminate().await;
         FileManager::terminate().await;
         Self::instance_mut().await.terminate = true;
-        logging_information!("Management: Termination complete.");
+        logging_information!("Management", "Termination complete", "");
     }
 
     async fn register_agent() {
@@ -83,7 +83,7 @@ impl Manager {
                 match agent {
                     Ok(agent) => {
                         AgentManager::add_agent(agent).await;
-                        logging_information!(format!("Management: Agent connected.\nIp: {agent_ip}, Allocate agent ID: {agent_id}"));
+                        logging_information!("Management", format!("Agent {agent_ip} is connected"), "");
                     },
                     Err(entry) => logging_entry!(agent_id, entry),
                 }

@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
-use ManagementLibrary::management::manager::Manager;
+use ManagementLibrary::management::manager::Management;
 
 #[actix_web::main]
 async fn main() {
-    Manager::run().await;
-    Manager::terminate().await;
+    Management::run().await;
+    Management::terminate().await;
 }

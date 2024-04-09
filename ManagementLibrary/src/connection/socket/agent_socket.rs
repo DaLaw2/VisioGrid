@@ -19,7 +19,7 @@ impl AgentSocket {
             match TcpListener::bind(format!("127.0.0.1:{port}")).await {
                 Ok(listener) => break listener,
                 Err(err) => {
-                    logging_error!(format!("Agent Socket: Port binding failed.\nReason: {err}"));
+                    logging_critical!("Agent Socket", "Failed to bind port", format!("Err: {err}"));
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                 },
             }

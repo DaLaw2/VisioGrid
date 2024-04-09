@@ -1,5 +1,6 @@
 use std::fs;
 use tokio::sync::RwLock;
+use crate::utils::logging::*;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -35,13 +36,28 @@ pub struct Config {
 impl Config {
     pub fn new() -> Self {
         //Seriously, the program must be terminated.
-        let toml_string = fs::read_to_string("./management.toml").expect("No configuration found.");
-        let config_table: ConfigTable = toml::from_str(&toml_string).expect("Unable parse configuration.");
-        let config = config_table.config;
-        if !Self::validate(&config) {
-            panic!("Invalid configuration.");
+        match fs::read_to_string("./management.toml") {
+            Ok(toml_string) => {
+                match toml::from_str::<ConfigTable>(&toml_string) {
+                    Ok(config_table) => {
+                        let config = config_table.config;
+                        if !Self::validate(&config) {
+                            logging_emergency!("Config", "Invalid configuration file", "");
+                            panic!("Invalid configuration file");
+                        }
+                        config
+                    },
+                    Err(err) => {
+                        logging_emergency!("Config", "Unable to parse configuration file", format!("Err: {err}"));
+                        panic!("Unable to parse configuration file");
+                    },
+                }
+            },
+            Err(err) => {
+                logging_emergency!("Config", "Configuration file not found", format!("Err: {err}"));
+                panic!("Configuration file not found");
+            },
         }
-        config
     }
 
     pub async fn now() -> Config {

@@ -5,7 +5,7 @@ use std::str::FromStr;
 use tokio::io::AsyncWriteExt;
 use actix_multipart::Multipart;
 use sanitize_filename::sanitize;
-use futures::{self, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use actix_web::{get, post, web, Scope, HttpResponse, Responder};
 use crate::management::utils::task::Task;
 use crate::utils::static_files::StaticFiles;
