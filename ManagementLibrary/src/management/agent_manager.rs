@@ -99,10 +99,7 @@ impl AgentManager {
     pub async fn get_agent(agent_id: Uuid) -> Option<Arc<RwLock<Agent>>> {
         let agent_manager = Self::instance().await;
         let agent = agent_manager.agents.get(&agent_id);
-        match agent {
-            Some(agent) => Some(agent.clone()),
-            None => None
-        }
+        agent.cloned()
     }
 
     pub async fn store_state(uuid: Uuid, state: AgentState) {
