@@ -54,12 +54,12 @@ impl ControlChannelReceiver {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 if stop_signal.send(()).is_ok() {
-                    logging_information!("Control Channel", "Successfully destroyed Receiver", "");
+                    logging_information!("Control Channel", "Successfully destroyed Receiver");
                 } else {
-                    logging_error!("Control Channel", "Failed to destroy Receiver", "");
+                    logging_error!("Control Channel", "Failed to destroy Receiver");
                 }
             },
-            None => logging_error!("Control Channel", "Failed to destroy Receiver", ""),
+            None => logging_error!("Control Channel", "Failed to destroy Receiver"),
         }
     }
 }

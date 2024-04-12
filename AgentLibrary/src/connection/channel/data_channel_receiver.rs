@@ -71,12 +71,12 @@ impl DataChannelReceiver {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 if stop_signal.send(()).is_ok() {
-                    logging_information!("Data Channel", "Successfully destroyed the Receiver", "");
+                    logging_information!("Data Channel", "Successfully destroyed the Receiver");
                 } else {
-                    logging_error!("Data Channel", "Failed to destroy Receiver", "");
+                    logging_error!("Data Channel", "Failed to destroy Receiver");
                 }
             },
-            None => logging_error!("Data Channel", "Failed to destroy Receiver", ""),
+            None => logging_error!("Data Channel", "Failed to destroy Receiver"),
         }
     }
 }

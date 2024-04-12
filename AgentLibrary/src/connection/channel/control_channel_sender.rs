@@ -30,19 +30,19 @@ impl ControlChannelSender {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
                 if stop_signal.send(()).is_ok() {
-                    logging_info!("Control Channel", "Successfully destroyed Sender", "");
+                    logging_information!("Control Channel", "Successfully destroyed Sender");
                 } else {
-                    logging_error!("Control Channel", "Failed to destroy Sender", "");
+                    logging_error!("Control Channel", "Failed to destroy Sender");
                 }
             },
-            None => logging_error!("Control Channel", "Failed to destroy Sender", ""),
+            None => logging_error!("Control Channel", "Failed to destroy Sender"),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if self.sender_tx.send(packet).is_err() {
-            logging_notice!("Control Channel", "Channel has been closed", "");
+            logging_notice!("Control Channel", "Channel has been closed");
         }
     }
 }

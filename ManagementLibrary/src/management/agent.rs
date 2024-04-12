@@ -398,13 +398,13 @@ impl Agent {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
         let mut require_send: Vec<usize> = (0..sent_packets.len()).collect();
-        let time = Instant::now();
+        let mut timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);
         loop {
             if AgentManager::get_state(uuid).await == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
-            if time.elapsed() > timeout_duration {
+            if timer.elapsed() > timeout_duration {
                 AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
                 Err(notice_entry!("Agent", "Data channel timeout"))?;
             }
@@ -416,6 +416,7 @@ impl Agent {
                         Err(warning_entry!("Agent", "Missing file block"))?
                     }
                 }
+                require_send = Vec::new();
                 data_channel_sender.send(FileTransferEndPacket::new()).await;
             } else {
                 AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
@@ -428,6 +429,7 @@ impl Agent {
                         match packet {
                             Some(packet) => {
                                 clear_unbounded_channel(&mut data_channel_receiver.file_transfer_result_packet).await;
+                                timer = Instant::now();
                                 let file_transfer_result = serde_json::from_slice::<FileTransferResult>(packet.as_data_byte())
                                     .map_err(|_| error_entry!("Agent", "Unable to parse packet data"))?;
                                 match file_transfer_result.into() {

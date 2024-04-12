@@ -46,7 +46,7 @@ impl Agent {
         let (mut control_channel_sender, mut control_channel_receiver) = ControlChannel::new(socket_stream);
         let mut information_confirm = false;
         let information = serde_json::to_vec(&Monitor::get_system_info().await)
-            .map_err(|_| error_entry!("Agent", "Unable to serialized agent information."))?;
+            .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
         let timer = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
@@ -57,7 +57,7 @@ impl Agent {
                     control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
                 } else {
                     let performance = serde_json::to_vec(&Monitor::get_performance().await)
-                        .map_err(|_| error_entry!("Agent", "Unable to serialized performance data."))?;
+                        .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
                     control_channel_sender.send(PerformancePacket::new(performance)).await;
                 }
                 polling_times += 1;
@@ -66,16 +66,16 @@ impl Agent {
                 biased;
                 packet = control_channel_receiver.agent_information_acknowledge_packet.recv() => {
                     let packet = packet
-                        .ok_or(information_entry!("Agent", "Channel has been closed."))?;
+                        .ok_or(information_entry!("Agent", "Channel has been closed"))?;
                     clear_unbounded_channel(&mut control_channel_receiver.agent_information_acknowledge_packet).await;
                     information_confirm = true;
                 },
                 packet = control_channel_receiver.performance_acknowledge_packet.recv() => {
                     let packet = packet
-                        .ok_or(information_entry!("Agent", "Channel has been closed."))?;
+                        .ok_or(information_entry!("Agent", "Channel has been closed"))?;
                     clear_unbounded_channel(&mut control_channel_receiver.performance_acknowledge_packet).await;
                     if !information_confirm {
-                        Err(error_entry!("Agent", "Agent information not acknowledge."))?;
+                        Err(error_entry!("Agent", "Wrong packet delivery order"))?;
                     }
                     let agent = Self {
                         previous_task_uuid: None,
@@ -89,7 +89,7 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Err(information_entry!("Agent", "Fail create instance. Connection Channel timeout."))
+        Err(information_entry!("Agent", "Control channel timeout"))
     }
 
     pub async fn run(agent: Arc<RwLock<Agent>>) {
@@ -115,7 +115,7 @@ impl Agent {
                 return;
             }
             if timeout_timer.elapsed() > timeout_duration {
-                logging_warning!("Agent", "Control Channel timeout.");
+                logging_warning!("Agent", "Control Channel timeout");
                 break;
             }
             if polling_timer.elapsed() > polling_times * polling_interval {
@@ -123,7 +123,7 @@ impl Agent {
                 if let Ok(performance_data) = serde_json::to_vec(&performance) {
                     agent.write().await.control_channel_sender.send(PerformancePacket::new(performance_data)).await;
                 } else {
-                    logging_error!("Agent", "Unable to serialized performance data.");
+                    logging_error!("Agent", "Unable to serialize data");
                 }
             }
             let mut agent = agent.write().await;
@@ -134,7 +134,7 @@ impl Agent {
                         clear_unbounded_channel(&mut agent.control_channel_receiver.performance_acknowledge_packet).await;
                         timeout_timer = Instant::now();
                     } else {
-                        logging_info!("Agent", "Channel has been closed.");
+                        logging_info!("Agent", "Channel has been closed");
                         break;
                     }
                 },
@@ -179,13 +179,13 @@ impl Agent {
                             match serde_json::from_slice::<AgentState>(packet.as_data_byte()) {
                                 Some(state) => Manager::store_state(state).await,
                                 None => {
-                                    logging_error!("Agent", "Unable to parse control state.");
+                                    logging_error!("Agent", "Unable to parse packet data");
                                     continue;
                                 },
                             }
                         },
                         None => {
-                            logging_warning!("Agent", "Channel has been closed.");
+                            logging_warning!("Agent", "Channel has been closed");
                             Manager::store_state(AgentState::Terminate).await;
                         },
                     }
@@ -227,10 +227,10 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let task_info = loop {
             if Manager::get_state() == AgentState::Terminate {
-                Err(information_entry!("Agent", "Terminating. Receive task info cancel."))?;
+                Err(information_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
-                Err(information_entry!("Agent", "Data Channel timeout."))?;
+                Err(information_entry!("Agent", "Data Channel timeout"))?;
             }
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
@@ -300,7 +300,7 @@ impl Agent {
         let config = Config::now().await;
         let mut file_block: HashMap<usize, Vec<u8>> = HashMap::new();
         let mut missing_blocks = Vec::new();
-        let timer = Instant::now();
+        let mut timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         loop {
             if Manager::get_state() == AgentState::Terminate {
@@ -316,7 +316,8 @@ impl Agent {
                         let packet = &packet
                             .ok_or(warning_entry!("Agent", "Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.file_body_packet).await;
-                        let (sequence_bytes, file_body) = packet.data.split_at(std::mem::size_of::<usize>());
+                        timer = Instant::now();
+                        let (sequence_bytes, file_body) = packet.data.split_at(mem::size_of::<usize>());
                         let sequence_number = usize::from_be_bytes(sequence_bytes.try_into().map_err(|_| error_entry!("Agent", "Unable to parse file body."))?);
                         file_block.insert(sequence_number, Vec::from(file_body));
                         continue;
@@ -325,6 +326,7 @@ impl Agent {
                         let packet = &packet
                             .ok_or(warning_entry!("Agent", "Channel has been closed."))?;
                         clear_unbounded_channel(&mut data_channel_receiver.file_transfer_end_packet).await;
+                        timer = Instant::now();
                         for sequence_number in 0..file_header.packet_count {
                             if !file_block.contains_key(&sequence_number) {
                                 missing_blocks.push(sequence_number);

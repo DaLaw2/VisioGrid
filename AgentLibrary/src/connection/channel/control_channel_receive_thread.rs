@@ -34,16 +34,16 @@ impl ReceiveThread {
                             PacketType::DataChannelPortPacket => self.receiver_tx.data_channel_port_packet.send(packet),
                             PacketType::ResultAcknowledgePacket => self.receiver_tx.performance_acknowledge_packet.send(packet),
                             _ => {
-                                logging_warning!("Receive Thread", "Receive unexpected packet", "");
+                                logging_warning!("Receive Thread", "Receive unexpected packet");
                                 Ok(())
                             },
                         };
                         if result.is_err() {
-                            logging_notice!("Receive Thread", "Channel has been closed", "");
+                            logging_notice!("Receive Thread", "Channel has been closed");
                             break;
                         }
                     } else {
-                        logging_notice!("Receive Thread", "Management side disconnected", "");
+                        logging_notice!("Receive Thread", "Management side disconnected");
                         break;
                     }
                 },
