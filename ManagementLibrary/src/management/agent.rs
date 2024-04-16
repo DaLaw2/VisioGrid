@@ -71,7 +71,7 @@ impl Agent {
                         .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
                     clear_unbounded_channel(&mut control_channel_receiver.agent_information_packet).await;
                     let information = serde_json::from_slice::<AgentInformation>(packet.as_data_byte())
-                        .map_err(|err| error_entry!("Agent", "Unable to parse packet data", err))?;
+                        .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
                     agent_information = Some(information);
                     control_channel_sender.send(AgentInformationAcknowledgePacket::new()).await;
                 },
@@ -80,7 +80,7 @@ impl Agent {
                         .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
                     clear_unbounded_channel(&mut control_channel_receiver.performance_packet).await;
                     let realtime_usage = serde_json::from_slice::<Performance>(packet.as_data_byte())
-                        .map_err(|err| error_entry!("Agent", "Unable to parse packet data", err))?;
+                        .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
                     let information = agent_information
                         .ok_or(error_entry!("Agent", "Wrong packet delivery order"))?;
                     control_channel_sender.send(PerformanceAcknowledgePacket::new()).await;
@@ -258,7 +258,7 @@ impl Agent {
             Agent::transfer_file(agent.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
             AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;
-            Err(warning_entry!("Agent", "ata channel is not ready"))?
+            Err(warning_entry!("Agent", "Data channel is not ready"))?
         }
         Ok(())
     }
@@ -268,7 +268,7 @@ impl Agent {
         let config = Config::now().await;
         let task_info = TaskInfo::new(image_task.task_uuid, image_task.model_filename.clone(), image_task.model_type);
         let task_info_data = serde_json::to_vec(&task_info)
-            .map_err(|_| error_entry!("Agent", "Unable to serialize data"))?;
+            .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
         let timer = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
@@ -327,7 +327,7 @@ impl Agent {
             .len();
         let file_header = FileHeader::new(filename.clone(), filesize as usize);
         let file_header_data = serde_json::to_vec(&file_header)
-            .map_err(|_| error_entry!("Agent", "Unable to serialize data"))?;
+            .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
         let timer = Instant::now();
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
@@ -413,7 +413,7 @@ impl Agent {
                     if let Some(data) = sent_packets.get(*chunk) {
                         data_channel_sender.send(FileBodyPacket::new(data.clone())).await;
                     } else {
-                        Err(warning_entry!("Agent", "Missing file block"))?
+                        Err(error_entry!("Agent", "Missing file block"))?
                     }
                 }
                 require_send = Vec::new();
@@ -431,7 +431,7 @@ impl Agent {
                                 clear_unbounded_channel(&mut data_channel_receiver.file_transfer_result_packet).await;
                                 timer = Instant::now();
                                 let file_transfer_result = serde_json::from_slice::<FileTransferResult>(packet.as_data_byte())
-                                    .map_err(|_| error_entry!("Agent", "Unable to parse packet data"))?;
+                                    .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
                                 match file_transfer_result.into() {
                                     Some(missing_chunks) => require_send = missing_chunks,
                                     None => return Ok(()),
@@ -492,10 +492,9 @@ impl Agent {
                     packet = data_channel_receiver.result_packet.recv() => {
                         if let Some(packet) = &packet {
                             clear_unbounded_channel(&mut data_channel_receiver.result_packet).await;
-                            if let Ok(task_result) = serde_json::from_slice::<TaskResult>(packet.as_data_byte()) {
-                                break task_result.into();
-                            } else {
-                                Err(error_entry!("Agent", "Unable to parse packet data"))?;
+                            match serde_json::from_slice::<TaskResult>(packet.as_data_byte()) {
+                                Ok(task_result) => break task_result.into(),
+                                Err(err) => Err(error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?,
                             }
                         } else {
                             AgentManager::store_state(uuid, AgentState::CreateDataChannel).await;

@@ -11,10 +11,10 @@ use imageproc::rect::Rect;
 use std::io::{Read, Write};
 use image::{Rgb, RgbImage};
 use zip::write::FileOptions;
-use rusttype::{Font, Scale};
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use ab_glyph::{FontVec, PxScale};
 use gstreamer_pbutils::prelude::*;
 use gstreamer_pbutils::Discoverer;
 use tokio_stream::wrappers::ReadDirStream;
@@ -204,7 +204,7 @@ impl FileManager {
 
     async fn extract_video_info(video_path: &PathBuf) -> Result<(), LogEntry> {
         let absolute_path = video_path.canonicalize()
-            .map_err(|err| error_entry!("File Manager", "Unable to get absolute path", format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to get absolute path", format!("Path: {}, Err: {}", video_path.display(), err)))?;
         let clean_path = absolute_path.to_string_lossy().trim_start_matches(r"\\?\").replace("\\", "/");
         let discoverer = Discoverer::new(gstreamer::ClockTime::from_seconds(5))
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
@@ -230,7 +230,7 @@ impl FileManager {
         let toml_string = toml::to_string(&video_info)
             .map_err(|err| error_entry!("File Manager", "Unable to serialize data", format!("Err: {err}")))?;
         fs::write(&toml_path, toml_string).await
-            .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("File:{}, Err: {}", toml_path.display(), err)))?;
         Ok(())
     }
 
@@ -282,21 +282,21 @@ impl FileManager {
     fn extract_zip(zip_path: &PathBuf) -> Result<(), LogEntry> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = File::open(zip_path)
-            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File:{} Err: {}", zip_path.display(), err)))?;
         let mut archive = ZipArchive::new(reader)
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let output_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)
-                .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("Err: {err}")))?;
+                .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("File: {}, Err: {}", zip_path.display(), err)))?;
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
                     if allowed_extensions.contains(&extension.to_str().unwrap_or("")) {
                         let output_path = output_folder.join(enclosed_path.file_name().unwrap_or_default());
                         let mut output_file = File::create(&output_path)
-                            .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("Err: {err}")))?;
+                            .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", output_path.display(), err)))?;
                         std::io::copy(&mut file, &mut output_file)
-                            .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("Err: {err}")))?;
+                            .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("File: {}, Err: {}", output_path.display(), err)))?;
                     }
                 }
             }
@@ -311,30 +311,30 @@ impl FileManager {
                     Ok(count) => {
                         task.update_unprocessed(count).await;
                         Self::forward_to_task_manager(task).await;
-                    },
+                    }
                     Err(entry) => {
                         task.panic("Unable to read folder".to_string()).await;
                         logging_entry!(entry);
-                    },
+                    }
                 }
-            },
+            }
             Ok(Err(entry)) => {
                 task.panic(entry.message.clone()).await;
                 logging_entry!(entry);
-            },
+            }
             Err(err) => {
                 task.panic("Panic occurs during execution".to_string()).await;
-                logging_critical!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
-            },
+                logging_error!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
+            }
         }
     }
 
-    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &Font<'_>) -> Result<RgbImage, LogEntry> {
+    async fn draw_bounding_box(image_task: &ImageTask, config: &Config, font: &FontVec) -> Result<RgbImage, LogEntry> {
         let border_color = Rgb(config.border_color);
         let text_color = Rgb(config.text_color);
         let image_path = image_task.image_filepath.clone();
         let mut image = image::open(&image_path)
-            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File: {}, Err: {}", image_path.display(), err)))?
             .to_rgb8();
         for bounding_box in &image_task.bounding_boxes {
             let base_rectangle = Rect::at(bounding_box.xmin as i32, bounding_box.ymin as i32).of_size(bounding_box.xmax - bounding_box.xmin, bounding_box.ymax - bounding_box.ymin);
@@ -342,7 +342,7 @@ impl FileManager {
                 let offset_rect = Rect::at(base_rectangle.left() - i as i32, base_rectangle.top() - i as i32).of_size(base_rectangle.width() + 2 * i, base_rectangle.height() + 2 * i);
                 draw_hollow_rect_mut(&mut image, offset_rect, border_color);
             }
-            let scale = Scale::uniform(config.font_size);
+            let scale = PxScale::from(config.font_size);
             let text = format!("{name}: {confidence:.2}%", name = bounding_box.name, confidence = bounding_box.confidence);
             let position_x = bounding_box.xmin as i32;
             let position_y = (bounding_box.ymax + config.border_width + 10) as i32;
@@ -357,7 +357,7 @@ impl FileManager {
             let font_path = &config.font_path;
             match fs::read(font_path).await {
                 Ok(font_data) => {
-                    if let Some(font) = Font::try_from_bytes(&font_data) {
+                    if let Ok(font) = FontVec::try_from_vec(font_data) {
                         let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
                         match Self::draw_bounding_box(image_task, &config, &font).await {
                             Ok(image) => {
@@ -366,24 +366,24 @@ impl FileManager {
                                     Err(err) => {
                                         task.panic("Unable to write file".to_string()).await;
                                         logging_error!("File Manager", "Unable to write file", format!("Err: {err}"));
-                                    },
+                                    }
                                 }
-                            },
+                            }
                             Err(entry) => {
                                 task.panic(entry.message.clone()).await;
                                 logging_entry!(entry);
-                            },
+                            }
                         }
                     } else {
                         task.panic("Unable to parse data in file".to_string()).await;
                         logging_error!("File Manager", "Unable to parse data in file");
                     }
-                },
+                }
                 Err(err) => {
                     let error_message = "Unable to read file".to_string();
                     task.panic(error_message).await;
                     logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
-                },
+                }
             }
         } else {
             task.panic("Missing tasks".to_string()).await;
@@ -393,17 +393,18 @@ impl FileManager {
 
     async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) -> Result<(), LogEntry> {
         fs::create_dir(&create_folder).await
-            .map_err(|err| error_entry!("File Manager", format!("Cannot create folder {}", create_folder.display()), format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "Cannot create folder", format!("Folder: {}, Err: {}", create_folder.display(), err)))?;
         let config = Config::now().await;
-        let font_data = fs::read(&config.font_path).await
-            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?;
-        let font = Font::try_from_bytes(&font_data)
-            .ok_or(error_entry!("File Manager", "Unable to parse data in file"))?;
+        let font_path = &config.font_path;
+        let font_data = fs::read(font_path).await
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File: {}, Err: {}", font_path, err)))?;
+        let font = FontVec::try_from_vec(font_data)
+            .map_err(|err| error_entry!("File Manager", "Unable to parse data in file", format!("File: {}, Err: {}", font_path, err)))?;
         for image_task in &task.result {
             let saved_path = create_folder.join(image_task.image_filename.clone());
             let image = Self::draw_bounding_box(image_task, &config, &font).await?;
             image.save(&saved_path)
-                .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("Err: {err}")))?;
+                .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("File: {}, Err: {}", saved_path.display(), err)))?;
         }
         Ok(())
     }
@@ -425,7 +426,7 @@ impl FileManager {
 
     fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, target_path: PathBuf) -> Result<(), LogEntry> {
         let toml_str = std::fs::read_to_string(&video_info_path)
-            .map_err(|err| error_entry!("File Manager", format!("Unable to read file {}", video_info_path.display()), format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File: {}, Err: {}", video_info_path.display(), err)))?;
         let video_info: VideoInfo = toml::from_str(&toml_str).unwrap_or_default();
         let bitrate = video_info.bitrate;
         let encoder = match video_info.format.as_str() {
@@ -483,30 +484,31 @@ impl FileManager {
     }
 
     fn recombination_zip(source_folder: PathBuf, target_path: PathBuf) -> Result<(), LogEntry> {
-        let file = File::create(&target_path).map_err(|err| error_entry!("File Manager", "Unable to create file", format!("Err: {err}")))?;
+        let file = File::create(&target_path)
+            .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", target_path.display(), err)))?;
         let mut zip = ZipWriter::new(file);
         let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
         for entry in std::fs::read_dir(&source_folder)
-            .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Err: {err}")))?
+            .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Folder: {}, Err: {}", source_folder.display(), err)))?
         {
             let entry = entry.map_err(|err|
-                error_entry!("File Manager", "An error occurred while reading the folder", format!("Err: {err}")))?;
+                error_entry!("File Manager", "An error occurred while reading the folder", format!("Folder: {}, Err: {}", source_folder.display(), err)))?;
             let path = entry.path();
             let file_name = path.file_name().ok_or(
                 error_entry!("File Manager", "Invalid file")
             )?.to_string_lossy();
-            zip.start_file(file_name, options)
-                .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("Err: {err}")))?;
+            zip.start_file(file_name.clone(), options)
+                .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", file_name.clone(), err)))?;
             let mut file_contents = Vec::new();
             File::open(&path)
-                .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("Err: {err}")))?
+                .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File: {}, Err: {}", path.display(), err)))?
                 .read_to_end(&mut file_contents)
-                .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("Err: {err}")))?;
+                .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("File: {}, Err: {}", path.display(), err)))?;
             zip.write_all(&file_contents)
-                .map_err(|err| error_entry!("File Manager", "An error occurred while writing the file", format!("Err: {err}")))?;
+                .map_err(|err| error_entry!("File Manager", "An error occurred while writing the file", format!("File: {}, Err: {}", file_name, err)))?;
         }
         zip.finish()
-            .map_err(|err| error_entry!("File Manager", "An error occurred while writing the file", format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "An error occurred while writing the file", format!("File: {}, Err: {}", target_path.display(), err)))?;
         Ok(())
     }
 
@@ -519,14 +521,14 @@ impl FileManager {
             }
             Err(err) => {
                 task.panic("Panic occurs during execution".to_string()).await;
-                logging_critical!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
+                logging_error!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
             }
         }
     }
 
     async fn file_count(path: &PathBuf) -> Result<usize, LogEntry> {
         let read_dir = fs::read_dir(path).await
-            .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Err: {err}")))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Folder: {}, Err: {}", path.display(), err)))?;
         let dir_entries = ReadDirStream::new(read_dir);
         let count = dir_entries.filter_map(|entry| async {
             entry.ok().and_then(|e| if e.path().is_file() { Some(()) } else { None })

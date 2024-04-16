@@ -23,7 +23,7 @@ Error, 綁定連接埠失敗, Failed to bind port,
 
 檔案相關
 Information, 創建 {} 資料夾成功, Creating {} folder successfully,
-Critical/Error, 無法創建資料夾 {}, Cannot create folder {},
+Critical, 無法創建資料夾 {}, Cannot create folder {},
 Information, 刪除 {} 資料夾成功, Delete {} folder successfully,
 
 Error, 無效的檔案, Invalid file,
@@ -77,4 +77,4 @@ Emergency, 無法解析配置文件, Unable to parse Unable to parse configurati
 Information, 網頁服務就緒, Web service ready,
 Emergency, 網頁服務運行時發生錯誤, An error occurred while running the web service,
 
-Critical, 執行過程中發生恐慌, Panic occurs during execution,
+Error, 執行過程中發生恐慌, Panic occurs during execution,

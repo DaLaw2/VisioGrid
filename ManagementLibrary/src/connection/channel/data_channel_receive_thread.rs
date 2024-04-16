@@ -48,7 +48,7 @@ impl ReceiveThread {
                             return;
                         }
                     } else {
-                        logging_notice!(self.agent_id, "Receive Thread", "Management side disconnected");
+                        logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected");
                         return;
                     }
                 },

@@ -9,6 +9,7 @@ use tokio::net::TcpStream;
 use std::collections::HashMap;
 use tokio::fs::File;
 use tokio::time::{Instant, sleep};
+use Common::management::utils::file_transfer_result::FileTransferResult;
 use crate::utils::logging::*;
 use crate::utils::config::Config;
 use crate::connection::packet::Packet;
@@ -66,13 +67,13 @@ impl Agent {
                 biased;
                 packet = control_channel_receiver.agent_information_acknowledge_packet.recv() => {
                     let packet = packet
-                        .ok_or(information_entry!("Agent", "Channel has been closed"))?;
+                        .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
                     clear_unbounded_channel(&mut control_channel_receiver.agent_information_acknowledge_packet).await;
                     information_confirm = true;
                 },
                 packet = control_channel_receiver.performance_acknowledge_packet.recv() => {
                     let packet = packet
-                        .ok_or(information_entry!("Agent", "Channel has been closed"))?;
+                        .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
                     clear_unbounded_channel(&mut control_channel_receiver.performance_acknowledge_packet).await;
                     if !information_confirm {
                         Err(error_entry!("Agent", "Wrong packet delivery order"))?;
@@ -115,7 +116,7 @@ impl Agent {
                 return;
             }
             if timeout_timer.elapsed() > timeout_duration {
-                logging_warning!("Agent", "Control Channel timeout");
+                logging_notice!("Agent", "Control Channel timeout");
                 break;
             }
             if polling_timer.elapsed() > polling_times * polling_interval {
@@ -134,7 +135,7 @@ impl Agent {
                         clear_unbounded_channel(&mut agent.control_channel_receiver.performance_acknowledge_packet).await;
                         timeout_timer = Instant::now();
                     } else {
-                        logging_info!("Agent", "Channel has been closed");
+                        logging_notice!("Agent", "Channel has been closed");
                         break;
                     }
                 },
@@ -340,14 +341,15 @@ impl Agent {
             }
             if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
                 if missing_blocks.len() != 0_usize {
-                    let result = Some(mem::take(&mut missing_blocks));
+                    let missing_blocks = mem::take(&mut missing_blocks);
+                    let result = FileTransferResult::new(Some(missing_blocks));
                     let result_data = serde_json::to_vec(&result)
-                        .map_err(|_| error_entry!("Agent", "Unable to serialized result data."))?;
+                        .map_err(|err| error_entry!("Agent", "Unable to serialized result data.", format!("Err: {err}")))?;
                     data_channel_sender.send(FileTransferResultPacket::new(result_data)).await;
                 } else {
-                    let result: Option<Vec<usize>> = None;
+                    let result = FileTransferResult::new(None);
                     let result_data = serde_json::to_vec(&result)
-                        .map_err(|_| error_entry!("Agent", "Unable to serialized result data."))?;
+                        .map_err(|err| error_entry!("Agent", "Unable to serialized result data.", format!("Err: {err}")))?;
                     data_channel_sender.send(FileTransferResultPacket::new(result_data)).await;
                     let mut sorted_blocks: Vec<Vec<u8>> = Vec::with_capacity(file_header.packet_count);
                     for index in 0..file_header.packet_count {
