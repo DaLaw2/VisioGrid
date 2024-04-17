@@ -258,6 +258,7 @@ impl Agent {
             Agent::transfer_task_info(agent.clone(), &image_task).await?;
             if need_transfer_model {
                 Agent::transfer_file(agent.clone(), &image_task.model_filename, &image_task.model_filepath).await?;
+                agent.write().await.previous_task_uuid = Some(image_task.task_uuid);
             }
             Agent::transfer_file(agent.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
@@ -270,7 +271,7 @@ impl Agent {
     async fn transfer_task_info(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
         let uuid = agent.read().await.uuid;
         let config = Config::now().await;
-        let task_info = TaskInfo::new(image_task.task_uuid, image_task.model_filename.clone(), image_task.model_type);
+        let task_info = TaskInfo::new(image_task.task_uuid, image_task.image_filename.clone(), image_task.model_filename.clone(), image_task.model_type);
         let task_info_data = serde_json::to_vec(&task_info)
             .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
         let timer = Instant::now();

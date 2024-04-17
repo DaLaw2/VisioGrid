@@ -7,6 +7,12 @@ pub struct TaskResult {
 }
 
 impl TaskResult {
+    pub fn new(result: Result<Vec<BoundingBox>, String>) -> Self {
+        Self {
+            result,
+        }
+    }
+
     pub fn into(self) -> Result<Vec<BoundingBox>, String> {
         self.result
     }

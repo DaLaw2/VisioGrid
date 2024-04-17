@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use ManagementLibrary::management::manager::Management;
+use ManagementLibrary::management::management::Management;
 
 #[actix_web::main]
 async fn main() {

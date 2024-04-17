@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
-use AgentLibrary::management::monitor::Monitor;
+use AgentLibrary::management::management::Management;
 
 #[tokio::main]
 async fn main() {
-    Monitor::run().await;
-    loop {}
+    Management::run().await;
+    Management::terminate().await;
 }

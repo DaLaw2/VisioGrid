@@ -6,14 +6,16 @@ use crate::management::utils::model_type::ModelType;
 pub struct TaskInfo {
     pub uuid: Uuid,
     pub model_filename: String,
+    pub image_filename: String,
     pub model_type: ModelType,
 }
 
 impl TaskInfo {
-    pub fn new(uuid: Uuid, model_filename: String, model_type: ModelType) -> Self {
+    pub fn new(uuid: Uuid, model_filename: String, image_filename: String, model_type: ModelType) -> Self {
         Self {
             uuid,
             model_filename,
+            image_filename,
             model_type,
         }
     }

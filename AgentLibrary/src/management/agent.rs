@@ -10,10 +10,13 @@ use tokio::io::AsyncWriteExt;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::time::{Instant, sleep};
+use crate::management::utils::bounding_box::BoundingBox;
+use crate::management::utils::model_type::ModelType;
+use crate::management::utils::task_result::TaskResult;
 use crate::utils::logging::*;
 use crate::utils::config::Config;
 use crate::connection::packet::Packet;
-use crate::management::manager::Manager;
+use crate::management::management::Management;
 use crate::management::monitor::Monitor;
 use crate::utils::clear_unbounded_channel;
 use crate::management::utils::task_info::TaskInfo;
@@ -33,6 +36,8 @@ use crate::connection::packet::control_acknowledge_packet::ControlAcknowledgePac
 use crate::connection::packet::file_transfer_result_packet::FileTransferResultPacket;
 use crate::connection::packet::task_info_acknowledge_packet::TaskInfoAcknowledgePacket;
 use crate::connection::packet::file_header_acknowledge_packet::FileHeaderAcknowledgePacket;
+use crate::connection::packet::result_packet::ResultPacket;
+use crate::management::calculate_manager::CalculateManager;
 
 pub struct Agent {
     previous_task_uuid: Option<Uuid>,
@@ -113,7 +118,7 @@ impl Agent {
         let mut timeout_timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         loop {
-            if Manager::get_state().await == AgentState::Terminate {
+            if Management::get_state().await == AgentState::Terminate {
                 return;
             }
             if timeout_timer.elapsed() > timeout_duration {
@@ -143,13 +148,13 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Manager::store_state(AgentState::Terminate).await;
+        Management::store_state(AgentState::Terminate).await;
     }
 
     async fn management(agent: Arc<RwLock<Agent>>) {
         loop {
             Self::refresh_state(agent.clone()).await;
-            let state = Manager::get_state().await;
+            let state = Management::get_state().await;
             match state {
                 AgentState::ProcessTask => Self::process_task(agent.clone()).await,
                 AgentState::Idle(idle_time) => Self::idle(agent.clone(), Duration::from_secs(idle_time)).await,
@@ -167,9 +172,9 @@ impl Agent {
         let config = Config::now().await;
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-        while Manager::get_state().await != AgentState::Terminate {
+        while Management::get_state().await != AgentState::Terminate {
             if timer.elapsed() > timeout_duration {
-                Manager::store_state(AgentState::Terminate).await;
+                Management::store_state(AgentState::Terminate).await;
                 return;
             }
             let mut agent = agent.write().await;
@@ -179,7 +184,7 @@ impl Agent {
                         Some(packet) => {
                             clear_unbounded_channel(&mut agent.control_channel_receiver.control_packet).await;
                             match serde_json::from_slice::<AgentState>(packet.as_data_byte()) {
-                                Ok(state) => Manager::store_state(state).await,
+                                Ok(state) => Management::store_state(state).await,
                                 Err(err) => {
                                     logging_error!("Agent", "Unable to parse packet data", format!("Err: {err}"));
                                     continue;
@@ -188,7 +193,7 @@ impl Agent {
                         },
                         None => {
                             logging_notice!("Agent", "Channel has been closed");
-                            Manager::store_state(AgentState::Terminate).await;
+                            Management::store_state(AgentState::Terminate).await;
                         },
                     }
                 },
@@ -200,15 +205,27 @@ impl Agent {
     }
 
     async fn process_task(agent: Arc<RwLock<Agent>>) {
-        if let Err(entry) = Self::receive_task(agent.clone()).await {
-            logging_entry!(entry);
-        }
-        if let Err(entry) = Self::inference_task(agent.clone()).await {
+        let result = match Self::receive_task(agent.clone()).await {
+            Ok(task_info) => {
+                match Self::inference_task(task_info).await {
+                    Ok(bounding_box) => Ok(bounding_box),
+                    Err(entry) => {
+                        logging_entry!(entry.clone());
+                        Err(entry.message)
+                    },
+                }
+            },
+            Err(entry) => {
+                logging_entry!(entry.clone());
+                Err(entry.message)
+            },
+        };
+        if let Err(entry) = Self::send_result(agent.clone(), result).await {
             logging_entry!(entry);
         }
     }
 
-    async fn receive_task(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
+    async fn receive_task(agent: Arc<RwLock<Agent>>) -> Result<TaskInfo, LogEntry> {
         let task_info = Self::receive_task_info(agent.clone()).await?;
         let previous_task_uuid = agent.read().await.previous_task_uuid;
         let need_receive_model = if let Some(previous_task_uuid) = previous_task_uuid {
@@ -219,10 +236,11 @@ impl Agent {
         if need_receive_model {
             let model_folder = Path::new(".").join("SavedModel");
             Self::receive_file(agent.clone(), &model_folder).await?;
+            agent.write().await.previous_task_uuid = Some(task_info.uuid);
         }
         let image_folder = Path::new(".").join("SaveFile");
         Self::receive_file(agent.clone(), &image_folder).await?;
-        Ok(())
+        Ok(task_info)
     }
 
     async fn receive_task_info(agent: Arc<RwLock<Agent>>) -> Result<TaskInfo, LogEntry> {
@@ -230,7 +248,7 @@ impl Agent {
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let task_info = loop {
-            if Manager::get_state().await == AgentState::Terminate {
+            if Management::get_state().await == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -271,7 +289,7 @@ impl Agent {
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let file_header = loop {
-            if Manager::get_state().await == AgentState::Terminate {
+            if Management::get_state().await == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -307,7 +325,7 @@ impl Agent {
         let mut timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         loop {
-            if Manager::get_state().await == AgentState::Terminate {
+            if Management::get_state().await == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -360,6 +378,8 @@ impl Agent {
                     for index in 0..file_header.packet_count {
                         if let Some(block) = file_block.remove(&index) {
                             sorted_blocks.push(block);
+                        } else {
+                            Err(error_entry!("Agent", "Missing file block"))?
                         }
                     }
                     return Ok(sorted_blocks);
@@ -381,15 +401,63 @@ impl Agent {
         Ok(())
     }
 
-    async fn inference_task(agent: Arc<RwLock<Agent>>) -> Result<(), LogEntry> {
-        Ok(())
+    async fn inference_task(task_info: TaskInfo) -> Result<Vec<BoundingBox>, LogEntry> {
+        let model_path = Path::new(".").join("SavedModel").join(task_info.model_filename);
+        let image_path = Path::new(".").join("SavedFile").join(task_info.image_filename);
+        return match task_info.model_type {
+            ModelType::Ultralytics =>  CalculateManager::ultralytics_inference(model_path, image_path).await,
+            ModelType::YOLOv4 => CalculateManager::yolov4_inference(model_path, image_path).await,
+            ModelType::YOLOv7 => CalculateManager::yolov7_inference(model_path, image_path).await,
+        };
+    }
+
+    async fn send_result(agent: Arc<RwLock<Agent>>, result: Result<Vec<BoundingBox>, String>) -> Result<(), LogEntry> {
+        let config = Config::now().await;
+        let result = TaskResult::new(result);
+        let result_data = serde_json::to_vec(&result)
+            .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
+        let timer = Instant::now();
+        let mut polling_times = 0_u32;
+        let polling_interval = Duration::from_millis(config.polling_interval);
+        let timeout_duration = Duration::from_secs(config.control_channel_timeout);
+        loop {
+            if Management::get_state().await == AgentState::Terminate {
+                Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
+            }
+            if timer.elapsed() > timeout_duration {
+                Err(notice_entry!("Agent", "Data Channel timeout"))?;
+            }
+            if timer.elapsed() > polling_times * polling_interval {
+                if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
+                    data_channel_sender.send(ResultPacket::new(result_data.clone())).await;
+                } else {
+                    Err(warning_entry!("Agent", "Data Channel is not ready"))?;
+                }
+                polling_times += 1;
+            }
+            if let Some(data_channel_receiver) = agent.write().await.data_channel_receiver.as_mut() {
+                select! {
+                    packet = data_channel_receiver.result_acknowledge_packet.recv() => {
+                        if let Some(_) = packet {
+                            clear_unbounded_channel(&mut data_channel_receiver.result_acknowledge_packet).await;
+                            return Ok(());
+                        } else {
+                            Err(notice_entry!("Agent", "Channel has been closed"))?;
+                        }
+                    },
+                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                }
+            } else {
+                Err(warning_entry!("Agent", "Data Channel is not ready"))?;
+            }
+        }
     }
 
     async fn idle(agent: Arc<RwLock<Agent>>, idle_duration: Duration) {
         let config = Config::now().await;
         let timer = Instant::now();
         loop {
-            if Manager::get_state().await == AgentState::Terminate {
+            if Management::get_state().await == AgentState::Terminate {
                 logging_notice!("Agent", "Terminate. Interrupt current operation");
                 return;
             }
@@ -397,7 +465,7 @@ impl Agent {
                 return;
             }
             let mut agent = agent.write().await;
-            if let Some(data_channel_receiver) = &mut agent.data_channel_receiver {
+            if let Some(data_channel_receiver) = agent.data_channel_receiver.as_mut() {
                 select! {
                     biased;
                     _ = data_channel_receiver.alive_packet.recv() => clear_unbounded_channel(&mut data_channel_receiver.alive_packet).await,
@@ -407,7 +475,7 @@ impl Agent {
                 logging_warning!("Agent", "Data Channel is not available.");
                 return;
             }
-            if let Some(data_channel_sender) = &mut agent.data_channel_sender {
+            if let Some(data_channel_sender) = agent.data_channel_sender.as_mut() {
                 data_channel_sender.send(AliveAcknowledgePacket::new()).await;
             } else {
                 logging_warning!("Agent", "Data Channel is not available.");
@@ -423,12 +491,12 @@ impl Agent {
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         loop {
-            if Manager::get_state().await == AgentState::Terminate {
+            if Management::get_state().await == AgentState::Terminate {
                 logging_notice!("Agent", "Terminate. Interrupt current operation");
                 return;
             }
             if timer.elapsed() > timeout_duration {
-                Manager::store_state(AgentState::Terminate).await;
+                Management::store_state(AgentState::Terminate).await;
                 logging_notice!("Agent", "Control channel timout.");
                 return;
             }
@@ -447,7 +515,7 @@ impl Agent {
                                 continue;
                             }
                         } else {
-                            Manager::store_state(AgentState::Terminate).await;
+                            Management::store_state(AgentState::Terminate).await;
                             logging_notice!("Agent", "Channel has been closed");
                             return;
                         }
@@ -456,8 +524,8 @@ impl Agent {
                 }
             }
             if let Some(port) = port {
-                let full_address = format!("{}:{}", config.management_address, port);
-                match TcpStream::connect(&full_address).await {
+                let address = format!("{}:{}", config.management_address, port);
+                match TcpStream::connect(&address).await {
                     Ok(tcp_stream) => {
                         let socket_stream = SocketStream::new(tcp_stream);
                         let (data_channel_sender, data_channel_receiver) = DataChannel::new(socket_stream);

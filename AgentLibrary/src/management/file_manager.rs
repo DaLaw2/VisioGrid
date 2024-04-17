@@ -1,17 +1,11 @@
 use tokio::fs;
 use tokio::fs::File;
 use std::path::PathBuf;
-use tokio::sync::RwLock;
 use tokio::io::AsyncWriteExt;
-use lazy_static::lazy_static;
 use tokio::process::Command as AsyncCommand;
 use crate::utils::logging::*;
 use crate::utils::static_files::StaticFiles;
 use crate::utils::logging::{Logger, LogLevel};
-
-lazy_static! {
-    static ref FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager {});
-}
 
 pub struct FileManager;
 

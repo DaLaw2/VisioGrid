@@ -1,12 +1,12 @@
 use tokio::fs;
 use uuid::Uuid;
+use std::sync::Arc;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::management::agent::Agent;
 use crate::utils::logging::*;
+use crate::management::agent::Agent;
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::management::utils::image_task::ImageTask;
@@ -37,10 +37,9 @@ impl TaskManager {
 
     pub async fn add_task(mut task: Task) {
         task.change_status(TaskStatus::Processing);
-        {
-            let mut task_manager = Self::instance_mut().await;
-            task_manager.tasks.insert(task.uuid, task.clone());
-        }
+        let mut task_manager = Self::instance_mut().await;
+        task_manager.tasks.insert(task.uuid, task.clone());
+        drop(task_manager);
         tokio::spawn(async move {
             Self::distribute_task(task).await;
         });
@@ -60,6 +59,7 @@ impl TaskManager {
     }
 
     pub async fn distribute_task(task: Task) {
+        // 考慮到刷新效能的不適配問題
         let model_filepath = Path::new(".").join("SavedModel").join(task.model_filename.clone());
         let vram_usage = Self::estimated_vram_usage(&model_filepath).await;
         let filter_agents = AgentManager::filter_agent_by_vram(vram_usage).await;
@@ -75,7 +75,7 @@ impl TaskManager {
                         None => {
                             logging_error!("Task Manager", "Agent instance does not exist");
                             0.0
-                        }
+                        },
                     };
                     if agent_ram > ram_usage * 0.7 {
                         if let Some(agent) = AgentManager::get_agent(agent_id).await {
@@ -92,7 +92,7 @@ impl TaskManager {
                     logging_warning!("Task Manager", format!("Task {} cannot be assigned to any agent", task.uuid));
                     Self::submit_image_task(image_task, false).await;
                 }
-            }
+            },
             Some("mp4") | Some("avi") | Some("mkv") | Some("zip") => {
                 let image_folder = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("");
                 let mut image_folder = match fs::read_dir(&image_folder).await {
@@ -140,11 +140,11 @@ impl TaskManager {
                     }
                     image_id += 1;
                 }
-            }
+            },
             _ => {
                 Self::task_panic(&task.uuid, "Unsupported file type".to_string()).await;
                 notice_entry!("File Manager", format!("Task {}, unsupported file type", task.uuid));
-            }
+            },
         }
     }
 

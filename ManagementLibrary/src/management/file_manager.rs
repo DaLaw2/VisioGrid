@@ -84,6 +84,8 @@ impl FileManager {
     }
 
     pub async fn terminate() {
+        // 需要防止重入函式
+        // 需要等待其他執行緒結束
         logging_information!("File Manager", "Termination in progress");
         Self::instance_mut().await.terminate = true;
         Self::cleanup().await;
@@ -124,9 +126,9 @@ impl FileManager {
                         _ => {
                             logging_error!("File Manager", format!("Task {}, unsupported file type", task.uuid));
                             task.panic("Unsupported file type".to_string()).await;
-                        }
+                        },
                     }
-                }
+                },
                 None => sleep(Duration::from_millis(config.internal_timestamp)).await,
             }
         }
@@ -161,22 +163,21 @@ impl FileManager {
             Ok(_) => {
                 task.update_unprocessed(1).await;
                 Self::forward_to_task_manager(task).await;
-            }
+            },
             Err(err) => {
                 task.panic("Unable to move file".to_string()).await;
                 logging_error!("File Manager", "Unable to move file", format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err));
-            }
+            },
         }
     }
 
     async fn extract_pre_processing(source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) -> Result<(), LogEntry> {
         fs::create_dir(&create_folder).await
-            .map_err(|err| error_entry!("File Manager", "Unable to create folder", format!("Folder:{}, Err: {}", create_folder.display(), err)))?;
+            .map_err(|err|
+                error_entry!("File Manager", "Unable to create folder",format!("Folder:{}, Err: {}", create_folder.display(), err)))?;
         fs::rename(&source_path, &destination_path).await
-            .map_err(|err| {
-                error_entry!("File Manager", "Unable to move file",
-                    format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err))
-            })?;
+            .map_err(|err|
+                error_entry!("File Manager", "Unable to move file",format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err)))?;
         Ok(())
     }
 
@@ -190,6 +191,7 @@ impl FileManager {
             return;
         }
         let video_path = destination_path;
+        let extract_folder = create_folder;
         if let Err(entry) = Self::extract_video_info(&video_path).await {
             task.panic(entry.message.clone()).await;
             logging_entry!(entry);
@@ -198,7 +200,7 @@ impl FileManager {
         let result = spawn_blocking(move || {
             Self::extract_video(video_path)
         }).await;
-        Self::process_extract_result(task, create_folder, result).await;
+        Self::process_extract_result(task, extract_folder, result).await;
     }
 
     async fn extract_video_info(video_path: &PathBuf) -> Result<(), LogEntry> {
@@ -218,17 +220,17 @@ impl FileManager {
                     for field in structure.fields() {
                         match field.as_str() {
                             "framerate" => video_info.framerate = structure.get::<gstreamer::Fraction>(field)
-                                .map_or_else(|_| "30/1".to_string(), |f| format!("{number}/{denom}", number = f.numer(), denom = f.denom())),
-                            _ => {}
+                                .map_or_else(|_| "30/1".to_string(), |f| format!("{}/{}", f.numer(), f.denom())),
+                            _ => {},
                         }
                     }
                 }
             }
         }
         let toml_path = video_path.with_extension("toml");
-        let toml_string = toml::to_string(&video_info)
+        let video_info = toml::to_string(&video_info)
             .map_err(|err| error_entry!("File Manager", "Unable to serialize data", format!("Err: {err}")))?;
-        fs::write(&toml_path, toml_string).await
+        fs::write(&toml_path, video_info).await
             .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("File:{}, Err: {}", toml_path.display(), err)))?;
         Ok(())
     }
@@ -284,14 +286,14 @@ impl FileManager {
             .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File:{}, Err: {}", zip_path.display(), err)))?;
         let mut archive = ZipArchive::new(reader)
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
-        let output_folder = zip_path.clone().with_extension("").to_path_buf();
+        let extract_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)
                 .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("File: {}, Err: {}", zip_path.display(), err)))?;
             if let Some(enclosed_path) = file.enclosed_name() {
                 if let Some(extension) = enclosed_path.extension() {
                     if allowed_extensions.contains(&extension.to_str().unwrap_or("")) {
-                        let output_path = output_folder.join(enclosed_path.file_name().unwrap_or_default());
+                        let output_path = extract_folder.join(enclosed_path.file_name().unwrap_or_default());
                         let mut output_file = File::create(&output_path)
                             .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", output_path.display(), err)))?;
                         std::io::copy(&mut file, &mut output_file)
@@ -310,21 +312,21 @@ impl FileManager {
                     Ok(count) => {
                         task.update_unprocessed(count).await;
                         Self::forward_to_task_manager(task).await;
-                    }
+                    },
                     Err(entry) => {
                         task.panic("Unable to read folder".to_string()).await;
                         logging_entry!(entry);
-                    }
+                    },
                 }
-            }
+            },
             Ok(Err(entry)) => {
                 task.panic(entry.message.clone()).await;
                 logging_entry!(entry);
-            }
+            },
             Err(err) => {
                 task.panic("Panic occurs during execution".to_string()).await;
                 logging_error!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
-            }
+            },
         }
     }
 
@@ -361,12 +363,11 @@ impl FileManager {
                             let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
                             match Self::draw_bounding_box(image_task, &config, &font).await {
                                 Ok(image) => {
-                                    match image.save(&saved_path) {
-                                        Ok(_) => Self::forward_to_repository(task).await,
-                                        Err(err) => {
-                                            task.panic("Unable to write file".to_string()).await;
-                                            logging_error!("File Manager", "Unable to write file", format!("File: {}, Err: {}", saved_path.display(), err));
-                                        }
+                                    if let Err(err) = image.save(&saved_path) {
+                                        task.panic("Unable to write file".to_string()).await;
+                                        logging_error!("File Manager", "Unable to write file", format!("File: {}, Err: {}", saved_path.display(), err));
+                                    } else {
+                                        Self::forward_to_repository(task).await;
                                     }
                                 },
                                 Err(entry) => {
@@ -426,7 +427,7 @@ impl FileManager {
         Self::process_recombination_result(task, result).await;
     }
 
-    fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, target_path: PathBuf) -> Result<(), LogEntry> {
+    fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, saved_path: PathBuf) -> Result<(), LogEntry> {
         let toml_str = std::fs::read_to_string(&video_info_path)
             .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File: {}, Err: {}", video_info_path.display(), err)))?;
         let video_info: VideoInfo = toml::from_str(&toml_str).unwrap_or_default();
@@ -438,13 +439,13 @@ impl FileManager {
             "video/x-vp8" => format!("vp8enc target-bitrate={}", bitrate),
             _ => format!("x265enc bitrate={}", bitrate),
         };
-        let muxer = match target_path.extension().and_then(OsStr::to_str) {
+        let muxer = match saved_path.extension().and_then(OsStr::to_str) {
             Some("mp4") => "mp4mux",
             Some("avi") => "avimux",
             Some("mkv") => "matroskamux",
             _ => "mp4mux",
         };
-        let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, target_path);
+        let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, saved_path);
         let pipeline = gstreamer::parse::launch(&pipeline_string)
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let bus = pipeline.bus().ok_or(error_entry!("File Manager", "Unable to create instance"))?;
@@ -496,9 +497,7 @@ impl FileManager {
             let entry = entry.map_err(|err|
                 error_entry!("File Manager", "An error occurred while reading the folder", format!("Folder: {}, Err: {}", source_folder.display(), err)))?;
             let path = entry.path();
-            let file_name = path.file_name().ok_or(
-                error_entry!("File Manager", "Invalid file")
-            )?.to_string_lossy();
+            let file_name = path.file_name().ok_or(error_entry!("File Manager", "Invalid file"))?.to_string_lossy();
             zip.start_file(file_name.clone(), options)
                 .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", file_name.clone(), err)))?;
             let mut file_contents = Vec::new();

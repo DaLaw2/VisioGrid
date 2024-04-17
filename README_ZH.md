@@ -19,8 +19,8 @@ VisioGrid 是一個使用 Rust 開發的分布式計算平台，專注於圖像�
 ## 安裝和配置
 - 複製倉庫：`git clone https://github.com/DaLaw2/VisioGrid`
 - 從原碼編譯：
-    - 编譯管理節點（Management）需要安裝 GStreamer：`cargo build --release --package Management`
-    - 编譯代理（Agent）需要安裝 LibTorch：`cargo build --release --package Agent`
+    - 编譯管理節點（Management）需要安裝 GStreamer：`cargo build --release --bin Management`
+    - 编譯代理（Agent）需要安裝 LibTorch：`cargo build --release --bin Agent`
 - 使用 Docker 運行：
     - 管理節點（Management）和代理（Agent）的 Docker 容器已包含所有必要依賴，無需手動安裝。
 

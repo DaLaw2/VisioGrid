@@ -7,10 +7,6 @@ use crate::management::utils::bounding_box::BoundingBox;
 pub struct CalculateManager;
 
 impl CalculateManager {
-    fn new() -> Self {
-        Self
-    }
-
     pub async fn ultralytics_inference(model_path: PathBuf, image_path: PathBuf) -> Result<Vec<BoundingBox>, LogEntry> {
         #[cfg(target_os = "windows")]
         let python = "python";
@@ -23,9 +19,7 @@ impl CalculateManager {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|err|
-                error_entry!("Calculate Manager", "Unable to create process", format!("Err: {err}"))
-            )?;
+            .map_err(|err| error_entry!("Calculate Manager", "Unable to create process", format!("Err: {err}")))?;
         let output = process.wait_with_output().await
             .map_err(|err| error_entry!("Calculate Manager", "An error occurred during process execution", format!("Err: {err}")))?;
         if output.status.success() {
@@ -39,11 +33,11 @@ impl CalculateManager {
         }
     }
 
-    pub async fn yolov4_inference() -> Result<Vec<BoundingBox>, LogEntry> {
+    pub async fn yolov4_inference(_model_path: PathBuf, _image_path: PathBuf) -> Result<Vec<BoundingBox>, LogEntry> {
         Ok(Vec::new())
     }
 
-    pub async fn yolov7_inference() -> Result<Vec<BoundingBox>, LogEntry> {
+    pub async fn yolov7_inference(_model_path: PathBuf, _image_path: PathBuf) -> Result<Vec<BoundingBox>, LogEntry> {
         Ok(Vec::new())
     }
 }
