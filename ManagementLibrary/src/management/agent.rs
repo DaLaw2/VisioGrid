@@ -113,10 +113,10 @@ impl Agent {
         let for_performance = agent.clone();
         let for_management = agent;
         tokio::spawn(async move {
-            Agent::performance(for_performance).await;
+            Agent::performance(for_performance).await
         });
         tokio::spawn(async move {
-            Agent::management(for_management).await;
+            Agent::management(for_management).await
         });
     }
 

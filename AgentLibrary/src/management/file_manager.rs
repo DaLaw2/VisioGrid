@@ -1,6 +1,7 @@
 use tokio::fs;
 use tokio::fs::File;
 use std::path::PathBuf;
+use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command as AsyncCommand;
 use crate::utils::logging::*;
@@ -12,7 +13,7 @@ pub struct FileManager;
 impl FileManager {
     pub async fn initialize() {
         logging_information!("File Manager", "Initializing");
-        let folders = ["SavedModel", "SavedFile", "Script"];
+        let folders = ["SavedModel", "SavedFile", "Script", "Script/ultralytics"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
                 Ok(_) => logging_information!("File Manager", format!("Create {} folder successfully", folder_name)),
@@ -65,22 +66,20 @@ impl FileManager {
         let yolov4_repository = "https://github.com/WongKinYiu/PyTorch_YOLOv4";
         let yolov7_repository = "https://github.com/WongKinYiu/yolov7";
         #[cfg(target_os = "windows")]
-            let status = AsyncCommand::new("cmd")
-            .arg("/C")
-            .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
-            .status()
-            .await
-            .map_err(|err| error_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
+            let mut cmd = AsyncCommand::new("cmd");
         #[cfg(target_os = "linux")]
-        let status = AsyncCommand::new("sh")
-            .arg("-c")
-            .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
-            .status()
-            .await
-            .map_err(|err| error_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
-        if !status.success() {
-            Err(error_entry!("File Manager", "An error occurred during process execution"))?
-        }
+            let mut cmd = AsyncCommand::new("sh");
+        // let status = cmd
+        //     .arg(if cfg!(target_os = "windows") { "/C" } else { "-c" })
+        //     .arg(format!("cd Script/ && git clone {} --depth 1 && git clone {} --depth 1", yolov4_repository, yolov7_repository))
+        //     .stdout(Stdio::piped())
+        //     .stderr(Stdio::piped())
+        //     .status()
+        //     .await
+        //     .map_err(|err| critical_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
+        // if !status.success() {
+        //     Err(critical_entry!("File Manager", "An error occurred during process execution"))?
+        // }
         Ok(())
     }
 }

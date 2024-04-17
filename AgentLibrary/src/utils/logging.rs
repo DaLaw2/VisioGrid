@@ -53,7 +53,7 @@ impl Logger {
 #[macro_export]
 macro_rules! logging_debug {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Debug, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Debug, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Debug, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -63,7 +63,7 @@ macro_rules! logging_debug {
 #[macro_export]
 macro_rules! logging_information {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Information, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Information, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Information, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -73,7 +73,7 @@ macro_rules! logging_information {
 #[macro_export]
 macro_rules! logging_notice {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Notice, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Notice, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Notice, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -83,7 +83,7 @@ macro_rules! logging_notice {
 #[macro_export]
 macro_rules! logging_warning {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Warning, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Warning, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Warning, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -93,7 +93,7 @@ macro_rules! logging_warning {
 #[macro_export]
 macro_rules! logging_error {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Error, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Error, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Error, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -103,7 +103,7 @@ macro_rules! logging_error {
 #[macro_export]
 macro_rules! logging_critical {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Critical, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Critical, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Critical, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -113,7 +113,7 @@ macro_rules! logging_critical {
 #[macro_export]
 macro_rules! logging_alert {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Alert, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Alert, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Alert, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
@@ -123,7 +123,7 @@ macro_rules! logging_alert {
 #[macro_export]
 macro_rules! logging_emergency {
     ($position:expr, $message:expr) => {
-        Logger::add_system_log(LogLevel::Emergency, $position, $message, "").await
+        Logger::add_system_log(LogLevel::Emergency, $position, $message, format!("{}:{}", file!(), line!())).await
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         Logger::add_system_log(LogLevel::Emergency, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info)).await
