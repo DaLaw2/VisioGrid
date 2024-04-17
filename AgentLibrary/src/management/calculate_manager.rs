@@ -16,7 +16,7 @@ impl CalculateManager {
         let python = "python";
         #[cfg(target_os = "linux")]
         let python = "python3";
-        let mut process = AsyncCommand::new(python)
+        let process = AsyncCommand::new(python)
             .arg("script/ultralytics/inference.py")
             .arg(model_path)
             .arg(image_path)
@@ -24,18 +24,18 @@ impl CalculateManager {
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|err|
-                error_entry!(format!("Calculate Manager", "Fail to create inference process.\nReason: {}", err))
+                error_entry!("Calculate Manager", "Unable to create process", format!("Err: {err}"))
             )?;
         let output = process.wait_with_output().await
-            .map_err(|err| error_entry!(format!("Calculate Manager", "Failed to wait on command.\nReason: {}", err)))?;
+            .map_err(|err| error_entry!("Calculate Manager", "An error occurred during process execution", format!("Err: {err}")))?;
         if output.status.success() {
             let serialized_data = String::from_utf8_lossy(&output.stdout);
             let bounding_boxes: Vec<BoundingBox> = serde_json::from_str(&serialized_data)
-                .map_err(|err| error_entry!(format!("Calculate Manager", "Failed to parse JSON.\nReason: {}", err)))?;
+                .map_err(|err| error_entry!("Calculate Manager", "Unable to deserialize data", format!("Err: {err}")))?;
             Ok(bounding_boxes)
         } else {
             let err = String::from_utf8_lossy(&output.stderr);
-            Err(error_entry!(format!("Calculate Manager", "Fail to inference.\nReason: {}", err)))?
+            Err(error_entry!("Calculate Manager", "An error occurred during process execution", format!("Err: {err}")))?
         }
     }
 

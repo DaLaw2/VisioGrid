@@ -1,19 +1,19 @@
 [package]
 name = "AgentLibrary"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 toml = "0.8.12"
-image = "0.24.9"
+image = "0.25.1"
 common = "0.1.0"
-chrono = "0.4.37"
-sysinfo = "0.30.8"
+chrono = "0.4.38"
+sysinfo = "0.30.10"
 lazy_static = "1.4.0"
-serde_json = "1.0.115"
+serde_json = "1.0.116"
 Common = { path = "../Common" }
 uuid = { version = "1.8.0", features = ["v4"] }
 tokio = { version = "1.37.0", features = ["full"] }
-serde = { version = "1.0.197", features = ["derive"] }
+serde = { version = "1.0.198", features = ["derive"] }

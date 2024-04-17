@@ -98,7 +98,7 @@ impl TaskManager {
                 let mut image_folder = match fs::read_dir(&image_folder).await {
                     Ok(image_folder) => image_folder,
                     Err(err) => {
-                        logging_error!("Task Manager", "Unable to read folder", format!("Err: {err}"));
+                        logging_error!("Task Manager", "Unable to read folder", format!("Folder: {}, Err: {}", image_folder.display(), err));
                         return;
                     },
                 };
@@ -259,7 +259,7 @@ impl TaskManager {
         let model_filesize = match fs::metadata(model_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(err) => {
-                logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
+                logging_error!("File Manager", "Unable to read file", format!("File: {}, Err: {}", model_filepath.display(), err));
                 0
             }
         };
@@ -270,7 +270,7 @@ impl TaskManager {
         let image_filesize = match fs::metadata(image_filepath).await {
             Ok(metadata) => metadata.len(),
             Err(err) => {
-                logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
+                logging_error!("File Manager", "Unable to read file", format!("File: {}, Err: {}", image_filepath.display(), err));
                 0
             }
         };

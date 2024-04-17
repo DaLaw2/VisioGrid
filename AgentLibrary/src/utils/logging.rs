@@ -17,7 +17,7 @@ pub struct Logger {
 impl Logger {
     fn new() -> Self {
         let mut system_log = VecDeque::new();
-        let log_entry = LogEntry::new(LogLevel::Information, "Logger", "Log enable.");
+        let log_entry = information_entry!("Logger", "Online now");
         system_log.push_back(log_entry);
         Self {
             system_log,
@@ -32,7 +32,7 @@ impl Logger {
         LOGGER.write().await
     }
 
-    pub async fn add_system_log<T: Into<String>>(level: LogLevel, position: T, message: T, debug_info: T) {
+    pub async fn add_system_log<T: Into<String>, U: Into<String>, V: Into<String>>(level: LogLevel, position: T, message: U, debug_info: V) {
         let log_entry = LogEntry::new(level, position, message, debug_info);
         println!("{log_entry}");
         let mut logger = Self::instance_mut().await;

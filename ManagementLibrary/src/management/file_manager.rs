@@ -164,8 +164,7 @@ impl FileManager {
             }
             Err(err) => {
                 task.panic("Unable to move file".to_string()).await;
-                logging_error!("File Manager", "Unable to move file".to_string(),
-                    format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err));
+                logging_error!("File Manager", "Unable to move file", format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err));
             }
         }
     }
@@ -282,7 +281,7 @@ impl FileManager {
     fn extract_zip(zip_path: &PathBuf) -> Result<(), LogEntry> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = File::open(zip_path)
-            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File:{} Err: {}", zip_path.display(), err)))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File:{}, Err: {}", zip_path.display(), err)))?;
         let mut archive = ZipArchive::new(reader)
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let output_folder = zip_path.clone().with_extension("").to_path_buf();
@@ -357,33 +356,36 @@ impl FileManager {
             let font_path = &config.font_path;
             match fs::read(font_path).await {
                 Ok(font_data) => {
-                    if let Ok(font) = FontVec::try_from_vec(font_data) {
-                        let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
-                        match Self::draw_bounding_box(image_task, &config, &font).await {
-                            Ok(image) => {
-                                match image.save(&saved_path) {
-                                    Ok(_) => Self::forward_to_repository(task).await,
-                                    Err(err) => {
-                                        task.panic("Unable to write file".to_string()).await;
-                                        logging_error!("File Manager", "Unable to write file", format!("Err: {err}"));
+                    match FontVec::try_from_vec(font_data) {
+                        Ok(font) => {
+                            let saved_path = Path::new(".").join("PostProcessing").join(image_task.image_filename.clone());
+                            match Self::draw_bounding_box(image_task, &config, &font).await {
+                                Ok(image) => {
+                                    match image.save(&saved_path) {
+                                        Ok(_) => Self::forward_to_repository(task).await,
+                                        Err(err) => {
+                                            task.panic("Unable to write file".to_string()).await;
+                                            logging_error!("File Manager", "Unable to write file", format!("File: {}, Err: {}", saved_path.display(), err));
+                                        }
                                     }
-                                }
+                                },
+                                Err(entry) => {
+                                    task.panic(entry.message.clone()).await;
+                                    logging_entry!(entry);
+                                },
                             }
-                            Err(entry) => {
-                                task.panic(entry.message.clone()).await;
-                                logging_entry!(entry);
-                            }
-                        }
-                    } else {
-                        task.panic("Unable to parse data in file".to_string()).await;
-                        logging_error!("File Manager", "Unable to parse data in file");
+                        },
+                        Err(err) => {
+                            task.panic("Unable to parse data in file".to_string()).await;
+                            logging_error!("File Manager", "Unable to parse data in file", format!("File: {}, Err: {}", font_path, err));
+                        },
                     }
-                }
+                },
                 Err(err) => {
                     let error_message = "Unable to read file".to_string();
                     task.panic(error_message).await;
-                    logging_error!("File Manager", "Unable to read file", format!("Err: {err}"));
-                }
+                    logging_error!("File Manager", "Unable to read file", format!("File: {}, Err: {}", font_path, err));
+                },
             }
         } else {
             task.panic("Missing tasks".to_string()).await;

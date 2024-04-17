@@ -15,16 +15,17 @@ Error, 摧毀接收端失敗, Failed to destroy Receiver,
 Notice, 控制通道逾時, Control channel timeout,
 Notice, 資料通道逾時, Data channel timeout,
 Information, 資料通道創建成功, Data channel created successfully,
-Warning, 資料通道未就緒, Data channel is not ready,
+Warning, 資料通道未就緒, Data Channel is not ready,
 Notice, 建立資料通道逾時, Create Data Channel timeout,
 Error, 無法建立連線, Unable to establish connection,
-Notice, 沒有可用的連接埠, No available port,
+Warning, 沒有可用的連接埠, No available port,
 Error, 綁定連接埠失敗, Failed to bind port,
 
 檔案相關
 Information, 創建 {} 資料夾成功, Creating {} folder successfully,
 Critical, 無法創建資料夾 {}, Cannot create folder {},
 Information, 刪除 {} 資料夾成功, Delete {} folder successfully,
+Error, 無法刪除資料夾 {}, Failed to delete {} folder,
 
 Error, 無效的檔案, Invalid file,
 Error, 無法移動檔案, Unable to move file,
@@ -50,6 +51,7 @@ Warning, 任務 {} 無法指派給任何代理, Task {} cannot be assigned to an
 Misc
 Information, 上線中, Online now,
 Information, 初始化中, Initializing,
+Information, 初始化完成, Initialization completed,
 Information, 終止進行中, Termination in progress,
 Notice, 終止中，中斷當前操作, Terminate. Interrupt current operation,
 Information, 終止完成, Termination complete,
@@ -67,6 +69,7 @@ Error, 代理實例不存在, Agent instance does not exist,
 
 Error, 無法創建實例, Unable to create instance,
 Error, 無法序列化資料, Unable to serialize data,
+Error, 無法反序列化資料, Unable to deserialize data,
 
 Notice, 不支援的檔案類型, Unsupported file type,
 Error, 節點處理時發生錯誤, An error occurred during Agent processing,
@@ -78,3 +81,6 @@ Information, 網頁服務就緒, Web service ready,
 Emergency, 網頁服務運行時發生錯誤, An error occurred while running the web service,
 
 Error, 執行過程中發生恐慌, Panic occurs during execution,
+Error, 未知的錯誤, Unknown error,
+Error, 無法建立行程, Unable to create process,
+Error, 行程執行中發生錯誤, An error occurred during process execution,

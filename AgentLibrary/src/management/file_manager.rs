@@ -17,36 +17,36 @@ pub struct FileManager;
 
 impl FileManager {
     pub async fn initialize() {
-        logging_info!("File Manager", "Initializing.");
+        logging_information!("File Manager", "Initializing");
         let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
-                Ok(_) => logging_info!(format!("File Manager", "Create {} folder successfully.", folder_name)),
-                Err(err) => logging_error!(format!("File Manager", "Cannot create {} folder.\nReason: {}", folder_name, err)),
+                Ok(_) => logging_information!("File Manager", format!("Create {} folder successfully", folder_name)),
+                Err(err) => logging_error!("File Manager", format!("Cannot create {} folder", folder_name), format!("Err: {err}")),
             }
         }
-        if let Err(err) = Self::clone_repository().await {
-            logging_error!(err);
+        if let Err(entry) = Self::clone_repository().await {
+            logging_entry!(entry);
         }
-        if let Err(err) = Self::extract_embed_folders().await {
-            logging_error!(err);
+        if let Err(entry) = Self::extract_embed_folders().await {
+            logging_entry!(entry);
         }
-        logging_info!("File Manager", "Initialization completed.");
+        logging_information!("File Manager", "Initialization completed");
     }
 
     pub async fn cleanup() {
-        logging_info!("File Manager", "Cleaning up.");
+        logging_information!("File Manager", "Cleaning up");
         let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::remove_dir_all(folder_name).await {
-                Ok(_) => logging_info!(format!("File Manager: Deleted {} folder successfully.", folder_name)),
-                Err(err) => logging_error!(format!("File Manager: Cannot delete {} folder.\nReason: {}", folder_name, err)),
+                Ok(_) => logging_information!("File Manager", format!("Delete {folder_name} folder successfully")),
+                Err(err) => logging_error!("File Manager", format!("Failed to delete {folder_name} folder"), format!("Err: {err}")),
             }
         };
-        logging_info!("File Manager", "Cleanup completed.");
+        logging_information!("File Manager", "Cleanup completed");
     }
 
-    pub async fn extract_embed_folders() -> Result<(), String> {
+    pub async fn extract_embed_folders() -> Result<(), LogEntry> {
         let folders = ["Script"];
         for file in StaticFiles::iter() {
             let file_path = PathBuf::from(file.as_ref());
@@ -55,37 +55,37 @@ impl FileManager {
                     let relative_path = file_path.strip_prefix(first_part).unwrap_or(&file_path);
                     let full_path = PathBuf::from(first_part).join(relative_path);
                     let file_data = &StaticFiles::get(file.as_ref())
-                        .ok_or("File Manager: File not in static files.")?
+                        .ok_or(error_entry!("File Manager", "Unable to read file", format!("File: {}", full_path.display())))?
                         .data;
-                    let mut file = File::create(full_path).await
-                        .map_err(|err| format!("File Manager: Unable to create file.\nReason: {}", err))?;
+                    let mut file = File::create(&full_path).await
+                        .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", full_path.display(), err)))?;
                     file.write_all(file_data).await
-                        .map_err(|err| format!("File Manager: Unable to write data to file.\nReason: {}", err))?;
+                        .map_err(|err| error_entry!("File Manager", "Unable to write file", format!("File: {}, Err: {}", full_path.display(), err)))?;
                 }
             }
         }
         Ok(())
     }
 
-    pub async fn clone_repository() -> Result<(), String> {
+    pub async fn clone_repository() -> Result<(), LogEntry> {
         let yolov4_repository = "https://github.com/WongKinYiu/PyTorch_YOLOv4";
         let yolov7_repository = "https://github.com/WongKinYiu/yolov7";
         #[cfg(target_os = "windows")]
-            let mut status = AsyncCommand::new("cmd")
+            let status = AsyncCommand::new("cmd")
             .arg("/C")
             .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
             .status()
             .await
-            .map_err(|err| format!("File Manager: Fail to clone repository.\nReason: {}", err))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
         #[cfg(target_os = "linux")]
-        let mut status = AsyncCommand::new("sh")
+        let status = AsyncCommand::new("sh")
             .arg("-c")
             .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
             .status()
             .await
-            .map_err(|err| format!("File Manager: Fail to clone repository.\nReason: {}", err))?;
+            .map_err(|err| error_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
         if !status.success() {
-            Err("File Manager: An error occur in clone repository.".to_string())?
+            Err(error_entry!("File Manager", "An error occurred during process execution"))?
         }
         Ok(())
     }

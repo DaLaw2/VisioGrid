@@ -139,13 +139,16 @@ impl Agent {
                 packet = agent.control_channel_receiver.performance_packet.recv() => {
                     if let Some(packet) = &packet {
                         clear_unbounded_channel(&mut agent.control_channel_receiver.performance_packet).await;
-                        if let Ok(performance) = serde_json::from_slice::<Performance>(packet.as_data_byte()) {
-                            agent.realtime_usage = performance;
-                            agent.control_channel_sender.send(PerformanceAcknowledgePacket::new()).await;
-                            timer = Instant::now();
-                        } else {
-                            logging_error!(uuid, "Agent", "Unable to parse packet data", "");
-                            continue;
+                        match serde_json::from_slice::<Performance>(packet.as_data_byte()) {
+                            Ok(performance) => {
+                                agent.realtime_usage = performance;
+                                agent.control_channel_sender.send(PerformanceAcknowledgePacket::new()).await;
+                                timer = Instant::now();
+                            },
+                            Err(err) => {
+                                logging_error!(uuid, "Agent", "Unable to parse packet data", format!("Err: {err}"));
+                                continue;
+                            },
                         }
                     } else {
                         logging_notice!(uuid, "Agent", "Channel has been closed", "");
@@ -198,19 +201,20 @@ impl Agent {
         let mut polling_times = 0_u32;
         let polling_interval = Duration::from_millis(config.polling_interval);
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-        if let Ok(control_state_data) = serde_json::to_vec(&state) {
-            loop {
-                if timer.elapsed() > timeout_duration {
-                    logging_notice!(uuid, "Agent", "Control channel timeout", "");
-                    break;
-                }
-                if timer.elapsed() > polling_times * polling_interval {
+        match serde_json::to_vec(&state) {
+            Ok(control_state_data) => {
+                loop {
+                    if timer.elapsed() > timeout_duration {
+                        logging_notice!(uuid, "Agent", "Control channel timeout", "");
+                        break;
+                    }
+                    if timer.elapsed() > polling_times * polling_interval {
+                        let mut agent = agent.write().await;
+                        agent.control_channel_sender.send(ControlPacket::new(control_state_data.clone())).await;
+                        polling_times += 1;
+                    }
                     let mut agent = agent.write().await;
-                    agent.control_channel_sender.send(ControlPacket::new(control_state_data.clone())).await;
-                    polling_times += 1;
-                }
-                let mut agent = agent.write().await;
-                select! {
+                    select! {
                     biased;
                     packet = agent.control_channel_receiver.control_acknowledge_packet.recv() => {
                         if packet.is_some() {
@@ -223,9 +227,9 @@ impl Agent {
                     },
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
-            }
-        } else {
-            logging_error!(uuid, "Agent", "Unable to serialize data", "");
+                }
+            },
+            Err(err) => logging_error!(uuid, "Agent", "Unable to serialize data", format!("Err: {err}")),
         }
         AgentManager::store_state(uuid, AgentState::Terminate).await;
     }
@@ -596,7 +600,7 @@ impl Agent {
                 return Err(notice_entry!("Agent", "Terminate. Interrupt current operation"));
             }
             let port = PortPool::allocate_port().await
-                .ok_or(notice_entry!("Agent", "No available port"))?;
+                .ok_or(warning_entry!("Agent", "No available port"))?;
             match TcpListener::bind(format!("127.0.0.1:{port}")).await {
                 Ok(listener) => break Ok((listener, port)),
                 Err(err) => {
