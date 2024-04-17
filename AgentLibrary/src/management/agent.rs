@@ -10,18 +10,19 @@ use tokio::io::AsyncWriteExt;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::time::{Instant, sleep};
-use crate::management::utils::bounding_box::BoundingBox;
-use crate::management::utils::model_type::ModelType;
-use crate::management::utils::task_result::TaskResult;
 use crate::utils::logging::*;
 use crate::utils::config::Config;
 use crate::connection::packet::Packet;
-use crate::management::management::Management;
 use crate::management::monitor::Monitor;
 use crate::utils::clear_unbounded_channel;
 use crate::management::utils::task_info::TaskInfo;
+use crate::management::utils::model_type::ModelType;
 use crate::management::utils::agent_state::AgentState;
 use crate::management::utils::file_header::FileHeader;
+use crate::management::utils::task_result::TaskResult;
+use crate::management::utils::bounding_box::BoundingBox;
+use crate::connection::packet::result_packet::ResultPacket;
+use crate::management::calculate_manager::CalculateManager;
 use crate::connection::socket::socket_stream::SocketStream;
 use crate::connection::channel::{ControlChannel, DataChannel};
 use crate::connection::packet::performance_packet::PerformancePacket;
@@ -36,10 +37,9 @@ use crate::connection::packet::control_acknowledge_packet::ControlAcknowledgePac
 use crate::connection::packet::file_transfer_result_packet::FileTransferResultPacket;
 use crate::connection::packet::task_info_acknowledge_packet::TaskInfoAcknowledgePacket;
 use crate::connection::packet::file_header_acknowledge_packet::FileHeaderAcknowledgePacket;
-use crate::connection::packet::result_packet::ResultPacket;
-use crate::management::calculate_manager::CalculateManager;
 
 pub struct Agent {
+    pub state: AgentState,
     previous_task_uuid: Option<Uuid>,
     control_channel_sender: ControlChannelSender,
     control_channel_receiver: ControlChannelReceiver,
@@ -85,6 +85,7 @@ impl Agent {
                         Err(error_entry!("Agent", "Wrong packet delivery order"))?;
                     }
                     let agent = Self {
+                        state: AgentState::None,
                         previous_task_uuid: None,
                         control_channel_sender,
                         control_channel_receiver,
@@ -96,7 +97,7 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Err(notice_entry!("Agent", "Control channel timeout"))
+        Err(notice_entry!("Agent", "Control Channel timeout"))
     }
 
     pub async fn run(agent: Arc<RwLock<Agent>>) {
@@ -118,7 +119,7 @@ impl Agent {
         let mut timeout_timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 return;
             }
             if timeout_timer.elapsed() > timeout_duration {
@@ -148,13 +149,13 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        Management::store_state(AgentState::Terminate).await;
+        agent.write().await.state = AgentState::Terminate;
     }
 
     async fn management(agent: Arc<RwLock<Agent>>) {
         loop {
             Self::refresh_state(agent.clone()).await;
-            let state = Management::get_state().await;
+            let state = agent.read().await.state;
             match state {
                 AgentState::ProcessTask => Self::process_task(agent.clone()).await,
                 AgentState::Idle(idle_time) => Self::idle(agent.clone(), Duration::from_secs(idle_time)).await,
@@ -172,9 +173,9 @@ impl Agent {
         let config = Config::now().await;
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
-        while Management::get_state().await != AgentState::Terminate {
+        while agent.read().await.state != AgentState::Terminate {
             if timer.elapsed() > timeout_duration {
-                Management::store_state(AgentState::Terminate).await;
+                agent.write().await.state = AgentState::Terminate;
                 return;
             }
             let mut agent = agent.write().await;
@@ -184,7 +185,7 @@ impl Agent {
                         Some(packet) => {
                             clear_unbounded_channel(&mut agent.control_channel_receiver.control_packet).await;
                             match serde_json::from_slice::<AgentState>(packet.as_data_byte()) {
-                                Ok(state) => Management::store_state(state).await,
+                                Ok(state) => agent.state = state,
                                 Err(err) => {
                                     logging_error!("Agent", "Unable to parse packet data", format!("Err: {err}"));
                                     continue;
@@ -193,7 +194,7 @@ impl Agent {
                         },
                         None => {
                             logging_notice!("Agent", "Channel has been closed");
-                            Management::store_state(AgentState::Terminate).await;
+                            agent.state = AgentState::Terminate;
                         },
                     }
                 },
@@ -248,7 +249,7 @@ impl Agent {
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let task_info = loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -266,13 +267,13 @@ impl Agent {
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                Err(warning_entry!("Agent", "Data channel is not ready"))?
+                Err(warning_entry!("Agent", "Data Channel is not ready"))?
             }
         };
         if let Some(data_channel_sender) = &mut agent.write().await.data_channel_sender {
             data_channel_sender.send(TaskInfoAcknowledgePacket::new()).await;
         } else {
-            Err(warning_entry!("Agent", "Data channel is not ready"))?;
+            Err(warning_entry!("Agent", "Data Channel is not ready"))?;
         }
         return Ok(task_info);
     }
@@ -289,7 +290,7 @@ impl Agent {
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         let file_header = loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -325,7 +326,7 @@ impl Agent {
         let mut timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
         loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -421,7 +422,7 @@ impl Agent {
         let polling_interval = Duration::from_millis(config.polling_interval);
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
@@ -457,7 +458,7 @@ impl Agent {
         let config = Config::now().await;
         let timer = Instant::now();
         loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 logging_notice!("Agent", "Terminate. Interrupt current operation");
                 return;
             }
@@ -491,13 +492,13 @@ impl Agent {
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         loop {
-            if Management::get_state().await == AgentState::Terminate {
+            if agent.read().await.state == AgentState::Terminate {
                 logging_notice!("Agent", "Terminate. Interrupt current operation");
                 return;
             }
             if timer.elapsed() > timeout_duration {
-                Management::store_state(AgentState::Terminate).await;
-                logging_notice!("Agent", "Control channel timout.");
+                agent.write().await.state = AgentState::Terminate;
+                logging_notice!("Agent", "Control Channel timout.");
                 return;
             }
             {
@@ -515,7 +516,7 @@ impl Agent {
                                 continue;
                             }
                         } else {
-                            Management::store_state(AgentState::Terminate).await;
+                            agent.state = AgentState::Terminate;
                             logging_notice!("Agent", "Channel has been closed");
                             return;
                         }
@@ -532,6 +533,8 @@ impl Agent {
                         let mut agent = agent.write().await;
                         agent.data_channel_sender = Some(data_channel_sender);
                         agent.data_channel_receiver = Some(data_channel_receiver);
+                        logging_information!("Agent", "Data Channel created successfully");
+                        return;
                     },
                     Err(err) => {
                         logging_error!("Agent", "Unable to establish connection", format!("Err: {err}"));
