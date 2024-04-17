@@ -29,27 +29,24 @@ impl ReceiveThread {
             select! {
                 biased;
                 packet = self.socket_rx.receive_packet() => {
-                    match packet {
-                        Ok(packet) => {
-                            let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
-                            let result = match packet_type {
-                                PacketType::AgentInformationPacket => self.receiver_tx.agent_information_packet.send(packet),
-                                PacketType::ControlAcknowledgePacket => self.receiver_tx.control_acknowledge_packet.send(packet),
-                                PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
-                                _ => {
-                                    logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet", "");
-                                    Ok(())
-                                },
-                            };
-                            if result.is_err() {
-                                logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed", "");
-                                return;
-                            }
-                        },
-                        Err(err) => {
-                            logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected", format!("Err: {err}"));
-                            break;
-                        },
+                    if let Ok(packet) = packet {
+                        let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
+                        let result = match packet_type {
+                            PacketType::AgentInformationPacket => self.receiver_tx.agent_information_packet.send(packet),
+                            PacketType::ControlAcknowledgePacket => self.receiver_tx.control_acknowledge_packet.send(packet),
+                            PacketType::PerformancePacket => self.receiver_tx.performance_packet.send(packet),
+                            _ => {
+                                logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet");
+                                Ok(())
+                            },
+                        };
+                        if result.is_err() {
+                            logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed");
+                            return;
+                        }
+                    } else {
+                        logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected");
+                        break;
                     }
                 },
                 _ = &mut self.stop_signal_rx => break,

@@ -67,9 +67,9 @@ impl Management {
 
     pub async fn terminate() {
         logging_information!("Management", "Termination in progress");
-        Self::instance_mut().await.terminate = true;
         AgentManager::terminate().await;
         FileManager::terminate().await;
+        Self::instance_mut().await.terminate = true;
         logging_information!("Management", "Termination complete");
     }
 

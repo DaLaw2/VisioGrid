@@ -84,7 +84,6 @@ impl AgentManager {
         agent_manager.agents.insert(agent_id, agent.clone());
         agent_manager.state.insert(agent_id, AgentState::CreateDataChannel);
         agent_manager.size += 1;
-        drop(agent_manager);
         Agent::run(agent).await;
     }
 
