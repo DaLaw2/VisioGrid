@@ -29,30 +29,27 @@ impl ReceiveThread {
             select! {
                 biased;
                 packet = self.socket_rx.receive_packet() => {
-                    match packet {
-                        Ok(packet) => {
-                            let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
-                            let result = match packet_type {
-                                PacketType::AliveAcknowledgePacket => self.receiver_tx.alive_acknowledge_packet.send(packet),
-                                PacketType::FileHeaderAcknowledgePacket => self.receiver_tx.file_header_acknowledge_packet.send(packet),
-                                PacketType::FileTransferResultPacket => self.receiver_tx.file_transfer_result_packet.send(packet),
-                                PacketType::ResultPacket => self.receiver_tx.result_packet.send(packet),
-                                PacketType::StillProcessAcknowledgePacket => self.receiver_tx.still_process_acknowledge_packet.send(packet),
-                                PacketType::TaskInfoAcknowledgePacket => self.receiver_tx.task_info_acknowledge_packet.send(packet),
-                                _ => {
-                                    logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet", "");
-                                    Ok(())
-                                },
-                            };
-                            if result.is_err() {
-                                logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed", "");
-                                return;
-                            }
-                        },
-                        Err(err) => {
-                            logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected", format!("Err: {err}"));
+                    if let Ok(packet) = packet {
+                        let packet_type = PacketType::parse_packet_type(&packet.clone_id_byte());
+                        let result = match packet_type {
+                            PacketType::AliveAcknowledgePacket => self.receiver_tx.alive_acknowledge_packet.send(packet),
+                            PacketType::FileHeaderAcknowledgePacket => self.receiver_tx.file_header_acknowledge_packet.send(packet),
+                            PacketType::FileTransferResultPacket => self.receiver_tx.file_transfer_result_packet.send(packet),
+                            PacketType::ResultPacket => self.receiver_tx.result_packet.send(packet),
+                            PacketType::StillProcessAcknowledgePacket => self.receiver_tx.still_process_acknowledge_packet.send(packet),
+                            PacketType::TaskInfoAcknowledgePacket => self.receiver_tx.task_info_acknowledge_packet.send(packet),
+                            _ => {
+                                logging_warning!(self.agent_id, "Receive Thread", "Receive unexpected packet");
+                                Ok(())
+                            },
+                        };
+                        if result.is_err() {
+                            logging_notice!(self.agent_id, "Receive Thread", "Channel has been closed");
                             return;
-                        },
+                        }
+                    } else {
+                        logging_notice!(self.agent_id, "Receive Thread", "Agent side disconnected");
+                        return;
                     }
                 },
                 _ = &mut self.stop_signal_rx => return,

@@ -1,7 +1,6 @@
 use tokio::fs;
 use tokio::fs::File;
 use std::path::PathBuf;
-use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command as AsyncCommand;
 use crate::utils::logging::*;
@@ -13,7 +12,7 @@ pub struct FileManager;
 impl FileManager {
     pub async fn initialize() {
         logging_information!("File Manager", "Initializing");
-        let folders = ["SavedModel", "SavedFile", "Script", "Script/ultralytics"];
+        let folders = ["SavedModel", "SavedFile", "Script"];
         for &folder_name in &folders {
             match fs::create_dir(folder_name).await {
                 Ok(_) => logging_information!("File Manager", format!("Create {} folder successfully", folder_name)),
@@ -65,7 +64,12 @@ impl FileManager {
         let yolov4_repository = "https://github.com/WongKinYiu/PyTorch_YOLOv4";
         let yolov7_repository = "https://github.com/WongKinYiu/yolov7";
         #[cfg(target_os = "windows")]
-            let mut cmd = AsyncCommand::new("cmd");
+            let status = AsyncCommand::new("cmd")
+            .arg("/C")
+            .arg(format!("cd Script/ && git clone {} && git clone {}", yolov4_repository, yolov7_repository))
+            .status()
+            .await
+            .map_err(|err| error_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
         #[cfg(target_os = "linux")]
             let mut cmd = AsyncCommand::new("sh");
         let status = cmd

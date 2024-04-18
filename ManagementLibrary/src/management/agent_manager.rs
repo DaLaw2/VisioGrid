@@ -78,7 +78,6 @@ impl AgentManager {
         let agent = Arc::new(RwLock::new(agent));
         agent_manager.agents.insert(agent_id, agent.clone());
         agent_manager.size += 1;
-        drop(agent_manager);
         Agent::run(agent).await;
     }
 
