@@ -12,7 +12,7 @@ pub trait Packet: Send {
     fn equal(&self, packet_type: PacketType) -> bool;
 }
 
-#[derive(Eq, PartialEq, Clone, Copy)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub enum PacketType {
     BasePacket,
     AgentInformationPacket,

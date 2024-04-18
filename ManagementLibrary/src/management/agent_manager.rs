@@ -1,19 +1,16 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-
-use futures::stream::{self, StreamExt};
-use lazy_static::lazy_static;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use tokio::time::sleep;
 use uuid::Uuid;
-
-use crate::management::agent::Agent;
-use crate::management::utils::agent_state::AgentState;
-use crate::management::utils::performance::Performance;
-use crate::utils::config::Config;
+use std::sync::Arc;
+use tokio::time::sleep;
+use std::cmp::Ordering;
+use std::time::Duration;
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+use futures::stream::{self, StreamExt};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::utils::logging::*;
+use crate::utils::config::Config;
+use crate::management::agent::Agent;
+use crate::management::utils::performance::Performance;
 
 lazy_static! {
     static ref AGENT_MANAGER: RwLock<AgentManager> = RwLock::new(AgentManager::new());
@@ -22,7 +19,6 @@ lazy_static! {
 pub struct AgentManager {
     size: usize,
     agents: HashMap<Uuid, Arc<RwLock<Agent>>>,
-    state: HashMap<Uuid, AgentState>,
     performance: HashMap<Uuid, Performance>,
     terminate: bool,
 }
@@ -32,7 +28,6 @@ impl AgentManager {
         Self {
             size: 0_usize,
             agents: HashMap::new(),
-            state: HashMap::new(),
             performance: HashMap::new(),
             terminate: false,
         }
@@ -82,7 +77,6 @@ impl AgentManager {
         }
         let agent = Arc::new(RwLock::new(agent));
         agent_manager.agents.insert(agent_id, agent.clone());
-        agent_manager.state.insert(agent_id, AgentState::CreateDataChannel);
         agent_manager.size += 1;
         Agent::run(agent).await;
     }
@@ -100,39 +94,6 @@ impl AgentManager {
         let agent_manager = Self::instance().await;
         let agent = agent_manager.agents.get(&agent_id);
         agent.cloned()
-    }
-
-    pub async fn store_state(uuid: Uuid, state: AgentState) {
-        let mut agent_manager = Self::instance_mut().await;
-        match agent_manager.state.get(&uuid) {
-            Some(origin_state) => {
-                if state >= *origin_state {
-                    agent_manager.state.insert(uuid, state);
-                }
-            },
-            None => {
-                agent_manager.state.insert(uuid, state);
-            },
-        }
-    }
-
-    pub async fn reset_state(uuid: Uuid) {
-        let mut agent_manager = Self::instance_mut().await;
-        agent_manager.state.insert(uuid, AgentState::None);
-    }
-
-    pub async fn get_state(uuid: Uuid) -> AgentState {
-        let agent_manager = Self::instance().await;
-        let state = agent_manager.state.get(&uuid).cloned();
-        drop(agent_manager);
-        match state {
-            Some(state) => state,
-            None => {
-                let mut agent_manager = Self::instance_mut().await;
-                agent_manager.state.insert(uuid, AgentState::None);
-                AgentState::None
-            }
-        }
     }
 
     pub async fn sorted_by_vram() -> Vec<(Uuid, f64)> {

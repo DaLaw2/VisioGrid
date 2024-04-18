@@ -1,15 +1,15 @@
 [Config]
-internal_timestamp = 50
+internal_timestamp = 10
 agent_listen_port = 9090
 http_server_bind_port = 8080
 bind_retry_duration = 30
 agent_idle_duration = 5
-polling_interval = 100
+polling_interval = 50
 control_channel_timeout = 10
 data_channel_timeout = 10
-file_transfer_timeout = 5
+file_transfer_timeout = 10
 dedicated_port_range = [60000, 65535]
-font_path = "./font.tff"
+font_path = "./font.ttf"
 border_width = 5
 font_size = 40
 border_color = [255, 0, 0, 255]
