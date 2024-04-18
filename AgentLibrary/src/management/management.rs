@@ -1,13 +1,12 @@
-use std::sync::Arc;
-use std::time::Duration;
-use async_ctrlc::CtrlC;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use lazy_static::lazy_static;
 use tokio::select;
+use std::sync::Arc;
 use tokio::time::sleep;
+use async_ctrlc::CtrlC;
+use std::time::Duration;
+use lazy_static::lazy_static;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::utils::logging::*;
-use crate::connection::socket::management_socket::ManagementSocket;
-use crate::management::utils::agent_state::AgentState;
+use crate::utils::config::Config;
 use crate::management::agent::Agent;
 use crate::management::monitor::Monitor;
 use crate::management::file_manager::FileManager;
@@ -15,7 +14,7 @@ use crate::management::utils::agent_state::AgentState;
 use crate::connection::socket::management_socket::ManagementSocket;
 
 lazy_static! {
-    static ref MANAGER: RwLock<Management> = RwLock::new(Management::new());
+    static ref MANAGEMENT: RwLock<Management> = RwLock::new(Management::new());
 }
 
 pub struct Management {
@@ -32,15 +31,16 @@ impl Management {
     }
 
     pub async fn instance() -> RwLockReadGuard<'static, Self> {
-        MANAGER.read().await
+        MANAGEMENT.read().await
     }
 
     pub async fn instance_mut() -> RwLockWriteGuard<'static, Self> {
-        MANAGER.write().await
+        MANAGEMENT.write().await
     }
 
     pub async fn run() {
         FileManager::initialize().await;
+        Monitor::run().await;
         tokio::spawn(async move {
             Self::hot_reload().await;
         });
@@ -54,6 +54,7 @@ impl Management {
     pub async fn terminate() {
         logging_information!("Management", "Termination in process");
         Self::instance_mut().await.terminate = true;
+        Monitor::terminate().await;
         FileManager::cleanup().await;
         logging_information!("Management", "Termination complete");
     }

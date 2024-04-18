@@ -63,7 +63,7 @@ impl Display for LogEntry {
             format!("[{}] {} {}: {}", level, timestramp, position, message)
         } else {
             let debug_info = self.debug_info.bright_black();
-            format!("\n[{}] {} {}: {}\n{}\n", level, timestramp, position, message, debug_info)
+            format!("[{}] {} {}: {}\n{}", level, timestramp, position, message, debug_info)
         };
         write!(f, "{}", str)
     }
@@ -72,7 +72,7 @@ impl Display for LogEntry {
 #[macro_export]
 macro_rules! debug_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Debug, $position, $message, "")
+        LogEntry::new(LogLevel::Debug, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Debug, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -82,7 +82,7 @@ macro_rules! debug_entry {
 #[macro_export]
 macro_rules! information_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Information, $position, $message, "")
+        LogEntry::new(LogLevel::Information, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Information, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -92,7 +92,7 @@ macro_rules! information_entry {
 #[macro_export]
 macro_rules! notice_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Notice, $position, $message, "")
+        LogEntry::new(LogLevel::Notice, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Notice, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -102,7 +102,7 @@ macro_rules! notice_entry {
 #[macro_export]
 macro_rules! warning_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Warning, $position, $message, "")
+        LogEntry::new(LogLevel::Warning, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Warning, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -112,7 +112,7 @@ macro_rules! warning_entry {
 #[macro_export]
 macro_rules! error_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Error, $position, $message, "")
+        LogEntry::new(LogLevel::Error, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Error, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -122,7 +122,7 @@ macro_rules! error_entry {
 #[macro_export]
 macro_rules! critical_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Critical, $position, $message, "")
+        LogEntry::new(LogLevel::Critical, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Critical, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -132,7 +132,7 @@ macro_rules! critical_entry {
 #[macro_export]
 macro_rules! alert_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Alert, $position, $message, "")
+        LogEntry::new(LogLevel::Alert, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Alert, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
@@ -142,7 +142,7 @@ macro_rules! alert_entry {
 #[macro_export]
 macro_rules! emergency_entry {
     ($position:expr, $message:expr) => {
-        LogEntry::new(LogLevel::Emergency, $position, $message, "")
+        LogEntry::new(LogLevel::Emergency, $position, $message, format!("{}:{}", file!(), line!()))
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Emergency, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))

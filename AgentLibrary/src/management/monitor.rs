@@ -4,6 +4,7 @@ use std::process::Command;
 use lazy_static::lazy_static;
 use tokio::process::Command as AsyncCommand;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::utils::logging::*;
 use crate::management::utils::performance::Performance;
 use crate::management::utils::agent_information::AgentInformation;
 
@@ -38,6 +39,7 @@ impl Monitor {
         tokio::spawn(async {
             Self::update_performance().await;
         });
+        logging_information!("Monitor", "Online now");
     }
 
     pub async fn terminate() {
