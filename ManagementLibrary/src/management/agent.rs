@@ -108,7 +108,6 @@ impl Agent {
     }
 
     pub async fn add_task(agent: Arc<RwLock<Agent>>, image_task: ImageTask) {
-        //logging_debug!("Agent", "Get lock.");
         agent.write().await.image_task.push_back(image_task);
     }
 
@@ -136,7 +135,6 @@ impl Agent {
                 logging_notice!(uuid, "Agent", "Control Channel timeout", "");
                 break;
             }
-            //logging_debug!("Agent", "Get lock.");
             let mut agent = agent.write().await;
             select! {
                 biased;
@@ -163,7 +161,6 @@ impl Agent {
                 _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
             }
         }
-        //logging_debug!("Agent", "Get lock.");
         agent.write().await.state = AgentState::Terminate;
     }
 
@@ -182,18 +179,15 @@ impl Agent {
                     return;
                 },
                 _ => {
-                    //logging_debug!("Agent", "Get lock.");
                     let image_task = agent.write().await.image_task.pop_front();
                     if let Some(mut image_task) = image_task {
                         let state = AgentState::ProcessTask;
-                        //logging_debug!("Agent", "Get lock.");
                         agent.write().await.state = state;
                         Self::control_agent(agent.clone(), state).await;
                         let success = Self::process_task(agent.clone(), &mut image_task).await;
                         TaskManager::submit_image_task(image_task, success).await;
                     } else {
                         let state = AgentState::Idle(config.agent_idle_duration);
-                        //logging_debug!("Agent", "Get lock.");
                         agent.write().await.state = state;
                         Self::control_agent(agent.clone(), state).await;
                         Self::idle(agent.clone()).await;
@@ -218,12 +212,10 @@ impl Agent {
                         break;
                     }
                     if timer.elapsed() > polling_times * polling_interval {
-                        //logging_debug!("Agent", "Get lock.");
                         let mut agent = agent.write().await;
                         agent.control_channel_sender.send(ControlPacket::new(control_state_data.clone())).await;
                         polling_times += 1;
                     }
-                    //logging_debug!("Agent", "Get lock.");
                     let mut agent = agent.write().await;
                     select! {
                     biased;
@@ -242,7 +234,6 @@ impl Agent {
             },
             Err(err) => logging_error!(uuid, "Agent", "Unable to serialize data", format!("Err: {err}")),
         }
-        //logging_debug!("Agent", "Get lock.");
         agent.write().await.state = AgentState::Terminate;
     }
 
@@ -260,7 +251,6 @@ impl Agent {
     }
 
     async fn transfer_task(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
-        //logging_debug!("Agent", "Get lock.");
         if agent.write().await.data_channel_sender.is_some() {
             let need_transfer_model = if let Some(last_task_uuid) = &agent.read().await.previous_task_uuid {
                 image_task.task_uuid != *last_task_uuid
@@ -270,12 +260,10 @@ impl Agent {
             Agent::transfer_task_info(agent.clone(), &image_task).await?;
             if need_transfer_model {
                 Agent::transfer_file(agent.clone(), &image_task.model_filename, &image_task.model_filepath).await?;
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.previous_task_uuid = Some(image_task.task_uuid);
             }
             Agent::transfer_file(agent.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
-            //logging_debug!("Agent", "Get lock.");
             agent.write().await.state = AgentState::CreateDataChannel;
             Err(warning_entry!("Agent", "Data Channel is not ready"))?
         }
@@ -284,7 +272,7 @@ impl Agent {
 
     async fn transfer_task_info(agent: Arc<RwLock<Agent>>, image_task: &ImageTask) -> Result<(), LogEntry> {
         let config = Config::now().await;
-        let task_info = TaskInfo::new(image_task.task_uuid, image_task.image_filename.clone(), image_task.model_filename.clone(), image_task.model_type);
+        let task_info = TaskInfo::new(image_task.task_uuid, image_task.model_filename.clone(), image_task.image_filename.clone(), image_task.model_type);
         let task_info_data = serde_json::to_vec(&task_info)
             .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
         let timer = Instant::now();
@@ -293,12 +281,10 @@ impl Agent {
         let timeout_duration = Duration::from_secs(config.control_channel_timeout);
         while agent.read().await.state != AgentState::Terminate {
             if timer.elapsed() > timeout_duration {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(notice_entry!("Agent", "Data Channel timeout"))?
             }
             if timer.elapsed() > polling_times * polling_interval {
-                //logging_debug!("Agent", "Get lock.");
                 let mut agent = agent.write().await;
                 if let Some(data_channel_sender) = agent.data_channel_sender.as_mut() {
                     data_channel_sender.send(TaskInfoPacket::new(task_info_data.clone())).await;
@@ -308,7 +294,6 @@ impl Agent {
                     Err(warning_entry!("Agent", "Data Channel is not ready"))?
                 }
             }
-            //logging_debug!("Agent", "Get lock.");
             let mut agent = agent.write().await;
             match agent.data_channel_receiver.as_mut() {
                 Some(data_channel_receiver) => {
@@ -357,12 +342,10 @@ impl Agent {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(notice_entry!("Agent", "Data Channel timeout"))?;
             }
             if timer.elapsed() > polling_times * polling_interval {
-                //logging_debug!("Agent", "Get lock.");
                 let mut agent = agent.write().await;
                 if let Some(data_channel_sender) = agent.data_channel_sender.as_mut() {
                     data_channel_sender.send(FileHeaderPacket::new(file_header_data.clone())).await
@@ -372,7 +355,6 @@ impl Agent {
                 }
                 polling_times += 1;
             }
-            //logging_debug!("Agent", "Get lock.");
             let mut agent = agent.write().await;
             if let Some(data_channel_receiver) = agent.data_channel_receiver.as_mut() {
                 select! {
@@ -426,11 +408,9 @@ impl Agent {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timer.elapsed() > timeout_duration {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(notice_entry!("Agent", "Data Channel timeout"))?;
             }
-            //logging_debug!("Agent", "Get lock.");
             if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
                 for chunk in &require_send {
                     if let Some(data) = sent_packets.get(*chunk) {
@@ -442,11 +422,9 @@ impl Agent {
                 require_send = Vec::new();
                 data_channel_sender.send(FileTransferEndPacket::new()).await;
             } else {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(warning_entry!("Agent", "Data Channel is not ready"))?
             }
-            //logging_debug!("Agent", "Get lock.");
             if let Some(data_channel_receiver) = agent.write().await.data_channel_receiver.as_mut() {
                 select! {
                     biased;
@@ -463,7 +441,6 @@ impl Agent {
                                 }
                             },
                             None => {
-                                //logging_debug!("Agent", "Get lock.");
                                 agent.write().await.state = AgentState::CreateDataChannel;
                                 Err(notice_entry!("Agent", "Channel has been closed"))?;
                             },
@@ -472,7 +449,6 @@ impl Agent {
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(warning_entry!("Agent", "Data Channel is not ready"))?
             }
@@ -491,22 +467,18 @@ impl Agent {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
             if timeout_timer.elapsed() > timeout_duration {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(notice_entry!("Agent", "Data Channel timeout"))?;
             }
             if polling_timer.elapsed() > polling_times * polling_interval {
-                //logging_debug!("Agent", "Get lock.");
                 if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
                     data_channel_sender.send(StillProcessPacket::new()).await;
                 } else {
-                    //logging_debug!("Agent", "Get lock.");
                     agent.write().await.state = AgentState::CreateDataChannel;
                     Err(warning_entry!("Agent", "Data Channel is not ready"))?;
                 }
                 polling_times += 1;
             }
-            //logging_debug!("Agent", "Get lock.");
             if let Some(data_channel_receiver) = agent.write().await.data_channel_receiver.as_mut() {
                 select! {
                     biased;
@@ -515,7 +487,6 @@ impl Agent {
                             clear_unbounded_channel(&mut data_channel_receiver.still_process_acknowledge_packet).await;
                             timeout_timer = Instant::now();
                         } else {
-                            //logging_debug!("Agent", "Get lock.");
                             agent.write().await.state = AgentState::CreateDataChannel;
                             Err(notice_entry!("Agent", "Channel has been closed"))?;
                         }
@@ -528,7 +499,6 @@ impl Agent {
                                 Err(err) => Err(error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?,
                             }
                         } else {
-                            //logging_debug!("Agent", "Get lock.");
                             agent.write().await.state = AgentState::CreateDataChannel;
                             Err(notice_entry!("Agent", "Channel has been closed"))?;
                         }
@@ -536,16 +506,13 @@ impl Agent {
                     _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
                 }
             } else {
-                //logging_debug!("Agent", "Get lock.");
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(warning_entry!("Agent", "Data Channel is not ready"))?;
             }
         };
-        //logging_debug!("Agent", "Get lock.");
         if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
             data_channel_sender.send(ResultAcknowledgePacket::new()).await;
         } else {
-            //logging_debug!("Agent", "Get lock.");
             agent.write().await.state = AgentState::CreateDataChannel;
             Err(warning_entry!("Agent", "Data Channel is not ready"))?;
         }
@@ -562,7 +529,6 @@ impl Agent {
             let uuid = agent.read().await.uuid;
             let config = Config::now().await;
             {
-                //logging_debug!("Agent", "Get lock.");
                 let mut agent = agent.write().await;
                 agent.idle_unused = Performance::calc_residual_usage(&agent.information, &agent.realtime_usage);
             }
@@ -574,24 +540,20 @@ impl Agent {
             let timeout_duration = Duration::from_secs(config.control_channel_timeout);
             while agent.read().await.state != AgentState::Terminate && timer.elapsed() <= idle_duration {
                 if timeout_timer.elapsed() > timeout_duration {
-                    //logging_debug!("Agent", "Get lock.");
                     agent.write().await.state = AgentState::CreateDataChannel;
                     logging_notice!(uuid, "Agent", "Data Channel timeout", "");
                     return;
                 }
                 if timer.elapsed() > polling_times * polling_interval {
-                    //logging_debug!("Agent", "Get lock.");
                     if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
                         data_channel_sender.send(AlivePacket::new()).await
                     } else {
-                        //logging_debug!("Agent", "Get lock.");
                         agent.write().await.state = AgentState::CreateDataChannel;
                         logging_warning!("Agent", "Data Channel is not ready", "");
                         return;
                     }
                     polling_times += 1;
                 }
-                //logging_debug!("Agent", "Get lock.");
                 let mut agent = agent.write().await;
                 if let Some(data_channel_receiver) = agent.data_channel_receiver.as_mut() {
                     select! {

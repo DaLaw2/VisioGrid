@@ -42,13 +42,12 @@ impl FileManager {
     }
 
     pub async fn extract_embed_folders() -> Result<(), LogEntry> {
-        let folders = ["Script"];
         for file in StaticFiles::iter() {
             let file_path = PathBuf::from(file.as_ref());
             if let Some(first_part) = file_path.iter().next().and_then(|s| s.to_str()) {
-                if folders.contains(&first_part) {
+                if first_part.eq("script") {
                     let relative_path = file_path.strip_prefix(first_part).unwrap_or(&file_path);
-                    let full_path = PathBuf::from(first_part).join(relative_path);
+                    let full_path = PathBuf::from("Script").join(relative_path);
                     let file_data = &StaticFiles::get(file.as_ref())
                         .ok_or(error_entry!("File Manager", "Unable to read file", format!("File: {}", full_path.display())))?
                         .data;
@@ -69,17 +68,17 @@ impl FileManager {
             let mut cmd = AsyncCommand::new("cmd");
         #[cfg(target_os = "linux")]
             let mut cmd = AsyncCommand::new("sh");
-        // let status = cmd
-        //     .arg(if cfg!(target_os = "windows") { "/C" } else { "-c" })
-        //     .arg(format!("cd Script/ && git clone {} --depth 1 && git clone {} --depth 1", yolov4_repository, yolov7_repository))
-        //     .stdout(Stdio::piped())
-        //     .stderr(Stdio::piped())
-        //     .status()
-        //     .await
-        //     .map_err(|err| critical_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
-        // if !status.success() {
-        //     Err(critical_entry!("File Manager", "An error occurred during process execution"))?
-        // }
+        let status = cmd
+            .arg(if cfg!(target_os = "windows") { "/C" } else { "-c" })
+            .arg(format!("cd Script/ && git clone {} --depth 1 && git clone {} --depth 1", yolov4_repository, yolov7_repository))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .status()
+            .await
+            .map_err(|err| critical_entry!("File Manager", "Unable to create process", format!("Err: {err}")))?;
+        if !status.success() {
+            Err(critical_entry!("File Manager", "An error occurred during process execution"))?
+        }
         Ok(())
     }
 }

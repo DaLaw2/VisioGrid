@@ -129,7 +129,9 @@ impl Agent {
             if polling_timer.elapsed() > polling_times * polling_interval {
                 let performance = Monitor::get_performance().await;
                 match serde_json::to_vec(&performance) {
-                    Ok(performance_data) => agent.write().await.control_channel_sender.send(PerformancePacket::new(performance_data)).await,
+                    Ok(performance_data) => {
+                        agent.write().await.control_channel_sender.send(PerformancePacket::new(performance_data)).await;
+                    },
                     Err(err) => logging_error!("Agent", "Unable to serialize data", format!("Err: {err}")),
                 }
                 polling_times += 1;
@@ -239,7 +241,7 @@ impl Agent {
             Self::receive_file(agent.clone(), &model_folder).await?;
             agent.write().await.previous_task_uuid = Some(task_info.uuid);
         }
-        let image_folder = Path::new(".").join("SaveFile");
+        let image_folder = Path::new(".").join("SavedFile");
         Self::receive_file(agent.clone(), &image_folder).await?;
         Ok(task_info)
     }
@@ -298,10 +300,10 @@ impl Agent {
             }
             if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
                 select! {
-                    packet = data_channel_receiver.task_info_packet.recv() => {
+                    packet = data_channel_receiver.file_header_packet.recv() => {
                         let packet = packet
                             .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
-                        clear_unbounded_channel(&mut data_channel_receiver.task_info_packet).await;
+                        clear_unbounded_channel(&mut data_channel_receiver.file_header_packet).await;
                         break serde_json::from_slice::<FileHeader>(packet.as_data_byte())
                             .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
                     },
