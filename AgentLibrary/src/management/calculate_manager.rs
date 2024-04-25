@@ -13,7 +13,7 @@ impl CalculateManager {
         #[cfg(target_os = "linux")]
         let python = "python3";
         let process = AsyncCommand::new(python)
-            .arg("script/ultralytics/inference.py")
+            .arg("Script/ultralytics/inference.py")
             .arg(model_path)
             .arg(image_path)
             .stdout(Stdio::piped())

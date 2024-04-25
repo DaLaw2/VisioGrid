@@ -48,7 +48,7 @@ impl Management {
                     .service(javascript::initialize())
                     .service(log::initialize())
                     .service(misc::initialize())
-            }).bind(format!("127.0.0.1:{}", config.http_server_bind_port));
+            }).bind(format!("0.0.0.0:{}", config.http_server_bind_port));
             match http_server {
                 Ok(http_server) => break http_server,
                 Err(err) => {

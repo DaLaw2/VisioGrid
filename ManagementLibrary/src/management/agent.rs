@@ -1,10 +1,10 @@
 use std::mem;
 use uuid::Uuid;
+use tokio::select;
 use std::sync::Arc;
 use tokio::fs::File;
 use std::path::PathBuf;
 use tokio::sync::RwLock;
-use tokio::{fs, select};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
 use std::collections::VecDeque;
@@ -70,7 +70,6 @@ impl Agent {
                 packet = control_channel_receiver.agent_information_packet.recv() => {
                     let packet = &packet
                         .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
-                    clear_unbounded_channel(&mut control_channel_receiver.agent_information_packet).await;
                     let information = serde_json::from_slice::<AgentInformation>(packet.as_data_byte())
                         .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
                     agent_information = Some(information);
@@ -79,7 +78,6 @@ impl Agent {
                 packet = control_channel_receiver.performance_packet.recv() => {
                     let packet = &packet
                         .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
-                    clear_unbounded_channel(&mut control_channel_receiver.performance_packet).await;
                     let realtime_usage = serde_json::from_slice::<Performance>(packet.as_data_byte())
                         .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
                     let information = agent_information
@@ -218,18 +216,17 @@ impl Agent {
                     }
                     let mut agent = agent.write().await;
                     select! {
-                    biased;
-                    packet = agent.control_channel_receiver.control_acknowledge_packet.recv() => {
-                        if packet.is_some() {
-                            clear_unbounded_channel(&mut agent.control_channel_receiver.control_acknowledge_packet).await;
-                            return;
-                        } else {
-                            logging_notice!(uuid, "Agent", "Channel has been closed", "");
-                            break;
-                        }
-                    },
-                    _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
-                }
+                        biased;
+                        packet = agent.control_channel_receiver.control_acknowledge_packet.recv() => {
+                            if packet.is_some() {
+                                return;
+                            } else {
+                                logging_notice!(uuid, "Agent", "Channel has been closed", "");
+                                break;
+                            }
+                        },
+                        _ = sleep(Duration::from_millis(config.internal_timestamp)) => continue,
+                    }
                 }
             },
             Err(err) => logging_error!(uuid, "Agent", "Unable to serialize data", format!("Err: {err}")),
@@ -265,7 +262,6 @@ impl Agent {
             Agent::transfer_file(agent.clone(), &image_task.image_filename, &image_task.image_filepath).await?;
         } else {
             agent.write().await.state = AgentState::CreateDataChannel;
-            Err(warning_entry!("Agent", "Data Channel is not ready"))?
         }
         Ok(())
     }
@@ -300,7 +296,6 @@ impl Agent {
                     select! {
                         packet = data_channel_receiver.task_info_acknowledge_packet.recv() => {
                             if packet.is_some() {
-                                clear_unbounded_channel(&mut data_channel_receiver.task_info_acknowledge_packet).await;
                                 return Ok(())
                             } else {
                                 agent.state = AgentState::CreateDataChannel;
@@ -321,16 +316,35 @@ impl Agent {
 
     async fn transfer_file(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), LogEntry> {
         let file_body_packets = Self::read_file(agent.clone(), filepath).await?;
-        Self::transfer_file_header(agent.clone(), filename, filepath).await?;
+        Self::transfer_file_header(agent.clone(), filename, file_body_packets.len()).await?;
         Self::transfer_file_body(agent, file_body_packets).await
     }
 
-    async fn transfer_file_header(agent: Arc<RwLock<Agent>>, filename: &String, filepath: &PathBuf) -> Result<(), LogEntry> {
+    async fn read_file(agent: Arc<RwLock<Agent>>, filepath: &PathBuf) -> Result<Vec<Vec<u8>>, LogEntry> {
+        let mut sequence_number = 0_usize;
+        let mut buffer = vec![0; 1_048_576];
+        let mut packets = Vec::new();
+        let mut file = File::open(filepath.clone()).await
+            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {}, Err: {}", filepath.display(), err)))?;
+        loop {
+            if agent.read().await.state == AgentState::Terminate {
+                Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
+            }
+            let bytes_read = file.read(&mut buffer).await
+                .map_err(|err| error_entry!("Agent", "An error occurred while reading the file", format!("File: {}, Err: {}", filepath.display(), err)))?;
+            if bytes_read == 0 {
+                return Ok(packets);
+            }
+            let mut data = sequence_number.to_be_bytes().to_vec();
+            data.extend_from_slice(&buffer[..bytes_read]);
+            packets.push(data);
+            sequence_number += 1;
+        }
+    }
+
+    async fn transfer_file_header(agent: Arc<RwLock<Agent>>, filename: &String, packet_count: usize) -> Result<(), LogEntry> {
         let config = Config::now().await;
-        let filesize = fs::metadata(&filepath).await
-            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {}, Err: {}", filepath.display(), err)))?
-            .len();
-        let file_header = FileHeader::new(filename.clone(), filesize as usize);
+        let file_header = FileHeader::new(filename.clone(), packet_count);
         let file_header_data = serde_json::to_vec(&file_header)
             .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
         let timer = Instant::now();
@@ -360,7 +374,6 @@ impl Agent {
                 select! {
                     packet = data_channel_receiver.file_header_acknowledge_packet.recv() => {
                         if packet.is_some() {
-                            clear_unbounded_channel(&mut data_channel_receiver.file_header_acknowledge_packet).await;
                             return Ok(())
                         } else {
                             agent.state = AgentState::CreateDataChannel;
@@ -376,32 +389,10 @@ impl Agent {
         }
     }
 
-    async fn read_file(agent: Arc<RwLock<Agent>>, filepath: &PathBuf) -> Result<Vec<Vec<u8>>, LogEntry> {
-        let mut sequence_number = 0_usize;
-        let mut buffer = vec![0; 1_048_576];
-        let mut packets = Vec::new();
-        let mut file = File::open(filepath.clone()).await
-            .map_err(|err| error_entry!("Agent", "Unable to read file", format!("File: {}, Err: {}", filepath.display(), err)))?;
-        loop {
-            if agent.read().await.state == AgentState::Terminate {
-                Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
-            }
-            let bytes_read = file.read(&mut buffer).await
-                .map_err(|err| error_entry!("Agent", "An error occurred while reading the file", format!("File: {}, Err: {}", filepath.display(), err)))?;
-            if bytes_read == 0 {
-                return Ok(packets);
-            }
-            let mut data = sequence_number.to_be_bytes().to_vec();
-            data.extend_from_slice(&buffer[..bytes_read]);
-            packets.push(data);
-            sequence_number += 1;
-        }
-    }
-
     async fn transfer_file_body(agent: Arc<RwLock<Agent>>, sent_packets: Vec<Vec<u8>>) -> Result<(), LogEntry> {
         let config = Config::now().await;
-        let mut require_send: Vec<usize> = (0..sent_packets.len()).collect();
         let mut timer = Instant::now();
+        let mut require_send: Vec<usize> = (0..sent_packets.len()).collect();
         let timeout_duration = Duration::from_secs(config.file_transfer_timeout);
         loop {
             if agent.read().await.state == AgentState::Terminate {
@@ -411,19 +402,27 @@ impl Agent {
                 agent.write().await.state = AgentState::CreateDataChannel;
                 Err(notice_entry!("Agent", "Data Channel timeout"))?;
             }
-            if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
-                for chunk in &require_send {
-                    if let Some(data) = sent_packets.get(*chunk) {
+            for chunk in &require_send {
+                if let Some(data) = sent_packets.get(*chunk) {
+                    if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
                         data_channel_sender.send(FileBodyPacket::new(data.clone())).await;
                     } else {
-                        Err(error_entry!("Agent", "Missing file block"))?
+                        agent.write().await.state = AgentState::CreateDataChannel;
+                        Err(warning_entry!("Agent", "Data Channel is not ready"))?
                     }
+                } else {
+                    Err(error_entry!("Agent", "Missing file block"))?
+                }
+            }
+            if !require_send.is_empty() {
+                if let Some(data_channel_sender) = agent.write().await.data_channel_sender.as_mut() {
+                    data_channel_sender.send(FileTransferEndPacket::new()).await;
+                } else {
+                    agent.write().await.state = AgentState::CreateDataChannel;
+                    Err(warning_entry!("Agent", "Data Channel is not ready"))?
                 }
                 require_send = Vec::new();
-                data_channel_sender.send(FileTransferEndPacket::new()).await;
-            } else {
-                agent.write().await.state = AgentState::CreateDataChannel;
-                Err(warning_entry!("Agent", "Data Channel is not ready"))?
+                timer = Instant::now();
             }
             if let Some(data_channel_receiver) = agent.write().await.data_channel_receiver.as_mut() {
                 select! {
@@ -431,7 +430,6 @@ impl Agent {
                     packet = data_channel_receiver.file_transfer_result_packet.recv() => {
                         match packet {
                             Some(packet) => {
-                                clear_unbounded_channel(&mut data_channel_receiver.file_transfer_result_packet).await;
                                 timer = Instant::now();
                                 let file_transfer_result = serde_json::from_slice::<FileTransferResult>(packet.as_data_byte())
                                     .map_err(|err| error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?;
@@ -493,7 +491,6 @@ impl Agent {
                     },
                     packet = data_channel_receiver.result_packet.recv() => {
                         if let Some(packet) = &packet {
-                            clear_unbounded_channel(&mut data_channel_receiver.result_packet).await;
                             match serde_json::from_slice::<TaskResult>(packet.as_data_byte()) {
                                 Ok(task_result) => break task_result.into(),
                                 Err(err) => Err(error_entry!("Agent", "Unable to parse packet data", format!("Err: {err}")))?,
@@ -580,14 +577,15 @@ impl Agent {
     }
 
     async fn create_data_channel(agent: Arc<RwLock<Agent>>) {
+        let uuid = agent.read().await.uuid;
         match Self::create_listener(agent.clone()).await {
             Ok((listener, port)) => {
                 if let Err(entry) = Self::accept_connection(agent.clone(), listener, port).await {
-                    logging_entry!(entry);
+                    logging_entry!(uuid, entry);
                 }
                 agent.write().await.state = AgentState::None;
             },
-            Err(entry) => logging_entry!(entry),
+            Err(entry) => logging_entry!(uuid, entry),
         }
     }
 
@@ -598,12 +596,12 @@ impl Agent {
             }
             let port = PortPool::allocate_port().await
                 .ok_or(warning_entry!("Agent", "No available port"))?;
-            match TcpListener::bind(format!("127.0.0.1:{port}")).await {
+            match TcpListener::bind(format!("0.0.0.0:{port}")).await {
                 Ok(listener) => break Ok((listener, port)),
                 Err(err) => {
                     PortPool::free_port(port).await;
                     Err(error_entry!("Agent", "Failed to bind port", format!("Err: {err}")))?;
-                }
+                },
             }
         }
     }

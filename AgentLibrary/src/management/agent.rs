@@ -63,9 +63,10 @@ impl Agent {
                 if !information_confirm {
                     control_channel_sender.send(AgentInformationPacket::new(information.clone())).await;
                 } else {
-                    let performance = serde_json::to_vec(&Monitor::get_performance().await)
+                    let performance = Monitor::get_performance().await;
+                    let performance_data = serde_json::to_vec(&performance)
                         .map_err(|err| error_entry!("Agent", "Unable to serialize data", format!("Err: {err}")))?;
-                    control_channel_sender.send(PerformancePacket::new(performance)).await;
+                    control_channel_sender.send(PerformancePacket::new(performance_data)).await;
                 }
                 polling_times += 1;
             }
@@ -74,13 +75,11 @@ impl Agent {
                 packet = control_channel_receiver.agent_information_acknowledge_packet.recv() => {
                     let _ = packet
                         .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
-                    clear_unbounded_channel(&mut control_channel_receiver.agent_information_acknowledge_packet).await;
                     information_confirm = true;
                 },
                 packet = control_channel_receiver.performance_acknowledge_packet.recv() => {
                     let _ = packet
                         .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
-                    clear_unbounded_channel(&mut control_channel_receiver.performance_acknowledge_packet).await;
                     if !information_confirm {
                         Err(error_entry!("Agent", "Wrong packet delivery order"))?;
                     }
@@ -291,7 +290,10 @@ impl Agent {
         let config = Config::now().await;
         let timer = Instant::now();
         let timeout_duration = Duration::from_secs(config.data_channel_timeout);
-        let file_header = loop {
+        if let Some(data_channel_receiver) = &mut agent.write().await.data_channel_receiver {
+            clear_unbounded_channel(&mut data_channel_receiver.file_header_packet).await;
+        }
+	    let file_header = loop {
             if agent.read().await.state == AgentState::Terminate {
                 Err(notice_entry!("Agent", "Terminate. Interrupt current operation"))?;
             }
@@ -352,7 +354,6 @@ impl Agent {
                     packet = data_channel_receiver.file_transfer_end_packet.recv() => {
                         let _ = &packet
                             .ok_or(notice_entry!("Agent", "Channel has been closed"))?;
-                        clear_unbounded_channel(&mut data_channel_receiver.file_transfer_end_packet).await;
                         timer = Instant::now();
                         for sequence_number in 0..file_header.packet_count {
                             if !file_block.contains_key(&sequence_number) {

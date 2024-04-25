@@ -15,7 +15,7 @@ impl AgentSocket {
         let listener = loop {
             let config = Config::now().await;
             let port = config.agent_listen_port;
-            match TcpListener::bind(format!("127.0.0.1:{port}")).await {
+            match TcpListener::bind(format!("0.0.0.0:{port}")).await {
                 Ok(listener) => break listener,
                 Err(err) => {
                     logging_critical!("Agent Socket", "Failed to bind port", format!("Err: {err}"));

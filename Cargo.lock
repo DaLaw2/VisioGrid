@@ -12,7 +12,7 @@ dependencies = [
 
 [[package]]
 name = "AgentLibrary"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "Common",
  "async-ctrlc",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "Common"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "colored",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "Management"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "ManagementLibrary",
  "actix-rt",
@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "ManagementLibrary"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "Common",
  "ab_glyph",
