@@ -10,10 +10,6 @@ function formatDate(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + '-' + pad(date.getHours()) + '-' + pad(date.getMinutes()) + '-' + pad(date.getSeconds());
 }
 
-function formatLogText(logText) {
-    return logText.replace(/\n/g, '<br>');
-}
-
 function loadSystemLog() {
     lastLogType = 'system';
     lastUpdate = new Date();
@@ -24,7 +20,7 @@ function loadSystemLog() {
             return response.text();
         })
         .then(data => {
-            document.getElementById('log-container').innerHTML = formatLogText(data);
+            document.getElementById('log-container').innerHTML = data;
         })
         .catch(error => {
             console.error('Fetch error:', error);
@@ -47,7 +43,7 @@ function loadAgentLog() {
             return response.text();
         })
         .then(data => {
-            document.getElementById('log-container').innerHTML = formatLogText(data);
+            document.getElementById('log-container').innerHTML = data;
         })
         .catch(error => {
             console.error('Fetch error:', error);
@@ -70,7 +66,7 @@ function updateLog() {
         })
         .then(data => {
             if (data) {
-                document.getElementById('log-container').innerHTML += formatLogText(data);
+                document.getElementById('log-container').innerHTML += data;
                 lastUpdate = new Date();
             }
         })
