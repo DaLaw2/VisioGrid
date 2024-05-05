@@ -16,21 +16,22 @@ struct ConfigTable {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    pub internal_timestamp: u64,
-    pub agent_listen_port: u16,
-    pub http_server_bind_port: u16,
-    pub bind_retry_duration: u64,
-    pub agent_idle_duration: u64,
-    pub polling_interval: u64,
-    pub control_channel_timeout: u64,
-    pub data_channel_timeout: u64,
-    pub file_transfer_timeout: u64,
-    pub dedicated_port_range: [u16; 2],
-    pub font_path: String,
-    pub border_width: u32,
-    pub font_size: f32,
-    pub border_color: [u8; 3],
-    pub text_color: [u8; 3],
+    pub internal_timestamp: u64, //milliseconds
+    pub agent_listen_port: u16, //port
+    pub http_server_bind_port: u16, // port
+    pub dedicated_port_range: [u16; 2], //range
+    pub refresh_interval: u64, //seconds
+    pub polling_interval: u64, //milliseconds
+    pub bind_retry_duration: u64, //seconds
+    pub agent_idle_duration: u64, //seconds
+    pub control_channel_timeout: u64, //seconds
+    pub data_channel_timeout: u64, //seconds
+    pub file_transfer_timeout: u64, //seconds
+    pub font_path: String, //path
+    pub font_size: f32, //points
+    pub border_width: u32, //pixels
+    pub border_color: [u8; 3], //RGB
+    pub text_color: [u8; 3], //RGB
 }
 
 impl Config {
@@ -70,15 +71,16 @@ impl Config {
 
     pub fn validate(config: &Config) -> bool {
         Config::validate_mini_second(config.internal_timestamp)
+            && Config::validate_port_range(config.dedicated_port_range)
+            && Config::validate_second(config.refresh_interval)
+            && Config::validate_mini_second(config.polling_interval)
             && Config::validate_second(config.bind_retry_duration)
             && Config::validate_second(config.agent_idle_duration)
-            && Config::validate_mini_second(config.polling_interval)
             && Config::validate_second(config.control_channel_timeout)
             && Config::validate_second(config.data_channel_timeout)
             && Config::validate_second(config.file_transfer_timeout)
-            && Config::validate_port_range(config.dedicated_port_range)
-            && Config::validate_border_width(config.border_width)
             && Config::validate_font_size(config.font_size)
+            && Config::validate_border_width(config.border_width)
     }
 
     fn validate_mini_second(second: u64) -> bool {
