@@ -1,8 +1,8 @@
 use std::fs;
 use tokio::sync::RwLock;
-use crate::utils::logging::*;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use crate::utils::logging::*;
 
 lazy_static! {
     static ref CONFIG: RwLock<Config> = RwLock::new(Config::new());
@@ -18,8 +18,8 @@ struct ConfigTable {
 pub struct Config {
     pub internal_timestamp: u64, //milliseconds
     pub agent_listen_port: u16, //port
-    pub http_server_bind_port: u16, // port
-    pub dedicated_port_range: [u16; 2], //range
+    pub http_server_bind_port: u16, //port
+    pub dedicated_port_range: [u16; 2], //port range
     pub refresh_interval: u64, //seconds
     pub polling_interval: u64, //milliseconds
     pub bind_retry_duration: u64, //seconds
@@ -88,7 +88,7 @@ impl Config {
     }
 
     fn validate_second(second: u64) -> bool {
-        second <= 86400
+        second <= 3600
     }
 
     fn validate_port_range(port: [u16; 2]) -> bool {

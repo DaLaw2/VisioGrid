@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::management::utils::format::format_bytes;
 use crate::management::utils::agent_information::AgentInformation;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Performance {
     pub cpu: f64,
     pub ram: f64,

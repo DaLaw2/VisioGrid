@@ -37,7 +37,6 @@ impl Management {
 
     pub async fn run() {
         FileManager::run().await;
-        AgentManager::run().await;
         Self::register_agent().await;
         let http_server = loop {
             let config = Config::now().await;
@@ -68,7 +67,6 @@ impl Management {
     pub async fn terminate() {
         logging_information!("Management", "Termination in progress");
         Self::instance_mut().await.terminate = true;
-        AgentManager::terminate().await;
         FileManager::terminate().await;
         logging_information!("Management", "Termination complete");
     }

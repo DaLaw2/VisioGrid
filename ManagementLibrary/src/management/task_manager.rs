@@ -187,7 +187,7 @@ impl TaskManager {
     pub async fn steal_task(agent: Arc<RwLock<Agent>>) -> Option<ImageTask> {
         let agents = AgentManager::sorted_by_vram().await;
         let (vram, ram) = {
-            let agent = agent.write().await;
+            let agent = agent.read().await;
             (agent.idle_unused().vram, agent.idle_unused().ram)
         };
         for (uuid, _) in agents {
@@ -197,9 +197,9 @@ impl TaskManager {
                 let mut agent = agent.write().await;
                 match agent.image_tasks().get(0) {
                     Some(image_task) => {
-                        let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
                         let estimate_ram = TaskManager::estimated_ram_usage(&image_task.image_filepath).await;
-                        if vram > estimate_vram && ram > estimate_ram * 0.7 {
+                        let estimate_vram = TaskManager::estimated_vram_usage(&image_task.model_filepath).await;
+                        if ram > estimate_ram && vram > estimate_vram * 0.8 {
                             steal = true;
                             if ram < estimate_ram {
                                 cache = true;
