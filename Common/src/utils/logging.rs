@@ -2,7 +2,7 @@ use colored::*;
 use std::fmt::Display;
 use chrono::{DateTime, Local};
 
-pub use crate::{debug_entry, information_entry, notice_entry, warning_entry, error_entry, critical_entry, alert_entry, emergency_entry};
+pub use crate::{debug_entry, information_entry, notice_entry, warning_entry, error_entry, critical_entry, alert_entry, emergency_entry, logging_console};
 
 #[derive(Copy, Clone)]
 pub enum LogLevel {
@@ -109,6 +109,10 @@ impl Display for LogEntry {
     }
 }
 
+pub fn logging_console(log_entry: LogEntry) {
+    println!("{}", log_entry.to_colored_string());
+}
+
 #[macro_export]
 macro_rules! debug_entry {
     ($position:expr, $message:expr) => {
@@ -186,5 +190,12 @@ macro_rules! emergency_entry {
     };
     ($position:expr, $message:expr, $debug_info:expr) => {
         LogEntry::new(LogLevel::Emergency, $position, $message, format!("{}:{} {}", file!(), line!(), $debug_info))
+    };
+}
+
+#[macro_export]
+macro_rules! logging_console {
+    ($log_entry:expr) => {
+        crate::utils::logging::logging_console($log_entry);
     };
 }

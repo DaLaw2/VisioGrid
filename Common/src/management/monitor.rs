@@ -39,7 +39,7 @@ impl Monitor {
         tokio::spawn(async {
             Self::update_performance().await;
         });
-        logging_information!("Monitor", "Online now");
+        logging_console!(information_entry!("Monitor", "Online now"));
     }
 
     pub async fn terminate() {
