@@ -32,7 +32,7 @@ async function loadCurrentConfig() {
 }
 
 async function submitForm() {
-    const getRGBA = (idPrefix) => {
+    const getRGB = (idPrefix) => {
         return [
             parseInt(document.getElementById(idPrefix + '_r').value),
             parseInt(document.getElementById(idPrefix + '_g').value),
@@ -54,8 +54,8 @@ async function submitForm() {
         font_path: document.getElementById('font_path').value,
         border_width: parseInt(document.getElementById('border_width').value),
         font_size: parseFloat(document.getElementById('font_size').value),
-        border_color: getRGBA('border_color'),
-        text_color: getRGBA('text_color')
+        border_color: getRGB('border_color'),
+        text_color: getRGB('text_color')
     };
 
     try {

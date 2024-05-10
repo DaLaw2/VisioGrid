@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Test</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const ws = new WebSocket('ws://127.0.0.1:8080/websocket/connect');
+
+            ws.onopen = function() {
+                console.log('WebSocket Connection Opened');
+            };
+
+            ws.onmessage = function(event) {
+                console.log('Message from server ', event.data);
+                const messages = document.getElementById('messages');
+                const message = document.createElement('li');
+                message.textContent = event.data;
+                messages.appendChild(message);
+            };
+
+            ws.onerror = function(error) {
+                console.log('WebSocket Error: ' + error);
+            };
+
+            ws.onclose = function(event) {
+                console.log('WebSocket Connection Closed', event);
+            };
+        });
+    </script>
+</head>
+<body>
+<h1>WebSocket Client Test</h1>
+<ul id="messages"></ul>
+</body>
+</html>
