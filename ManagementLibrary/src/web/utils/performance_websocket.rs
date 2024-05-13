@@ -1,47 +1,49 @@
-use std::time::Duration;
-use actix::prelude::*;
-use actix_web_actors::ws;
 use serde_json;
 use uuid::Uuid;
-use crate::management::agent_manager::AgentManager;
-use crate::management::monitor::Monitor;
+use actix::prelude::*;
+use std::time::Duration;
+use actix_web_actors::ws;
 use crate::utils::config::Config;
+use crate::management::monitor::Monitor;
+use crate::management::agent_manager::AgentManager;
 
 pub struct PerformanceWebSocket {
     pub target_type: String,
     pub agent_id: Option<Uuid>,
     pub interval: Option<SpawnHandle>,
 }
+
 impl Actor for PerformanceWebSocket {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let refresh_interval_future = async {
+        let future = async {
             let config = Config::now().await;
             Duration::from_secs(config.refresh_interval)
         };
-        ctx.wait(refresh_interval_future.into_actor(self).map(move |interval, actor, ctx| {
-            let handle = ctx.run_interval(interval, move |act, ctx| {
-                let performance_future = async {
-                    match act.target_type.as_str() {
-                        "system" => {
-                            let performance = Monitor::get_system_performance().await;
-                            serde_json::to_string(&performance).map_err(|_| ())
-                        },
-                        _ => {
-                            if let Some(agent_id) = act.agent_id {
-                                let performance = AgentManager::get_agent_performance(agent_id).await;
-                                serde_json::to_string(&performance).map_err(|_| ())
-                            } else {
-                                Err(())
-                            }
+        ctx.wait(future.into_actor(self).map(|interval, actor, ctx| {
+            let handle = ctx.run_interval(interval, |act, ctx| {
+                let target_type = act.target_type.clone();
+                let agent_id = act.agent_id.clone();
+                let future = async move {
+                    if target_type == "system" {
+                        Some(Monitor::get_performance().await)
+                    } else {
+                        match agent_id {
+                            Some(agent_id) => AgentManager::get_agent_performance(agent_id).await,
+                            None => None,
                         }
                     }
                 };
-                ctx.wait(performance_future.into_actor(act).map(|result, _, ctx| {
-                    match result {
-                        Ok(json) => ctx.text(json),
-                        Err(_) => ctx.stop(),
+                ctx.wait(future.into_actor(act).map(|performance, _, ctx| {
+                    match performance {
+                        Some(performance) => {
+                            match serde_json::to_string(&performance) {
+                                Ok(json) => ctx.text(json),
+                                Err(_) => ctx.stop(),
+                            }
+                        },
+                        None => ctx.stop(),
                     }
                 }));
             });

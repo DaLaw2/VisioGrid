@@ -55,6 +55,7 @@ impl AgentManager {
 
     pub async fn add_agent(agent: Agent) {
         let agent_id = agent.uuid();
+        let performance = agent.realtime_usage();
         let mut agent_manager = Self::instance_mut().await;
         if agent_manager.agents.contains_key(&agent_id) {
             logging_error!("Agent Manager", "Agent instance already exists");
@@ -62,6 +63,7 @@ impl AgentManager {
         }
         let agent = Arc::new(RwLock::new(agent));
         agent_manager.agents.insert(agent_id, agent.clone());
+        agent_manager.performance.insert(agent_id, (performance, Local::now()));
         agent_manager.size += 1;
         drop(agent_manager);
         Agent::run(agent).await;
@@ -77,8 +79,7 @@ impl AgentManager {
     }
 
     pub async fn sorted_by_vram() -> Vec<(Uuid, f64)> {
-        let agent_manager = Self::instance().await;
-        let agents: Vec<Uuid> = agent_manager.agents.keys().cloned().collect();
+        let agents: Vec<Uuid> = Self::instance().await.agents.keys().cloned().collect();
         let mut agents: Vec<(Uuid, f64)> = stream::iter(agents)
             .then(|agent_id| async move {
                 let performance = Self::get_agent_performance(agent_id).await;

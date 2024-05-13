@@ -1,7 +1,7 @@
-use actix_web_actors::ws::start;
-use actix_web::{HttpRequest, Responder, Scope, web};
-use actix_web::{get, HttpResponse, Error};
 use uuid::Uuid;
+use actix_web_actors::ws::start;
+use actix_web::{get, HttpResponse, Error};
+use actix_web::{HttpRequest, Responder, Scope, web};
 use crate::management::monitor::Monitor;
 use crate::management::agent_manager::AgentManager;
 use crate::web::utils::performance_websocket::PerformanceWebSocket;
