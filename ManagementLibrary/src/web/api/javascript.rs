@@ -7,8 +7,8 @@ pub fn initialize() -> Scope {
 }
 
 #[get("/{filename:.*\\.js}")]
-async fn javascript(info: web::Path<(String,)>) -> impl Responder {
-    let filename = info.into_inner().0;
+async fn javascript(filename: web::Path<String>) -> impl Responder {
+    let filename = filename.into_inner();
     let path = format!("javascript/{}", filename);
     match StaticFiles::get(&path) {
         Some(file) => HttpResponse::Ok().content_type("application/javascript").body(file.data),

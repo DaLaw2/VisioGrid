@@ -1,15 +1,18 @@
 use std::time::Duration;
 use actix::prelude::*;
 use actix_web_actors::ws;
+use serde_json;
+use uuid::Uuid;
+use crate::management::agent_manager::AgentManager;
 use crate::management::monitor::Monitor;
 use crate::utils::config::Config;
-use serde_json;
 
-pub struct WebSocket {
-    pub interval: Option<SpawnHandle>
+pub struct PerformanceWebSocket {
+    pub target_type: String,
+    pub agent_id: Option<Uuid>,
+    pub interval: Option<SpawnHandle>,
 }
-
-impl Actor for WebSocket {
+impl Actor for PerformanceWebSocket {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
@@ -20,12 +23,25 @@ impl Actor for WebSocket {
         ctx.wait(refresh_interval_future.into_actor(self).map(move |interval, actor, ctx| {
             let handle = ctx.run_interval(interval, move |act, ctx| {
                 let performance_future = async {
-                    let performance = Monitor::get_performance().await;
-                    serde_json::to_string(&performance)
+                    match act.target_type.as_str() {
+                        "system" => {
+                            let performance = Monitor::get_system_performance().await;
+                            serde_json::to_string(&performance).map_err(|_| ())
+                        },
+                        _ => {
+                            if let Some(agent_id) = act.agent_id {
+                                let performance = AgentManager::get_agent_performance(agent_id).await;
+                                serde_json::to_string(&performance).map_err(|_| ())
+                            } else {
+                                Err(())
+                            }
+                        }
+                    }
                 };
                 ctx.wait(performance_future.into_actor(act).map(|result, _, ctx| {
-                    if let Ok(json) = result {
-                        ctx.text(json);
+                    match result {
+                        Ok(json) => ctx.text(json),
+                        Err(_) => ctx.stop(),
                     }
                 }));
             });
@@ -41,7 +57,7 @@ impl Actor for WebSocket {
     }
 }
 
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocket {
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for PerformanceWebSocket {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
             Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),

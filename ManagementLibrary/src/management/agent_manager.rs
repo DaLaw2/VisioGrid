@@ -42,6 +42,11 @@ impl AgentManager {
         AGENT_MANAGER.write().await
     }
 
+    pub async fn is_agent_exists(agent_id: Uuid) -> bool {
+        let agent_manager = Self::instance().await;
+        agent_manager.agents.contains_key(&agent_id)
+    }
+
     pub async fn get_agent(agent_id: Uuid) -> Option<Arc<RwLock<Agent>>> {
         let agent_manager = Self::instance().await;
         let agent = agent_manager.agents.get(&agent_id);

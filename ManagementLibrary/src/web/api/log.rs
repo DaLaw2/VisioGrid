@@ -8,9 +8,9 @@ pub fn initialize() -> Scope {
     web::scope("/log")
         .service(page)
         .service(system_log)
-        .service(update_system_log)
+        .service(system_log_since)
         .service(agent_log)
-        .service(agent_log_update)
+        .service(agent_log_since)
 }
 
 #[get("")]
@@ -26,9 +26,9 @@ async fn system_log() -> impl Responder {
     HttpResponse::Ok().body(system_log_string)
 }
 
-#[get("/system_log/update/{since}")]
-async fn update_system_log(path: web::Path<String>) -> impl Responder {
-    match parse_datetime(&path.into_inner()) {
+#[get("/system_log/since/{since}")]
+async fn system_log_since(since: web::Path<String>) -> impl Responder {
+    match parse_datetime(&since.into_inner()) {
         Ok(since_time) => {
             let logs = Logger::get_system_logs_since(since_time).await;
             let log_string = Logger::format_logs(&logs);
@@ -49,9 +49,9 @@ async fn agent_log(agent_id: web::Path<Uuid>) -> impl Responder {
     }
 }
 
-#[get("/{agent_id}/update/{since}")]
-async fn agent_log_update(path: web::Path<(Uuid, String)>) -> impl Responder {
-    let (agent_id, since_str) = path.into_inner();
+#[get("/{agent_id}/since/{since}")]
+async fn agent_log_since(argument: web::Path<(Uuid, String)>) -> impl Responder {
+    let (agent_id, since_str) = argument.into_inner();
     match parse_datetime(&since_str) {
         Ok(since_time) => {
             match Logger::get_agent_logs_since(agent_id, since_time).await {

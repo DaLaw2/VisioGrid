@@ -29,30 +29,6 @@
             <input type="number" class="form-control" id="http_server_bind_port" name="http_server_bind_port" min="1" max="65535" required>
         </div>
         <div class="form-group">
-            <label for="bind_retry_duration">Bind Retry Duration (s):</label>
-            <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" min="1" max="86400" required>
-        </div>
-        <div class="form-group">
-            <label for="agent_idle_duration">Agent Idle Duration (s):</label>
-            <input type="number" class="form-control" id="agent_idle_duration" name="agent_idle_duration" min="1" max="86400" required>
-        </div>
-        <div class="form-group">
-            <label for="polling_interval">Polling Interval (ms):</label>
-            <input type="number" class="form-control" id="polling_interval" name="polling_interval" min="1" max="60000" required>
-        </div>
-        <div class="form-group">
-            <label for="control_channel_timeout">Control Channel timeout (s):</label>
-            <input type="number" class="form-control" id="control_channel_timeout" name="control_channel_timeout" min="1" max="86400" required>
-        </div>
-        <div class="form-group">
-            <label for="data_channel_timeout">Data Channel timeout (s):</label>
-            <input type="number" class="form-control" id="data_channel_timeout" name="data_channel_timeout" min="1" max="86400" required>
-        </div>
-        <div class="form-group">
-            <label for="file_transfer_timeout">File Transfer timeout (s):</label>
-            <input type="number" class="form-control" id="file_transfer_timeout" name="file_transfer_timeout" min="1" max="86400" required>
-        </div>
-        <div class="form-group">
             <label for="dedicated_port_range_start">Dedicated Port Range :</label>
             <div class="d-flex align-items-center">
                 <input type="number" class="form-control" id="dedicated_port_range_start" name="dedicated_port_range_start" min="1" max="65535" required>
@@ -62,16 +38,45 @@
             </div>
         </div>
         <div class="form-group">
+            <label for="refresh_interval">Refresh Interval (s):</label>
+            <input type="number" class="form-control" id="refresh_interval" name="refresh_interval" min="1" max="3600" required>
+        </div>
+        <div class="form-group">
+            <label for="polling_interval">Polling Interval (ms):</label>
+            <input type="number" class="form-control" id="polling_interval" name="polling_interval" min="1" max="60000" required>
+        </div>
+        <div class="form-group">
+            <label for="bind_retry_duration">Bind Retry Duration (s):</label>
+            <input type="number" class="form-control" id="bind_retry_duration" name="bind_retry_duration" min="1" max="3600" required>
+        </div>
+        <div class="form-group">
+            <label for="agent_idle_duration">Agent Idle Duration (s):</label>
+            <input type="number" class="form-control" id="agent_idle_duration" name="agent_idle_duration" min="1" max="3600" required>
+        </div>
+
+        <div class="form-group">
+            <label for="control_channel_timeout">Control Channel timeout (s):</label>
+            <input type="number" class="form-control" id="control_channel_timeout" name="control_channel_timeout" min="1" max="3600" required>
+        </div>
+        <div class="form-group">
+            <label for="data_channel_timeout">Data Channel timeout (s):</label>
+            <input type="number" class="form-control" id="data_channel_timeout" name="data_channel_timeout" min="1" max="3600" required>
+        </div>
+        <div class="form-group">
+            <label for="file_transfer_timeout">File Transfer timeout (s):</label>
+            <input type="number" class="form-control" id="file_transfer_timeout" name="file_transfer_timeout" min="1" max="3600" required>
+        </div>
+        <div class="form-group">
             <label for="font_path">Font Path :</label>
             <input type="text" class="form-control" id="font_path" name="font_path" required>
         </div>
         <div class="form-group">
-            <label for="border_width">Border Width (px):</label>
-            <input type="number" class="form-control" id="border_width" name="border_width" min="1" required>
-        </div>
-        <div class="form-group">
             <label for="font_size">Font Size (pt):</label>
             <input type="number" class="form-control" id="font_size" name="font_size" min="1" step="0.1" required>
+        </div>
+        <div class="form-group">
+            <label for="border_width">Border Width (px):</label>
+            <input type="number" class="form-control" id="border_width" name="border_width" min="1" required>
         </div>
         <div class="form-group">
             <label>Border Color:</label>

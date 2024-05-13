@@ -15,17 +15,17 @@ async fn page() -> impl Responder {
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
-#[get("/get_config")]
+#[get("/get")]
 async fn get_config() -> impl Responder {
     web::Json(Config::now().await)
 }
 
-#[post("/update_config")]
+#[post("/update")]
 async fn update_config(config: web::Json<Config>) -> impl Responder {
     let config = config.into_inner();
     if Config::validate(&config) {
         Config::update(config).await;
-        HttpResponse::Ok().body("Configuration updated successfully.")
+        HttpResponse::Ok().finish()
     } else {
         HttpResponse::BadRequest().body("Invalid configuration.")
     }

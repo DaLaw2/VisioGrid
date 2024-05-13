@@ -13,7 +13,7 @@ use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
 use crate::web::api::{config, inference, javascript, log, misc, monitor};
 
-lazy_static!{
+lazy_static! {
     static ref MANAGEMENT: RwLock<Management> = RwLock::new(Management::new());
 }
 

@@ -55,9 +55,9 @@ function updateLog() {
     const since = formatDate(lastUpdate);
     let updatePath;
     if (lastLogType === 'system')
-        updatePath = `/log/system_log/update/${since}`;
+        updatePath = `/log/system_log/since/${since}`;
     else
-        updatePath = `/log/${lastLogType}/update/${since}`;
+        updatePath = `/log/${lastLogType}/since/${since}`;
     fetch(updatePath)
         .then(response => {
             if (!response.ok)
