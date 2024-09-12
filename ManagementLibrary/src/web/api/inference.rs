@@ -40,7 +40,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
             if field_name == "modelType" {
                 model_type = parse_model_type(&mut field).await;
             } else {
-                return if let Some(mut file_name) = get_file_name(&content_disposition) {
+                if let Some(mut file_name) = get_file_name(&content_disposition) {
                     let sanitized_file_name = sanitize(file_name);
                     if sanitized_file_name.is_empty() {
                         return HttpResponse::BadRequest().body("Invalid filename.");
@@ -52,6 +52,7 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
                         ("modelFile", "pt" | "pth" | "onnx") => {
                             model_filename = file_name.clone();
                             Path::new(".").join("SavedModel").join(file_name)
+
                         },
                         ("inferenceFile", "png" | "jpg" | "jpeg" | "mp4" | "avi" | "mkv" | "zip") => {
                             media_filename = file_name.clone();
@@ -62,22 +63,21 @@ async fn save_files(mut payload: Multipart) -> impl Responder {
                     if create_file(&file_path, &mut field).await.is_err() {
                         return HttpResponse::InternalServerError().finish();
                     }
-                    if let Some(model_type) = model_type {
-                        let new_task = Task::new(uuid, model_filename, media_filename, model_type).await;
-                        FileManager::add_pre_process_task(new_task).await;
-                        HttpResponse::Ok().finish()
-                    } else {
-                        HttpResponse::BadRequest().finish()
-                    }
                 } else {
-                    HttpResponse::BadRequest().body("Invalid payload.")
+                    return HttpResponse::BadRequest().body("Invalid payload.")
                 }
             }
         } else {
             return HttpResponse::BadRequest().body("Invalid payload.");
         }
     }
-    HttpResponse::BadRequest().finish()
+    if let Some(model_type) = model_type {
+        let new_task = Task::new(uuid, model_filename, media_filename, model_type).await;
+        FileManager::add_pre_process_task(new_task).await;
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::BadRequest().finish()
+    }
 }
 
 fn get_field_name(content_disposition: &ContentDisposition) -> Option<String> {

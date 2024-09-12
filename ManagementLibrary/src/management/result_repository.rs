@@ -37,13 +37,13 @@ impl ResultRepository {
 
     pub async fn task_success(task: Task) {
         let mut result_repository = RESULT_REPOSITORY.write().await;
-        Self::cleanup(&task).await;
+        // Self::cleanup(&task).await;
         result_repository.success.push_back(task);
     }
 
     pub async fn task_failed(task: Task) {
         let mut result_repository = RESULT_REPOSITORY.write().await;
-        Self::cleanup(&task).await;
+        // Self::cleanup(&task).await;
         result_repository.fail.push_back(task);
     }
 }
