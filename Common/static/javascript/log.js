@@ -22,8 +22,7 @@ function loadSystemLog() {
         .then(data => {
             document.getElementById('log-container').innerHTML = data;
         })
-        .catch(error => {
-            console.error('Fetch error:', error);
+        .catch(_ => {
             document.getElementById('log-container').textContent = 'Error loading system log.';
         });
 }

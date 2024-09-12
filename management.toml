@@ -1,4 +1,5 @@
 [Config]
+split_mode = "Frame" # video split mode
 internal_timestamp = 10 # milliseconds
 agent_listen_port = 9090 # port
 http_server_bind_port = 8080 # port

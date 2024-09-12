@@ -10,13 +10,13 @@ use gstreamer::prelude::*;
 use imageproc::rect::Rect;
 use std::io::{Read, Write};
 use image::{Rgb, RgbImage};
-use zip::write::FileOptions;
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use ab_glyph::{FontVec, PxScale};
 use gstreamer_pbutils::prelude::*;
 use gstreamer_pbutils::Discoverer;
+use zip::write::SimpleFileOptions;
 use tokio_stream::wrappers::ReadDirStream;
 use tokio::task::{JoinError, spawn_blocking};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -490,7 +490,7 @@ impl FileManager {
         let file = File::create(&target_path)
             .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", target_path.display(), err)))?;
         let mut zip = ZipWriter::new(file);
-        let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
         for entry in std::fs::read_dir(&source_folder)
             .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Folder: {}, Err: {}", source_folder.display(), err)))?
         {

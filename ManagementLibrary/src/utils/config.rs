@@ -8,6 +8,12 @@ lazy_static! {
     static ref CONFIG: RwLock<Config> = RwLock::new(Config::new());
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SplitMode {
+    Frame,
+    Segment,
+}
+
 #[derive(Debug, Deserialize)]
 struct ConfigTable {
     #[serde(rename = "Config")]
@@ -16,6 +22,7 @@ struct ConfigTable {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
+    pub split_mode: SplitMode, //video split mode
     pub internal_timestamp: u64, //milliseconds
     pub agent_listen_port: u16, //port
     pub http_server_bind_port: u16, //port
@@ -36,7 +43,6 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Self {
-        //Seriously, the program must be terminated.
         match fs::read_to_string("./management.toml") {
             Ok(toml_string) => {
                 match toml::from_str::<ConfigTable>(&toml_string) {
