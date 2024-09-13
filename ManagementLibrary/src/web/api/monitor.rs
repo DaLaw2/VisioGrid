@@ -8,9 +8,19 @@ use crate::web::utils::performance_websocket::PerformanceWebSocket;
 
 pub fn initialize() -> Scope {
     web::scope("/monitor")
+        .service(get_agent_list)
         .service(get_information)
         .service(get_performance)
-        .service(connect)
+        .service(websocket)
+}
+
+#[get("/get/agent_list")]
+async fn get_agent_list() -> impl Responder {
+    let agents = AgentManager::get_agents_uuid().await;
+    match serde_json::to_string(&agents) {
+        Ok(json) => HttpResponse::Ok().json(web::Json(json)),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
 }
 
 #[get("/get/information/{target}")]
@@ -68,7 +78,7 @@ async fn get_performance(target: web::Path<String>) -> impl Responder {
 }
 
 #[get("/websocket/performance/{target}")]
-async fn connect(req: HttpRequest, stream: web::Payload, target: web::Path<String>) -> Result<HttpResponse, Error> {
+async fn websocket(req: HttpRequest, stream: web::Payload, target: web::Path<String>) -> Result<HttpResponse, Error> {
     let target = target.into_inner();
     let target_type;
     let agent_id: Option<Uuid>;

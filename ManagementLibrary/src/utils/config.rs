@@ -74,6 +74,10 @@ impl Config {
         CONFIG.read().await.clone()
     }
 
+    pub fn now_blocking() -> Config {
+        CONFIG.blocking_read().clone()
+    }
+
     pub async fn update(config: Config) {
         *CONFIG.write().await = config
     }

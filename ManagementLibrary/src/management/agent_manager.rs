@@ -53,6 +53,11 @@ impl AgentManager {
         agent.cloned()
     }
 
+    pub async fn get_agents_uuid() -> Vec<Uuid> {
+        let agent_manager = Self::instance().await;
+        agent_manager.agents.keys().cloned().collect()
+    }
+
     pub async fn add_agent(agent: Agent) {
         let agent_id = agent.uuid();
         let performance = agent.realtime_usage();
