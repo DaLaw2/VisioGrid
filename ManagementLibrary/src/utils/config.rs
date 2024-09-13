@@ -43,7 +43,8 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Self {
-        match fs::read_to_string("./management.toml") {
+        logging_console!(information_entry!("Config", "Fetch configuration file"));
+        let config = match fs::read_to_string("./management.toml") {
             Ok(toml_string) => {
                 match toml::from_str::<ConfigTable>(&toml_string) {
                     Ok(config_table) => {
@@ -64,7 +65,9 @@ impl Config {
                 logging_console!(emergency_entry!("Config", "Configuration file not found", format!("Err: {err}")));
                 panic!("Configuration file not found");
             },
-        }
+        };
+        logging_console!(information_entry!("Config", "Configuration loaded successfully"));
+        config
     }
 
     pub async fn now() -> Config {

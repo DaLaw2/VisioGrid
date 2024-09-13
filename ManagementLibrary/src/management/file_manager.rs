@@ -13,12 +13,14 @@ use image::{Rgb, RgbImage};
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use ab_glyph::{FontVec, PxScale};
 use gstreamer_pbutils::prelude::*;
 use gstreamer_pbutils::Discoverer;
 use zip::write::SimpleFileOptions;
 use tokio_stream::wrappers::ReadDirStream;
-use tokio::task::{JoinError, spawn_blocking};
+use tokio::task::{JoinError, spawn_blocking, JoinHandle};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
 use crate::utils::logging::*;
@@ -37,6 +39,8 @@ pub struct FileManager {
     pre_processing: VecDeque<Task>,
     post_processing: VecDeque<Task>,
     terminate: bool,
+    cancel_flag: Arc<AtomicBool>,
+    running_tasks: Vec<JoinHandle<Result<(), LogEntry>>>,
 }
 
 impl FileManager {
@@ -44,7 +48,10 @@ impl FileManager {
         Self {
             pre_processing: VecDeque::new(),
             post_processing: VecDeque::new(),
+
             terminate: false,
+            cancel_flag: Arc::new(AtomicBool::new(false)),
+            running_tasks: Vec::new(),
         }
     }
 
@@ -84,10 +91,18 @@ impl FileManager {
     }
 
     pub async fn terminate() {
-        // 需要防止重入函式
-        // 需要等待其他執行緒結束
         logging_information!("File Manager", "Termination in progress");
-        Self::instance_mut().await.terminate = true;
+        let handles = {
+            let mut instance = Self::instance_mut().await;
+            instance.terminate = true;
+            instance.cancel_flag.store(true, Ordering::SeqCst);
+            std::mem::take(&mut instance.running_tasks)
+        };
+        for handle in handles {
+            if let Err(err) = handle.await {
+                logging_error!("File Manager", "Task panicked during termination", format!("Err: {err}"));
+            }
+        }
         Self::cleanup().await;
         logging_information!("File Manager", "Termination complete");
     }

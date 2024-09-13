@@ -37,6 +37,7 @@ impl Management {
     }
 
     pub async fn run() {
+        Config::now().await;
         FileManager::run().await;
         Monitor::run().await;
         Self::register_agent().await;
