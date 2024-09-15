@@ -10,10 +10,6 @@ function formatDate(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + '-' + pad(date.getHours()) + '-' + pad(date.getMinutes()) + '-' + pad(date.getSeconds());
 }
 
-function formatLogText(logText) {
-    return logText.replace(/\n/g, '<br>');
-}
-
 function loadSystemLog() {
     lastLogType = 'system';
     lastUpdate = new Date();
@@ -24,10 +20,9 @@ function loadSystemLog() {
             return response.text();
         })
         .then(data => {
-            document.getElementById('log-container').innerHTML = formatLogText(data);
+            document.getElementById('log-container').innerHTML = data;
         })
-        .catch(error => {
-            console.error('Fetch error:', error);
+        .catch(_ => {
             document.getElementById('log-container').textContent = 'Error loading system log.';
         });
 }
@@ -47,7 +42,7 @@ function loadAgentLog() {
             return response.text();
         })
         .then(data => {
-            document.getElementById('log-container').innerHTML = formatLogText(data);
+            document.getElementById('log-container').innerHTML = data;
         })
         .catch(error => {
             console.error('Fetch error:', error);
@@ -59,9 +54,9 @@ function updateLog() {
     const since = formatDate(lastUpdate);
     let updatePath;
     if (lastLogType === 'system')
-        updatePath = `/log/system_log/update/${since}`;
+        updatePath = `/log/system_log/since/${since}`;
     else
-        updatePath = `/log/${lastLogType}/update/${since}`;
+        updatePath = `/log/${lastLogType}/since/${since}`;
     fetch(updatePath)
         .then(response => {
             if (!response.ok)
@@ -70,7 +65,7 @@ function updateLog() {
         })
         .then(data => {
             if (data) {
-                document.getElementById('log-container').innerHTML += formatLogText(data);
+                document.getElementById('log-container').innerHTML += data;
                 lastUpdate = new Date();
             }
         })

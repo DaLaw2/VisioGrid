@@ -1,6 +1,6 @@
 [Config]
 internal_timestamp = 10
-management_address = "192.168.0.4"
+management_address = "127.0.0.1"
 management_port = 9090
 polling_interval = 50
 control_channel_timeout = 15

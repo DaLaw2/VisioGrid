@@ -4,15 +4,16 @@ use std::time::Duration;
 use lazy_static::lazy_static;
 use actix_web::{App, HttpServer};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::utils::logging::*;
 use crate::utils::config::Config;
 use crate::management::agent::Agent;
-use crate::utils::logging::*;
+use crate::management::monitor::Monitor;
 use crate::management::file_manager::FileManager;
 use crate::management::agent_manager::AgentManager;
 use crate::connection::socket::agent_socket::AgentSocket;
-use crate::web::page::{config, inference, javascript, log, misc};
+use crate::web::api::{config, inference, javascript, log, misc, monitor};
 
-lazy_static!{
+lazy_static! {
     static ref MANAGEMENT: RwLock<Management> = RwLock::new(Management::new());
 }
 
@@ -36,8 +37,9 @@ impl Management {
     }
 
     pub async fn run() {
+        Config::now().await;
         FileManager::run().await;
-        AgentManager::run().await;
+        Monitor::run().await;
         Self::register_agent().await;
         let http_server = loop {
             let config = Config::now().await;
@@ -48,6 +50,7 @@ impl Management {
                     .service(javascript::initialize())
                     .service(log::initialize())
                     .service(misc::initialize())
+                    .service(monitor::initialize())
             }).bind(format!("0.0.0.0:{}", config.http_server_bind_port));
             match http_server {
                 Ok(http_server) => break http_server,
@@ -68,7 +71,7 @@ impl Management {
     pub async fn terminate() {
         logging_information!("Management", "Termination in progress");
         Self::instance_mut().await.terminate = true;
-        AgentManager::terminate().await;
+        Monitor::terminate().await;
         FileManager::terminate().await;
         logging_information!("Management", "Termination complete");
     }

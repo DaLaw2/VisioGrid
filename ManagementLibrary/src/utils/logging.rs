@@ -71,7 +71,7 @@ impl Logger {
     }
 
     pub fn logging_console(log_entry: LogEntry) {
-        println!("{log_entry}");
+        println!("{}", log_entry.to_colored_string());
     }
 
     pub async fn get_system_logs() -> VecDeque<LogEntry> {
@@ -96,7 +96,7 @@ impl Logger {
     }
 
     pub fn format_logs(logs: &VecDeque<LogEntry>) -> String {
-        logs.iter().map(LogEntry::to_string).collect::<Vec<_>>().join("\n")
+        logs.iter().map(LogEntry::to_plain_string).collect::<Vec<_>>().join("<br>")
     }
 }
 

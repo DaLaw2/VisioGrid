@@ -1,3 +1,7 @@
 [workspace]
 members = ["Management", "ManagementLibrary", "Agent", "AgentLibrary", "Common"]
 resolver = "2"
+
+[profile.release]
+panic = "abort"
+strip = false

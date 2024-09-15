@@ -12,12 +12,13 @@ function submitForm() {
         method: 'POST',
         body: filteredFormData
     })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
+        .then(response => {
+            if (response.ok) {
                 alert('File uploaded successfully!');
             } else {
-                alert('Upload failed: ' + data.error);
+                response.text().then(errorMessage => {
+                    alert('Upload failed: ' + errorMessage);
+                });
             }
         })
         .catch(error => {

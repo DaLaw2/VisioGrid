@@ -7,8 +7,8 @@ pub fn initialize() -> Scope {
 }
 
 #[get("/{filename}")]
-async fn misc(info: web::Path<(String,)>) -> impl Responder {
-    let filename = info.into_inner().0;
+async fn misc(filename: web::Path<(String,)>) -> impl Responder {
+    let filename = filename.into_inner().0;
     let path = format!("misc/{}", filename);
     match StaticFiles::get(&path) {
         Some(file) => HttpResponse::Ok().body(file.data),

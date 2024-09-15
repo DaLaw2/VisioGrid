@@ -1,50 +1,56 @@
-use tokio::fs;
-use std::fs::File;
-use zip::ZipWriter;
-use std::ffi::OsStr;
-use futures::StreamExt;
-use tokio::time::sleep;
-use std::time::Duration;
-use zip::read::ZipArchive;
-use gstreamer::prelude::*;
-use imageproc::rect::Rect;
-use std::io::{Read, Write};
-use image::{Rgb, RgbImage};
-use zip::write::FileOptions;
-use lazy_static::lazy_static;
-use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
-use ab_glyph::{FontVec, PxScale};
-use gstreamer_pbutils::prelude::*;
-use gstreamer_pbutils::Discoverer;
-use tokio_stream::wrappers::ReadDirStream;
-use tokio::task::{JoinError, spawn_blocking};
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
-use crate::utils::logging::*;
-use crate::utils::config::Config;
+use crate::management::result_repository::ResultRepository;
 use crate::management::task_manager::TaskManager;
-use crate::management::utils::video_info::VideoInfo;
 use crate::management::utils::image_task::ImageTask;
 use crate::management::utils::task::{Task, TaskStatus};
-use crate::management::result_repository::ResultRepository;
+use crate::management::utils::video_info::VideoInfo;
+use crate::utils::config::Config;
+use crate::utils::logging::*;
+use ab_glyph::{FontVec, PxScale};
+use futures::StreamExt;
+use gstreamer::prelude::*;
+use gstreamer_pbutils::prelude::*;
+use gstreamer_pbutils::Discoverer;
+use image::{Rgb, RgbImage};
+use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
+use imageproc::rect::Rect;
+use lazy_static::lazy_static;
+use std::collections::VecDeque;
+use std::ffi::OsStr;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::fs;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::task::{spawn_blocking, JoinError, JoinHandle};
+use tokio::time::sleep;
+use tokio_stream::wrappers::ReadDirStream;
+use zip::read::ZipArchive;
+use zip::write::SimpleFileOptions;
+use zip::ZipWriter;
 
 lazy_static! {
     static ref FILE_MANAGER: RwLock<FileManager> = RwLock::new(FileManager::new());
 }
 
 pub struct FileManager {
-    pre_processing: VecDeque<Task>,
-    post_processing: VecDeque<Task>,
+    pre_process_tasks: VecDeque<Task>,
+    post_process_tasks: VecDeque<Task>,
+    join_handles: Vec<JoinHandle<()>>,
     terminate: bool,
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl FileManager {
     fn new() -> Self {
         Self {
-            pre_processing: VecDeque::new(),
-            post_processing: VecDeque::new(),
+            pre_process_tasks: VecDeque::new(),
+            post_process_tasks: VecDeque::new(),
+            join_handles: Vec::new(),
             terminate: false,
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -58,12 +64,14 @@ impl FileManager {
 
     pub async fn run() {
         Self::initialize().await;
-        tokio::spawn(async {
-            Self::pre_processing().await;
+        let pre_processing_handle = tokio::spawn(async {
+            Self::pre_processing().await
         });
-        tokio::spawn(async {
-            Self::post_processing().await;
+        let post_processing_handle = tokio::spawn(async {
+            Self::post_processing().await
         });
+        Self::add_join_handle(pre_processing_handle).await;
+        Self::add_join_handle(post_processing_handle).await;
         logging_information!("File Manager", "Online now");
     }
 
@@ -84,10 +92,18 @@ impl FileManager {
     }
 
     pub async fn terminate() {
-        // 需要防止重入函式
-        // 需要等待其他執行緒結束
         logging_information!("File Manager", "Termination in progress");
-        Self::instance_mut().await.terminate = true;
+        let handles = {
+            let mut instance = Self::instance_mut().await;
+            instance.terminate = true;
+            instance.cancel_flag.store(true, Ordering::Relaxed);
+            std::mem::take(&mut instance.join_handles)
+        };
+        for handle in handles {
+            if let Err(err) = handle.await {
+                logging_error!("File Manager", "Task panicked during termination", format!("Err: {err}"));
+            }
+        }
         Self::cleanup().await;
         logging_information!("File Manager", "Termination complete");
     }
@@ -104,18 +120,22 @@ impl FileManager {
         logging_information!("File Manager", "Cleanup completed");
     }
 
+    async fn add_join_handle(join_handle: JoinHandle<()>) {
+        Self::instance_mut().await.join_handles.push(join_handle);
+    }
+
     pub async fn add_pre_process_task(task: Task) {
-        Self::instance_mut().await.pre_processing.push_back(task);
+        Self::instance_mut().await.pre_process_tasks.push_back(task);
     }
 
     pub async fn add_post_process_task(task: Task) {
-        Self::instance_mut().await.post_processing.push_back(task);
+        Self::instance_mut().await.post_process_tasks.push_back(task);
     }
 
     async fn pre_processing() {
         let config = Config::now().await;
         while !Self::instance().await.terminate {
-            let task = Self::instance_mut().await.pre_processing.pop_front();
+            let task = Self::instance_mut().await.pre_process_tasks.pop_front();
             match task {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PreProcessing);
@@ -126,9 +146,9 @@ impl FileManager {
                         _ => {
                             logging_error!("File Manager", format!("Task {}, unsupported file type", task.uuid));
                             task.panic("Unsupported file type".to_string()).await;
-                        },
+                        }
                     }
-                },
+                }
                 None => sleep(Duration::from_millis(config.internal_timestamp)).await,
             }
         }
@@ -137,7 +157,7 @@ impl FileManager {
     async fn post_processing() {
         let config = Config::now().await;
         while !Self::instance().await.terminate {
-            let task = Self::instance_mut().await.post_processing.pop_front();
+            let task = Self::instance_mut().await.post_process_tasks.pop_front();
             match task {
                 Some(mut task) => {
                     task.change_status(TaskStatus::PostProcessing);
@@ -163,15 +183,15 @@ impl FileManager {
             Ok(_) => {
                 task.update_unprocessed(1).await;
                 Self::forward_to_task_manager(task).await;
-            },
+            }
             Err(err) => {
                 task.panic("Unable to move file".to_string()).await;
                 logging_error!("File Manager", "Unable to move file", format!("Source: {}, Destination: {}, Err: {}", source_path.display(), destination_path.display(), err));
-            },
+            }
         }
     }
 
-    async fn extract_pre_processing(source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) -> Result<(), LogEntry> {
+    async fn prepare_pre_processing(source_path: &PathBuf, destination_path: &PathBuf, create_folder: &PathBuf) -> Result<(), LogEntry> {
         fs::create_dir(&create_folder).await
             .map_err(|err|
                 error_entry!("File Manager", "Unable to create folder",format!("Folder:{}, Err: {}", create_folder.display(), err)))?;
@@ -185,25 +205,26 @@ impl FileManager {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
-        if let Err(entry) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
+        if let Err(entry) = Self::prepare_pre_processing(&source_path, &destination_path, &create_folder).await {
             task.panic(entry.message.clone()).await;
             logging_entry!(entry);
             return;
         }
         let video_path = destination_path;
         let extract_folder = create_folder;
-        if let Err(entry) = Self::extract_video_info(&video_path).await {
+        if let Err(entry) = Self::fetch_video_info(&video_path).await {
             task.panic(entry.message.clone()).await;
             logging_entry!(entry);
             return;
         }
+        let cancel_flag = Self::instance().await.cancel_flag.clone();
         let result = spawn_blocking(move || {
-            Self::extract_video(video_path)
+            Self::split_video_into_frames(video_path, cancel_flag)
         }).await;
-        Self::process_extract_result(task, extract_folder, result).await;
+        Self::handle_pre_process_result(task, extract_folder, result).await;
     }
 
-    async fn extract_video_info(video_path: &PathBuf) -> Result<(), LogEntry> {
+    async fn fetch_video_info(video_path: &PathBuf) -> Result<(), LogEntry> {
         let absolute_path = video_path.canonicalize()
             .map_err(|err| error_entry!("File Manager", "Unable to get absolute path", format!("Path: {}, Err: {}", video_path.display(), err)))?;
         let clean_path = absolute_path.to_string_lossy().trim_start_matches(r"\\?\").replace("\\", "/");
@@ -221,7 +242,7 @@ impl FileManager {
                         match field.as_str() {
                             "framerate" => video_info.framerate = structure.get::<gstreamer::Fraction>(field)
                                 .map_or_else(|_| "30/1".to_string(), |f| format!("{}/{}", f.numer(), f.denom())),
-                            _ => {},
+                            _ => {}
                         }
                     }
                 }
@@ -235,7 +256,8 @@ impl FileManager {
         Ok(())
     }
 
-    fn extract_video(video_path: PathBuf) -> Result<(), LogEntry> {
+    fn split_video_into_frames(video_path: PathBuf, cancel_flag: Arc<AtomicBool>) -> Result<(), LogEntry> {
+        let config = Config::now_blocking();
         let saved_path = video_path.clone().with_extension("").to_path_buf();
         let pipeline_string = format!("filesrc location={:?} ! decodebin ! videoconvert ! pngenc ! multifilesink location={:?}", video_path, saved_path.join("%010d.png"));
         let pipeline = gstreamer::parse::launch(&pipeline_string)
@@ -243,44 +265,46 @@ impl FileManager {
         let bus = pipeline.bus().ok_or(error_entry!("File Manager", "Unable to create instance"))?;
         pipeline.set_state(gstreamer::State::Playing)
             .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
-        for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
-            match message.view() {
-                gstreamer::MessageView::Eos(..) => break,
-                gstreamer::MessageView::Error(_) => {
-                    pipeline.set_state(gstreamer::State::Null)
-                        .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
-                    return if let Some(source) = message.src() {
-                        let err = source.path_string();
-                        Err(error_entry!("File Manager", "GStreamer internal error", format!("Err: {err}")))
-                    } else {
-                        Err(error_entry!("File Manager", "GStreamer internal error"))
-                    };
-                }
-                _ => {}
+        let polling_interval = gstreamer::ClockTime::from_mseconds(config.polling_interval);
+        let result = loop {
+            if cancel_flag.load(Ordering::Relaxed) {
+                break Err(information_entry!("File Manager", "Operation cancelled"));
             }
-        }
+            if let Some(message) = bus.timed_pop(polling_interval) {
+                match message.view() {
+                    gstreamer::MessageView::Eos(..) => break Ok(()),
+                    gstreamer::MessageView::Error(err) => break Err(error_entry!("File Manager", format!("GStreamer internal error: {}", err.error()))),
+                    _ => {}
+                }
+            }
+        };
         pipeline.set_state(gstreamer::State::Null)
             .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
-        Ok(())
+        result
+    }
+
+    fn split_video_into_clips() {
+
     }
 
     async fn zip_pre_process(task: Task) {
         let source_path = Path::new(".").join("SavedFile").join(&task.media_filename);
         let destination_path = Path::new(".").join("PreProcessing").join(&task.media_filename);
         let create_folder = destination_path.clone().with_extension("");
-        if let Err(entry) = Self::extract_pre_processing(&source_path, &destination_path, &create_folder).await {
+        if let Err(entry) = Self::prepare_pre_processing(&source_path, &destination_path, &create_folder).await {
             task.panic(entry.message.clone()).await;
             logging_entry!(entry);
             return;
         }
         let zip_path = destination_path;
+        let cancel_flag = Self::instance().await.cancel_flag.clone();
         let result = spawn_blocking(move || {
-            Self::extract_zip(&zip_path)
+            Self::unzip(&zip_path, cancel_flag)
         }).await;
-        Self::process_extract_result(task, create_folder, result).await;
+        Self::handle_pre_process_result(task, create_folder, result).await;
     }
 
-    fn extract_zip(zip_path: &PathBuf) -> Result<(), LogEntry> {
+    fn unzip(zip_path: &PathBuf, cancel_flag: Arc<AtomicBool>) -> Result<(), LogEntry> {
         let allowed_extensions = ["png", "jpg", "jpeg"];
         let reader = File::open(zip_path)
             .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File:{}, Err: {}", zip_path.display(), err)))?;
@@ -288,6 +312,9 @@ impl FileManager {
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let extract_folder = zip_path.clone().with_extension("").to_path_buf();
         for i in 0..archive.len() {
+            if cancel_flag.load(Ordering::Relaxed) {
+                return Err(information_entry!("File Manager", "Operation cancelled"));
+            }
             let mut file = archive.by_index(i)
                 .map_err(|err| error_entry!("File Manager", "An error occurred while reading the file", format!("File: {}, Err: {}", zip_path.display(), err)))?;
             if let Some(enclosed_path) = file.enclosed_name() {
@@ -305,28 +332,28 @@ impl FileManager {
         Ok(())
     }
 
-    async fn process_extract_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), LogEntry>, JoinError>) {
+    async fn handle_pre_process_result(mut task: Task, created_folder: PathBuf, result: Result<Result<(), LogEntry>, JoinError>) {
         match result {
             Ok(Ok(_)) => {
                 match Self::file_count(&created_folder).await {
                     Ok(count) => {
                         task.update_unprocessed(count).await;
                         Self::forward_to_task_manager(task).await;
-                    },
+                    }
                     Err(entry) => {
                         task.panic("Unable to read folder".to_string()).await;
                         logging_entry!(entry);
-                    },
+                    }
                 }
-            },
+            }
             Ok(Err(entry)) => {
                 task.panic(entry.message.clone()).await;
                 logging_entry!(entry);
-            },
+            }
             Err(err) => {
                 task.panic("Panic occurs during execution".to_string()).await;
                 logging_error!("File Manager", "Panic occurs during execution", format!("Err: {err}"));
-            },
+            }
         }
     }
 
@@ -369,24 +396,24 @@ impl FileManager {
                                     } else {
                                         Self::forward_to_repository(task).await;
                                     }
-                                },
+                                }
                                 Err(entry) => {
                                     task.panic(entry.message.clone()).await;
                                     logging_entry!(entry);
-                                },
+                                }
                             }
-                        },
+                        }
                         Err(err) => {
                             task.panic("Unable to parse data in file".to_string()).await;
                             logging_error!("File Manager", "Unable to parse data in file", format!("File: {}, Err: {}", font_path, err));
-                        },
+                        }
                     }
-                },
+                }
                 Err(err) => {
                     let error_message = "Unable to read file".to_string();
                     task.panic(error_message).await;
                     logging_error!("File Manager", "Unable to read file", format!("File: {}, Err: {}", font_path, err));
-                },
+                }
             }
         } else {
             task.panic("Missing tasks".to_string()).await;
@@ -394,7 +421,7 @@ impl FileManager {
         }
     }
 
-    async fn recombination_pre_processing(task: &mut Task, create_folder: &PathBuf) -> Result<(), LogEntry> {
+    async fn prepare_post_processing(task: &mut Task, create_folder: &PathBuf) -> Result<(), LogEntry> {
         fs::create_dir(&create_folder).await
             .map_err(|err| error_entry!("File Manager", "Cannot create folder", format!("Folder: {}, Err: {}", create_folder.display(), err)))?;
         let config = Config::now().await;
@@ -416,18 +443,20 @@ impl FileManager {
         let video_info_path = Path::new(".").join("PreProcessing").join(task.media_filename.clone()).with_extension("toml");
         let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
         let create_folder = target_path.with_extension("");
-        if let Err(entry) = Self::recombination_pre_processing(&mut task, &create_folder).await {
+        if let Err(entry) = Self::prepare_post_processing(&mut task, &create_folder).await {
             task.panic(entry.message.clone()).await;
             logging_entry!(entry);
             return;
         }
+        let cancel_flag = Self::instance().await.cancel_flag.clone();
         let result = spawn_blocking(move || {
-            Self::recombination_video(video_info_path, create_folder, target_path)
+            Self::recombination_video_from_frame(video_info_path, create_folder, target_path, cancel_flag)
         }).await;
-        Self::process_recombination_result(task, result).await;
+        Self::handle_post_process_result(task, result).await;
     }
 
-    fn recombination_video(video_info_path: PathBuf, frame_folder: PathBuf, saved_path: PathBuf) -> Result<(), LogEntry> {
+    fn recombination_video_from_frame(video_info_path: PathBuf, frame_folder: PathBuf, saved_path: PathBuf, cancel_flag: Arc<AtomicBool>) -> Result<(), LogEntry> {
+        let config = Config::now_blocking();
         let toml_str = std::fs::read_to_string(&video_info_path)
             .map_err(|err| error_entry!("File Manager", "Unable to read file", format!("File: {}, Err: {}", video_info_path.display(), err)))?;
         let video_info: VideoInfo = toml::from_str(&toml_str).unwrap_or_default();
@@ -445,55 +474,57 @@ impl FileManager {
             Some("mkv") => "matroskamux",
             _ => "mp4mux",
         };
-        let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, saved_path);
+        let pipeline_string = format!("multifilesrc location={:?} index=1 caps=image/png,framerate=(fraction){} ! pngdec ! videoconvert ! {} ! {} \
+            ! filesink location={:?}", frame_folder.join("%010d.png"), video_info.framerate, encoder, muxer, saved_path);
         let pipeline = gstreamer::parse::launch(&pipeline_string)
             .map_err(|err| error_entry!("File Manager", "Unable to create instance", format!("Err: {err}")))?;
         let bus = pipeline.bus().ok_or(error_entry!("File Manager", "Unable to create instance"))?;
         pipeline.set_state(gstreamer::State::Playing)
             .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
-        for message in bus.iter_timed(gstreamer::ClockTime::NONE) {
-            match message.view() {
-                gstreamer::MessageView::Eos(..) => break,
-                gstreamer::MessageView::Error(_) => {
-                    pipeline.set_state(gstreamer::State::Null)
-                        .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
-                    return if let Some(source) = message.src() {
-                        let err = source.path_string();
-                        Err(error_entry!("File Manager", "GStreamer internal error", format!("Err: {err}")))
-                    } else {
-                        Err(error_entry!("File Manager", "GStreamer internal error"))
-                    };
-                }
-                _ => {}
+        let polling_interval = gstreamer::ClockTime::from_mseconds(config.polling_interval);
+        let result = loop {
+            if cancel_flag.load(Ordering::Relaxed) {
+                break Err(information_entry!("File Manager", "Operation cancelled"));
             }
-        }
+            if let Some(message) = bus.timed_pop(polling_interval) {
+                match message.view() {
+                    gstreamer::MessageView::Eos(..) => break Ok(()),
+                    gstreamer::MessageView::Error(err) => break Err(error_entry!("File Manager", format!("GStreamer internal error: {}", err.error()))),
+                    _ => {}
+                }
+            }
+        };
         pipeline.set_state(gstreamer::State::Null)
             .map_err(|err| error_entry!("File Manager", "Unable to set pipeline status", format!("Err: {err}")))?;
-        Ok(())
+        result
     }
 
     async fn zip_post_processing(mut task: Task) {
         let target_path = Path::new(".").join("PostProcessing").join(task.media_filename.clone());
         let create_folder = target_path.with_extension("");
-        if let Err(entry) = Self::recombination_pre_processing(&mut task, &create_folder).await {
+        if let Err(entry) = Self::prepare_post_processing(&mut task, &create_folder).await {
             task.panic(entry.message.clone()).await;
             logging_entry!(entry);
             return;
         }
+        let cancel_flag = Self::instance().await.cancel_flag.clone();
         let result = spawn_blocking(move || {
-            Self::recombination_zip(create_folder, target_path)
+            Self::recombination_zip(create_folder, target_path, cancel_flag)
         }).await;
-        Self::process_recombination_result(task, result).await;
+        Self::handle_post_process_result(task, result).await;
     }
 
-    fn recombination_zip(source_folder: PathBuf, target_path: PathBuf) -> Result<(), LogEntry> {
+    fn recombination_zip(source_folder: PathBuf, target_path: PathBuf, cancel_flag: Arc<AtomicBool>) -> Result<(), LogEntry> {
         let file = File::create(&target_path)
             .map_err(|err| error_entry!("File Manager", "Unable to create file", format!("File: {}, Err: {}", target_path.display(), err)))?;
         let mut zip = ZipWriter::new(file);
-        let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
         for entry in std::fs::read_dir(&source_folder)
             .map_err(|err| error_entry!("File Manager", "Unable to read folder", format!("Folder: {}, Err: {}", source_folder.display(), err)))?
         {
+            if cancel_flag.load(Ordering::Relaxed) {
+                return Err(information_entry!("File Manager", "Operation cancelled"));
+            }
             let entry = entry.map_err(|err|
                 error_entry!("File Manager", "An error occurred while reading the folder", format!("Folder: {}, Err: {}", source_folder.display(), err)))?;
             let path = entry.path();
@@ -513,7 +544,7 @@ impl FileManager {
         Ok(())
     }
 
-    async fn process_recombination_result(task: Task, result: Result<Result<(), LogEntry>, JoinError>) {
+    async fn handle_post_process_result(task: Task, result: Result<Result<(), LogEntry>, JoinError>) {
         match result {
             Ok(Ok(_)) => Self::forward_to_repository(task).await,
             Ok(Err(entry)) => {

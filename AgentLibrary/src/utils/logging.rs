@@ -34,15 +34,19 @@ impl Logger {
 
     pub async fn add_system_log<T: Into<String>, U: Into<String>, V: Into<String>>(level: LogLevel, position: T, message: U, debug_info: V) {
         let log_entry = LogEntry::new(level, position, message, debug_info);
-        println!("{log_entry}");
+        Self::logging_console(log_entry.clone());
         let mut logger = Self::instance_mut().await;
         logger.system_log.push_back(log_entry);
     }
 
     pub async fn add_system_log_entry(log_entry: LogEntry) {
+        Self::logging_console(log_entry.clone());
         let mut logger = Self::instance_mut().await;
-        println!("{log_entry}");
         logger.system_log.push_back(log_entry);
+    }
+
+    pub fn logging_console(log_entry: LogEntry) {
+        println!("{}", log_entry.to_colored_string());
     }
 
     pub async fn get_system_logs() -> VecDeque<LogEntry> {
