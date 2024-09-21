@@ -1,8 +1,8 @@
-use std::fs;
-use tokio::sync::RwLock;
-use std::net::ToSocketAddrs;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::net::ToSocketAddrs;
+use tokio::sync::RwLock;
 
 lazy_static! {
     static ref CONFIG: RwLock<Config> = RwLock::new(Config::new());
@@ -19,11 +19,11 @@ pub struct Config {
     pub internal_timestamp: u64,
     pub management_address: String,
     pub management_port: u16,
+    pub refresh_interval: u64,
     pub polling_interval: u64,
     pub control_channel_timeout: u64,
     pub data_channel_timeout: u64,
     pub file_transfer_timeout: u64,
-    pub confidence_threshold: f64,
 }
 
 impl Config {
@@ -50,9 +50,10 @@ impl Config {
         Config::validate_mini_second(config.internal_timestamp)
             && Config::validate_full_address(&config.management_address, config.management_port)
             && Config::validate_second(config.control_channel_timeout)
+            && Config::validate_mini_second(config.refresh_interval)
+            && Config::validate_second(config.polling_interval)
             && Config::validate_second(config.data_channel_timeout)
             && Config::validate_second(config.file_transfer_timeout)
-            && Config::validate_confidence(config.confidence_threshold)
     }
 
     fn validate_mini_second(second: u64) -> bool {
@@ -65,9 +66,5 @@ impl Config {
 
     fn validate_full_address(address: &str, port: u16) -> bool {
         format!("{}:{}", address, port).to_socket_addrs().is_ok()
-    }
-
-    fn validate_confidence(confidence_threshold: f64) -> bool {
-        !confidence_threshold.is_nan() && confidence_threshold >= 0.0 && confidence_threshold <= 1.0
     }
 }

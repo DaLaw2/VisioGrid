@@ -1,5 +1,6 @@
 [Config]
-split_mode = "Frame" # video split mode
+#split_mode = { mode = "frame" } # video split mode
+split_mode = { mode = "time", segment_duration_secs = 60 } # video split mode
 internal_timestamp = 10 # milliseconds
 agent_listen_port = 9090 # port
 http_server_bind_port = 8080 # port
@@ -11,8 +12,3 @@ agent_idle_duration = 5 # seconds
 control_channel_timeout = 15 # seconds
 data_channel_timeout = 15 # seconds
 file_transfer_timeout = 15 # seconds
-font_path = "./font.ttf" # path
-font_size = 15 # pixels
-border_width = 2 # pixels
-border_color = [255, 0, 0] # RGB
-text_color = [0, 0, 255] # RGB

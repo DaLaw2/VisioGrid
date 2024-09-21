@@ -1,19 +1,18 @@
-use serde::{Serialize, Deserialize};
-use crate::management::utils::bounding_box::BoundingBox;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskResult {
-    pub result: Result<Vec<BoundingBox>, String>,
+    pub status: Result<(), String>,
 }
 
 impl TaskResult {
-    pub fn new(result: Result<Vec<BoundingBox>, String>) -> Self {
+    pub fn new(result: Result<(), String>) -> Self {
         Self {
-            result,
+            status: result,
         }
     }
 
-    pub fn into(self) -> Result<Vec<BoundingBox>, String> {
-        self.result
+    pub fn into(self) -> Result<(), String> {
+        self.status
     }
 }

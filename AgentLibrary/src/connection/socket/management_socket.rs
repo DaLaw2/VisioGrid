@@ -1,7 +1,7 @@
+use crate::connection::socket::socket_stream::SocketStream;
+use crate::utils::config::Config;
 use std::net::SocketAddr;
 use tokio::net::TcpStream;
-use crate::utils::config::Config;
-use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct ManagementSocket;
 

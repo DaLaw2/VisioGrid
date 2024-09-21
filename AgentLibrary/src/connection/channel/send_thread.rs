@@ -1,9 +1,9 @@
+use crate::connection::packet::Packet;
+use crate::connection::socket::socket_stream::WriteHalf;
+use crate::utils::logging::*;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use crate::utils::logging::*;
-use crate::connection::packet::Packet;
-use crate::connection::socket::socket_stream::WriteHalf;
 
 type SenderRX = mpsc::UnboundedReceiver<Box<dyn Packet + Send>>;
 
@@ -30,12 +30,12 @@ impl SendThread {
                     match packet {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                logging_notice!("Send Thread", "Management side disconnected");
+                                logging_information!(NetworkEntry::ManagementDisconnect);
                                 break;
                             }
                         },
                         None => {
-                            logging_notice!("Send Thread", "Channel has been closed");
+                            logging_information!(NetworkEntry::ChannelClosed);
                             break;
                         },
                     }

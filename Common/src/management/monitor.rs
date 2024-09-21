@@ -1,12 +1,13 @@
-use sysinfo::System;
-use tokio::time::sleep;
-use std::process::Command;
+use crate::management::utils::agent_information::AgentInformation;
+use crate::management::utils::performance::Performance;
+use crate::utils::log_entry::system::SystemEntry;
+use crate::utils::logging::*;
 use lazy_static::lazy_static;
+use std::process::Command;
+use sysinfo::System;
 use tokio::process::Command as AsyncCommand;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::utils::logging::*;
-use crate::management::utils::performance::Performance;
-use crate::management::utils::agent_information::AgentInformation;
+use tokio::time::sleep;
 
 lazy_static! {
     static ref MONITOR: RwLock<Monitor> = RwLock::new(Monitor::new());
@@ -39,7 +40,7 @@ impl Monitor {
         tokio::spawn(async {
             Self::update_performance().await;
         });
-        logging_console!(information_entry!("Monitor", "Online now"));
+        logging_console!(information_entry!(SystemEntry::Online));
     }
 
     pub async fn terminate() {
@@ -48,17 +49,31 @@ impl Monitor {
 
     fn system_info() -> AgentInformation {
         let sys = System::new_all();
+        let host_name = System::host_name().expect("Fail to get system information.");
+        let os_name = if cfg!(target_os = "windows") {
+            let long_os_version = System::long_os_version().expect("Fail to get system information.");
+            let kernel_version = System::kernel_version().expect("Fail to get system information.");
+            format!("{} build {}", long_os_version, kernel_version)
+        } else if cfg!(target_os = "linux") {
+            let long_os_version = System::long_os_version().expect("Fail to get system information.");
+            let kernel_version = System::kernel_version().expect("Fail to get system information.");
+            format!("{} {}", long_os_version, kernel_version)
+        } else {
+            System::long_os_version().expect("Fail to get system information.")
+        };
         let cpu = sys.cpus().get(0).map(|cpu| cpu.brand())
-            .expect("Monitor: Fail to get system information.")
+            .expect("Fail to get system information.")
             .to_string();
-        let gpu = Self::get_gpu_name().expect("Monitor: Fail to get system information.");
-        let vram = Self::get_vram_total().expect("Monitor: Fail to get system information.") as f64;
+        let cores = sys.physical_core_count().expect("Fail to get system information.");
+        let ram = sys.total_memory() as f64;
+        let gpu = Self::get_gpu_name().expect("Fail to get system information.");
+        let vram = Self::get_vram_total().expect("Fail to get system information.") as f64;
         AgentInformation {
-            host_name: System::host_name().expect("Monitor: Fail to get system information."),
-            system_name: System::name().expect("Monitor: Fail to get system information."),
+            host_name,
+            os_name,
             cpu,
-            cores: sys.physical_core_count().expect("Monitor: Fail to get system information."),
-            ram: sys.total_memory() as f64,
+            cores,
+            ram,
             gpu,
             vram,
         }
@@ -69,7 +84,7 @@ impl Monitor {
             .arg("--query-gpu=name")
             .arg("--format=csv,noheader")
             .output()
-            .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
+            .map_err(|_| "Fail to get gpu information.".to_string())?;
         let gpu_name = String::from_utf8_lossy(&gpu_name.stdout).trim().to_string();
         Ok(gpu_name)
     }
@@ -79,10 +94,10 @@ impl Monitor {
             .arg("--query-gpu=memory.total")
             .arg("--format=csv,noheader,nounits")
             .output()
-            .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
+            .map_err(|_| "Fail to get gpu information.".to_string())?;
         let vram_total = String::from_utf8_lossy(&vram_total.stdout).trim().to_string()
             .parse::<u64>()
-            .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
+            .map_err(|_| "Fail to parse gpu information.".to_string())?;
         Ok(vram_total * 1_048_576_u64)
     }
 
@@ -92,10 +107,10 @@ impl Monitor {
             .arg("--format=csv,noheader,nounits")
             .output()
             .await
-            .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
+            .map_err(|_| "Fail to get gpu information.".to_string())?;
         let gpu_usage = String::from_utf8_lossy(&gpu_usage.stdout).trim().to_string()
             .parse::<u64>()
-            .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
+            .map_err(|_| "Fail to parse gpu information.".to_string())?;
         Ok(gpu_usage)
     }
 
@@ -105,10 +120,10 @@ impl Monitor {
             .arg("--format=csv,noheader,nounits")
             .output()
             .await
-            .map_err(|_| "Monitor: Fail to get gpu information.".to_string())?;
+            .map_err(|_| "Fail to get gpu information.".to_string())?;
         let vram_used = String::from_utf8_lossy(&vram_used.stdout).trim().to_string()
             .parse::<u64>()
-            .map_err(|_| "Monitor: Fail to parse gpu information.".to_string())?;
+            .map_err(|_| "Fail to parse gpu information.".to_string())?;
         Ok(vram_used * 1_048_576_u64)
     }
 

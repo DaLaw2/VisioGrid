@@ -1,11 +1,11 @@
-use serde_json;
-use uuid::Uuid;
-use actix::prelude::*;
-use std::time::Duration;
-use actix_web_actors::ws;
-use crate::utils::config::Config;
-use crate::management::monitor::Monitor;
 use crate::management::agent_manager::AgentManager;
+use crate::management::monitor::Monitor;
+use crate::utils::config::Config;
+use actix::prelude::*;
+use actix_web_actors::ws;
+use serde_json;
+use std::time::Duration;
+use uuid::Uuid;
 
 pub struct PerformanceWebSocket {
     pub target_type: String,

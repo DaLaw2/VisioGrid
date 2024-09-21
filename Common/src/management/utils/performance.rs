@@ -1,7 +1,7 @@
-use std::fmt::Display;
-use serde::{Serialize, Deserialize};
-use crate::management::utils::format::format_bytes;
 use crate::management::utils::agent_information::AgentInformation;
+use crate::management::utils::format::format_bytes;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Performance {

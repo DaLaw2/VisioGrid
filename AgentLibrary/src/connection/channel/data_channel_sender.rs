@@ -1,11 +1,11 @@
-use tokio::sync::{mpsc, oneshot};
-use crate::utils::logging::*;
+use crate::connection::channel::send_thread::SendThread;
 use crate::connection::packet::Packet;
 use crate::connection::socket::socket_stream::WriteHalf;
-use crate::connection::channel::send_thread::SendThread;
+use crate::utils::logging::*;
+use tokio::sync::{mpsc, oneshot};
 
-pub type SenderTX = mpsc::UnboundedSender<Box<dyn Packet+Send>>;
-pub type SenderRX = mpsc::UnboundedReceiver<Box<dyn Packet+Send>>;
+pub type SenderTX = mpsc::UnboundedSender<Box<dyn Packet + Send>>;
+pub type SenderRX = mpsc::UnboundedReceiver<Box<dyn Packet + Send>>;
 
 pub struct DataChannelSender {
     sender_tx: SenderTX,
@@ -29,20 +29,18 @@ impl DataChannelSender {
     pub async fn disconnect(&mut self) {
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                if stop_signal.send(()).is_ok() {
-                    logging_information!("Data Channel", "Successfully destroyed the Sender")
-                } else {
-                    logging_error!("Data Channel", "Failed to destroy Sender")
+                if stop_signal.send(()).is_err() {
+                    logging_error!(NetworkEntry::DestroyInstanceError);
                 }
-            },
-            None => logging_error!("Data Channel", "Failed to destroy Sender"),
+            }
+            None => logging_error!(NetworkEntry::DestroyInstanceError),
         }
     }
 
     pub async fn send<T: Packet + Send + 'static>(&mut self, packet: T) {
         let packet: Box<dyn Packet + Send + 'static> = Box::new(packet);
         if self.sender_tx.send(packet).is_err() {
-            logging_notice!("Data Channel", "Channel has been closed");
+            logging_information!(NetworkEntry::ChannelClosed);
         }
     }
 }

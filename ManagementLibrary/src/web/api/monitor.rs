@@ -1,10 +1,10 @@
-use uuid::Uuid;
-use actix_web_actors::ws::start;
-use actix_web::{get, HttpResponse, Error};
-use actix_web::{HttpRequest, Responder, Scope, web};
-use crate::management::monitor::Monitor;
 use crate::management::agent_manager::AgentManager;
+use crate::management::monitor::Monitor;
 use crate::web::utils::performance_websocket::PerformanceWebSocket;
+use actix_web::{get, Error, HttpResponse};
+use actix_web::{web, HttpRequest, Responder, Scope};
+use actix_web_actors::ws::start;
+use uuid::Uuid;
 
 pub fn initialize() -> Scope {
     web::scope("/monitor")
@@ -17,10 +17,7 @@ pub fn initialize() -> Scope {
 #[get("/get/agent_list")]
 async fn get_agent_list() -> impl Responder {
     let agents = AgentManager::get_agents_uuid().await;
-    match serde_json::to_string(&agents) {
-        Ok(json) => HttpResponse::Ok().json(web::Json(json)),
-        Err(_) => HttpResponse::InternalServerError().finish(),
-    }
+    HttpResponse::Ok().json(web::Json(agents))
 }
 
 #[get("/get/information/{target}")]
@@ -28,20 +25,12 @@ async fn get_information(target: web::Path<String>) -> impl Responder {
     let target = target.into_inner();
     if target == "system" {
         let system_information = Monitor::get_system_info().await;
-        match serde_json::to_string(&system_information) {
-            Ok(json) => HttpResponse::Ok().json(web::Json(json)),
-            Err(_) => HttpResponse::InternalServerError().finish(),
-        }
+        HttpResponse::Ok().json(web::Json(system_information))
     } else {
         match Uuid::parse_str(&target) {
             Ok(agent_id) => {
                 match AgentManager::get_agent_information(agent_id).await {
-                    Some(agent_information) => {
-                        match serde_json::to_string(&agent_information) {
-                            Ok(json) => HttpResponse::Ok().json(web::Json(json)),
-                            Err(_) => HttpResponse::InternalServerError().finish(),
-                        }
-                    },
+                    Some(agent_information) => HttpResponse::Ok().json(web::Json(agent_information)),
                     None => HttpResponse::NotFound().finish(),
                 }
             },
@@ -55,20 +44,12 @@ async fn get_performance(target: web::Path<String>) -> impl Responder {
     let target = target.into_inner();
     if target == "system" {
         let system_performance = Monitor::get_performance().await;
-        match serde_json::to_string(&system_performance) {
-            Ok(json) => HttpResponse::Ok().json(web::Json(json)),
-            Err(_) => HttpResponse::InternalServerError().finish(),
-        }
+        HttpResponse::Ok().json(web::Json(system_performance))
     } else {
         match Uuid::parse_str(&target) {
             Ok(agent_id) => {
                 match AgentManager::get_agent_performance(agent_id).await {
-                    Some(agent_performance) => {
-                        match serde_json::to_string(&agent_performance) {
-                            Ok(json) => HttpResponse::Ok().json(web::Json(json)),
-                            Err(_) => HttpResponse::InternalServerError().finish(),
-                        }
-                    },
+                    Some(agent_performance) => HttpResponse::Ok().json(web::Json(agent_performance)),
                     None => HttpResponse::NotFound().finish(),
                 }
             },

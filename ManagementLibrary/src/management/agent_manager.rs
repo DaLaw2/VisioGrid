@@ -1,17 +1,17 @@
-use uuid::Uuid;
-use std::sync::Arc;
-use std::cmp::Ordering;
-use std::time::Duration;
-use lazy_static::lazy_static;
-use std::collections::HashMap;
+use crate::management::agent::Agent;
+use crate::management::utils::agent_information::AgentInformation;
+use crate::management::utils::performance::Performance;
+use crate::utils::config::Config;
+use crate::utils::logging::*;
 use chrono::{DateTime, Local};
 use futures::stream::{self, StreamExt};
+use lazy_static::lazy_static;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::management::utils::agent_information::AgentInformation;
-use crate::utils::logging::*;
-use crate::utils::config::Config;
-use crate::management::agent::Agent;
-use crate::management::utils::performance::Performance;
+use uuid::Uuid;
 
 lazy_static! {
     static ref AGENT_MANAGER: RwLock<AgentManager> = RwLock::new(AgentManager::new());
@@ -60,14 +60,16 @@ impl AgentManager {
 
     pub async fn add_agent(agent: Agent) {
         let agent_id = agent.uuid();
+        let information = agent.agent_information();
         let performance = agent.realtime_usage();
         let mut agent_manager = Self::instance_mut().await;
         if agent_manager.agents.contains_key(&agent_id) {
-            logging_error!("Agent Manager", "Agent instance already exists");
+            logging_error!(SystemEntry::AgentExistError);
             return;
         }
         let agent = Arc::new(RwLock::new(agent));
         agent_manager.agents.insert(agent_id, agent.clone());
+        agent_manager.information.insert(agent_id, information);
         agent_manager.performance.insert(agent_id, (performance, Local::now()));
         agent_manager.size += 1;
         drop(agent_manager);
@@ -81,6 +83,12 @@ impl AgentManager {
             agent_manager.size -= 1;
         }
         agent
+    }
+
+    pub async fn get_agent_unused_ram(uuid: Uuid) -> Option<f64> {
+        let agent = Self::get_agent(uuid).await?;
+        let ram = agent.read().await.idle_unused().ram;
+        Some(ram)
     }
 
     pub async fn sorted_by_vram() -> Vec<(Uuid, f64)> {
@@ -129,7 +137,7 @@ impl AgentManager {
     }
 
     async fn refresh_performance(uuid: Uuid) -> Option<Performance> {
-        let agent = AgentManager::get_agent(uuid).await?;
+        let agent = Self::get_agent(uuid).await?;
         let performance = agent.read().await.realtime_usage();
         let mut agent_manager = Self::instance_mut().await;
         agent_manager.performance.insert(uuid, (performance, Local::now()));

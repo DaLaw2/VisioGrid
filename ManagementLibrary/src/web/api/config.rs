@@ -1,18 +1,10 @@
-use actix_web::{get, post, web, Responder, HttpResponse, Scope};
 use crate::utils::config::Config;
-use crate::utils::static_files::StaticFiles;
+use actix_web::{get, post, web, HttpResponse, Responder, Scope};
 
 pub fn initialize() -> Scope {
     web::scope("/config")
-        .service(page)
         .service(get_config)
         .service(update_config)
-}
-
-#[get("")]
-async fn page() -> impl Responder {
-    let html = StaticFiles::get("html/config.html").expect("File not found in static files.").data;
-    HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 #[get("/get")]

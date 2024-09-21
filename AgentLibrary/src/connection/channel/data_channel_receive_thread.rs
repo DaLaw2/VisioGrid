@@ -1,10 +1,10 @@
-use tokio::select;
-use tokio::sync::oneshot;
-use crate::utils::logging::*;
+use crate::connection::channel::data_channel_receiver::ReceiverTX;
 use crate::connection::packet::Packet;
 use crate::connection::packet::PacketType;
 use crate::connection::socket::socket_stream::ReadHalf;
-use crate::connection::channel::data_channel_receiver::ReceiverTX;
+use crate::utils::logging::*;
+use tokio::select;
+use tokio::sync::oneshot;
 
 pub struct ReceiveThread {
     socket_rx: ReadHalf,
@@ -31,22 +31,24 @@ impl ReceiveThread {
                         let result = match packet_type {
                             PacketType::AlivePacket => self.receiver_tx.alive_packet.send(packet),
                             PacketType::FileBodyPacket => self.receiver_tx.file_body_packet.send(packet),
+                            PacketType::FileHeaderAckPacket => self.receiver_tx.file_header_ack_packet.send(packet),
                             PacketType::FileHeaderPacket => self.receiver_tx.file_header_packet.send(packet),
                             PacketType::FileTransferEndPacket => self.receiver_tx.file_transfer_end_packet.send(packet),
-                            PacketType::ResultAcknowledgePacket => self.receiver_tx.result_acknowledge_packet.send(packet),
+                            PacketType::FileTransferResultPacket => self.receiver_tx.file_transfer_result_packet.send(packet),
                             PacketType::StillProcessPacket => self.receiver_tx.still_process_packet.send(packet),
                             PacketType::TaskInfoPacket => self.receiver_tx.task_info_packet.send(packet),
+                            PacketType::TaskResultAckPacket => self.receiver_tx.task_result_ack_packet.send(packet),
                             _ => {
-                                logging_warning!("Receive Thread", "Receive unexpected packet");
+                                logging_warning!(NetworkEntry::UnexpectedPacket);
                                 Ok(())
                             },
                         };
                         if result.is_err() {
-                            logging_notice!("Receive Thread", "Channel has been closed");
+                            logging_information!(NetworkEntry::ChannelClosed);
                             break;
                         }
                     } else {
-                        logging_notice!("Receive Thread", "Management side disconnected");
+                        logging_information!(NetworkEntry::ManagementDisconnect);
                         break;
                     }
                 },
