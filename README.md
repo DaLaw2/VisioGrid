@@ -1,37 +1,91 @@
 # VisioGrid
 
+## Table of Contents
+- [Project Introduction](#project-introduction)
+- [Main Features](#main-features)
+- [Tech Stack](#tech-stack)
+- [Installation and Running](#installation-and-running)
+- [Usage](#usage)
+
 ## Project Introduction
-VisioGrid is a distributed computing platform developed with Rust, focusing on image recognition. This project aims to establish an efficient distributed system for processing large-scale image data. By parallel processing tasks in a multi-agent environment, VisioGrid improves the efficiency and speed of image processing.
+VisioGrid is a heterogeneous distributed computing platform developed in Rust, focusing on image recognition. The project aims to establish an efficient distributed system for large-scale image recognition processing. By parallel processing tasks in a multi-agent environment, VisioGrid enhances the efficiency and speed of image recognition.
 
 ## Main Features
-- **Agent Communication**: Implements stable communication between agents using TcpStream.
-- **Agent Monitoring**: Real-time monitoring of each agent to ensure stable operation.
-- **Task and File Transfer**: Efficient transmission of task information and files.
-- **Image Recognition**: Supports a variety of image recognition models.
+- **High Efficiency**: Thanks to Tokio's asynchronous runtime and efficient I/O processing, VisioGrid can quickly handle large amounts of image data.
+- **Stability**: Through real-time monitoring of agents and proactive error handling, the system runs stably, avoiding program crashes.
+- **Image Recognition**: Supports multiple image recognition models, flexibly adapting to different application scenarios.
 
-## Technology Stack
-- **Rust**: Fully leverages the high performance and safety features of Rust.
-- **Actix Web**: Provides a user-friendly web management interface.
-- **tokio**: Uses Tokio's asynchronous runtime for performance optimization.
-- **tch-rs**: Performs deep learning model inference using Torch's Rust bindings.
-- **GStreamer**: Used for handling media streams and media content.
+## Tech Stack
+- **Rust**: Fully utilizes Rust's high performance and safety features to ensure efficient system operation.
+- **Actix Web**: Provides a user-friendly web management interface for easy system management and monitoring.
+- **Tokio**: Uses Tokio's asynchronous runtime for performance optimization, improving I/O processing efficiency.
+- **GStreamer**: Used for handling media streams and content, supporting efficient processing of multimedia data.
+- **Ultralytics**: Integrates Ultralytics for image recognition, supporting multiple advanced image recognition models.
 
-## Installation and Configuration
-- Clone the repository: `git clone https://github.com/DaLaw2/VisioGrid`
-- From source code compilation:
-    - Compile the management node (Management) requires installing GStreamer: `cargo build --release --package Management`
-    - Compile the agent (Agent) requires installing LibTorch: `cargo build --release --package Agent`
-- Running with Docker:
-    - The Docker containers for the management node (Management) and agent (Agent) include all necessary dependencies, no manual installation required.
+## Installation and Running
 
-## How to Use
-- Compile from source code or use Docker containers to run the management node and agents according to your needs.
-- When running with Docker containers, the build and run commands are as follows:
-    - Build the management node container: `docker build -t management-image ./Docker/Management`
-    - Run the management node container: `docker run management-image`
-    - Build the agent container: `docker build -t agent-image ./Docker/Agent`
-    - Run the agent container: `docker run agent-image`
-- Containers run without the need for any commands, automatically configuring based on initial settings.
+### Compile from Source Code
+1. **Clone the Repository**
+    ```bash
+    git clone https://github.com/DaLaw2/VisioGrid
+    cd VisioGrid
+    ```
+2. **Compile the Project**
+- Compile the Management Node:
+  ```bash
+  bash Build/ManagementDepend.sh
+  cargo build --release --package Management
+  ```
+- Compile the Agent Node:
+  ```bash
+  bash Build/AgentDepend.sh
+  cargo build --release --package Agent
+  ```
+3. **Run the Nodes**
+- Run the Management Node:
+  ```bash
+  cargo run --package Management --release
+  ```
+- Run the Agent Node:
+  ```bash
+  cargo run --package Agent --release
+  ```
 
-## Error Handling and Security
-- Proactively handles all errors and enhances system stability and security through logging.
+### Using Docker
+VisioGrid provides Docker containers that include all necessary dependencies, eliminating the need for manual installation.
+1. **Build the Management Node Container**
+    ```bash
+    docker build -t management-image Docker/Management
+    ```
+2. **Run the Management Node Container**
+    ```bash
+    docker run -d --name management management-image
+    ```
+3. **Build the Agent Container**
+    ```bash
+    docker build -t agent-image Docker/Agent
+    ```
+4. **Run the Agent Container**
+    ```bash
+    docker run -d --name agent agent-image
+    ```
+
+## Usage
+Access `http://localhost:8080` via a web browser to view the management interface. The management interface provides system monitoring and management functions, allowing users to view system status, add agent nodes, check task progress, etc.
+- The Home page provides an overview of the system, including system information, system load, and system logs.
+
+  ![Image Description](GitHub/Home.png)
+- The Agents page displays all connected agent nodes. Clicking on an agent reveals more detailed information.
+
+  ![Image Description](GitHub/Agents-1.png)
+  ![Image Description](GitHub/Agents-2.png)
+- The Inference page allows you to create a new inference task. After selecting a model and image, you can submit it.
+
+  ![Image Description](GitHub/Inference.png)
+- The Tasks page lists all tasks that are in progress, successful, or failed. You can view the execution status of each subtask.
+
+  ![Image Description](GitHub/Task-1.png)
+  ![Image Description](GitHub/Task-2.png)
+- The Configuration page provides system configuration options, allowing users to modify system settings.
+
+  ![Image Description](GitHub/Config.png)

@@ -1,47 +1,52 @@
-use uuid::Uuid;
-use tokio::sync::oneshot;
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use crate::utils::logging::*;
+use crate::connection::channel::data_channel_receive_thread::ReceiveThread;
 use crate::connection::packet::base_packet::BasePacket;
 use crate::connection::socket::socket_stream::ReadHalf;
-use crate::connection::channel::data_channel_receive_thread::ReceiveThread;
+use crate::utils::create_unbounded_channels;
+use crate::utils::logging::*;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::oneshot;
+use uuid::Uuid;
 
 pub struct ReceiverTX {
-    pub alive_acknowledge_packet: UnboundedSender<BasePacket>,
-    pub file_header_acknowledge_packet: UnboundedSender<BasePacket>,
+    pub alive_ack_packet: UnboundedSender<BasePacket>,
+    pub file_body_packet: UnboundedSender<BasePacket>,
+    pub file_header_ack_packet: UnboundedSender<BasePacket>,
+    pub file_header_packet: UnboundedSender<BasePacket>,
+    pub file_transfer_end_packet: UnboundedSender<BasePacket>,
     pub file_transfer_result_packet: UnboundedSender<BasePacket>,
-    pub result_packet: UnboundedSender<BasePacket>,
-    pub still_process_acknowledge_packet: UnboundedSender<BasePacket>,
-    pub task_info_acknowledge_packet: UnboundedSender<BasePacket>,
+    pub still_process_ack_packet: UnboundedSender<BasePacket>,
+    pub task_info_ack_packet: UnboundedSender<BasePacket>,
+    pub task_result_packet: UnboundedSender<BasePacket>,
 }
 
 pub struct DataChannelReceiver {
     agent_id: Uuid,
     stop_signal_tx: Option<oneshot::Sender<()>>,
-    pub alive_acknowledge_packet: UnboundedReceiver<BasePacket>,
-    pub file_header_acknowledge_packet: UnboundedReceiver<BasePacket>,
+    pub alive_ack_packet: UnboundedReceiver<BasePacket>,
+    pub file_body_packet: UnboundedReceiver<BasePacket>,
+    pub file_header_ack_packet: UnboundedReceiver<BasePacket>,
+    pub file_header_packet: UnboundedReceiver<BasePacket>,
+    pub file_transfer_end_packet: UnboundedReceiver<BasePacket>,
     pub file_transfer_result_packet: UnboundedReceiver<BasePacket>,
-    pub result_packet: UnboundedReceiver<BasePacket>,
-    pub still_process_acknowledge_packet: UnboundedReceiver<BasePacket>,
-    pub task_info_acknowledge_packet: UnboundedReceiver<BasePacket>,
+    pub still_process_ack_packet: UnboundedReceiver<BasePacket>,
+    pub task_info_ack_packet: UnboundedReceiver<BasePacket>,
+    pub task_result_packet: UnboundedReceiver<BasePacket>,
 }
 
 impl DataChannelReceiver {
     pub fn new(agent_id: Uuid, socket_rx: ReadHalf) -> Self {
+        create_unbounded_channels!(9);
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
-        let (alive_acknowledge_packet_tx, alive_acknowledge_packet_rx) = mpsc::unbounded_channel();
-        let (file_header_acknowledge_packet_tx, file_header_acknowledge_packet_rx) = mpsc::unbounded_channel();
-        let (file_transfer_acknowledge_packet_tx, file_transfer_acknowledge_packet_rx) = mpsc::unbounded_channel();
-        let (result_packet_tx, result_packet_rx) = mpsc::unbounded_channel();
-        let (still_process_acknowledge_packet_tx, still_process_acknowledge_packet_rx) = mpsc::unbounded_channel();
-        let (task_info_acknowledge_packet_tx, task_info_acknowledge_packet_rx) = mpsc::unbounded_channel();
         let receiver_tx = ReceiverTX {
-            alive_acknowledge_packet: alive_acknowledge_packet_tx,
-            file_header_acknowledge_packet: file_header_acknowledge_packet_tx,
-            file_transfer_result_packet: file_transfer_acknowledge_packet_tx,
-            result_packet: result_packet_tx,
-            still_process_acknowledge_packet: still_process_acknowledge_packet_tx,
-            task_info_acknowledge_packet: task_info_acknowledge_packet_tx,
+            alive_ack_packet: channel_0_tx,
+            file_body_packet: channel_1_tx,
+            file_header_ack_packet: channel_2_tx,
+            file_header_packet: channel_3_tx,
+            file_transfer_end_packet: channel_4_tx,
+            file_transfer_result_packet: channel_5_tx,
+            still_process_ack_packet: channel_6_tx,
+            task_info_ack_packet: channel_7_tx,
+            task_result_packet: channel_8_tx,
         };
         let mut receive_thread = ReceiveThread::new(agent_id, socket_rx, receiver_tx, stop_signal_rx);
         tokio::spawn(async move {
@@ -50,31 +55,35 @@ impl DataChannelReceiver {
         Self {
             agent_id,
             stop_signal_tx: Some(stop_signal_tx),
-            alive_acknowledge_packet: alive_acknowledge_packet_rx,
-            file_header_acknowledge_packet: file_header_acknowledge_packet_rx,
-            file_transfer_result_packet: file_transfer_acknowledge_packet_rx,
-            result_packet: result_packet_rx,
-            still_process_acknowledge_packet: still_process_acknowledge_packet_rx,
-            task_info_acknowledge_packet: task_info_acknowledge_packet_rx,
+            alive_ack_packet: channel_0_rx,
+            file_body_packet: channel_1_rx,
+            file_header_ack_packet: channel_2_rx,
+            file_header_packet: channel_3_rx,
+            file_transfer_end_packet: channel_4_rx,
+            file_transfer_result_packet: channel_5_rx,
+            still_process_ack_packet: channel_6_rx,
+            task_info_ack_packet: channel_7_rx,
+            task_result_packet: channel_8_rx,
         }
     }
 
     pub async fn disconnect(&mut self) {
-        self.alive_acknowledge_packet.close();
-        self.file_header_acknowledge_packet.close();
+        self.alive_ack_packet.close();
+        self.file_body_packet.close();
+        self.file_header_ack_packet.close();
+        self.file_header_packet.close();
+        self.file_transfer_end_packet.close();
         self.file_transfer_result_packet.close();
-        self.result_packet.close();
-        self.still_process_acknowledge_packet.close();
-        self.task_info_acknowledge_packet.close();
+        self.still_process_ack_packet.close();
+        self.task_info_ack_packet.close();
+        self.task_result_packet.close();
         match self.stop_signal_tx.take() {
             Some(stop_signal) => {
-                if stop_signal.send(()).is_ok() {
-                    logging_information!(self.agent_id, "Data Channel", "Successfully destroyed the Receiver", "");
-                } else {
-                    logging_error!(self.agent_id, "Data Channel", "Failed to destroy Receiver", "");
+                if stop_signal.send(()).is_err() {
+                    logging_error!(self.agent_id, NetworkEntry::DestroyInstanceError, "");
                 }
-            },
-            None => logging_error!(self.agent_id, "Data Channel", "Failed to destroy Receiver", ""),
+            }
+            None => logging_error!(self.agent_id, NetworkEntry::DestroyInstanceError, ""),
         }
     }
 }

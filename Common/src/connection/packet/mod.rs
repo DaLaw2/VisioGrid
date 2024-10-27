@@ -1,4 +1,9 @@
 pub mod base_packet;
+pub mod file_body_packet;
+pub mod file_header_ack_packet;
+pub mod file_header_packet;
+pub mod file_transfer_end_packet;
+pub mod file_transfer_result_packet;
 
 pub trait Packet: Send {
     fn as_length_byte(&self) -> &[u8];
@@ -15,26 +20,26 @@ pub trait Packet: Send {
 #[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub enum PacketType {
     BasePacket,
-    AgentInformationPacket,
-    AgentInformationAcknowledgePacket,
+    AgentInfoPacket,
+    AgentInfoAckPacket,
     AlivePacket,
-    AliveAcknowledgePacket,
+    AliveAckPacket,
     ControlPacket,
-    ControlAcknowledgePacket,
+    ControlAckPacket,
     DataChannelPortPacket,
     FileBodyPacket,
     FileHeaderPacket,
-    FileHeaderAcknowledgePacket,
+    FileHeaderAckPacket,
     FileTransferResultPacket,
     FileTransferEndPacket,
     PerformancePacket,
-    PerformanceAcknowledgePacket,
-    ResultPacket,
-    ResultAcknowledgePacket,
+    PerformanceAckPacket,
+    TaskResultPacket,
+    TaskResultAckPacket,
     StillProcessPacket,
-    StillProcessAcknowledgePacket,
+    StillProcessAckPacket,
     TaskInfoPacket,
-    TaskInfoAcknowledgePacket,
+    TaskInfoAckPacket,
 }
 
 impl PacketType {
@@ -48,26 +53,26 @@ impl PacketType {
         byte_array.copy_from_slice(&byte);
         let id = usize::from_be_bytes(byte_array);
         match id {
-            1 => PacketType::AgentInformationPacket,
-            2 => PacketType::AgentInformationAcknowledgePacket,
+            1 => PacketType::AgentInfoPacket,
+            2 => PacketType::AgentInfoAckPacket,
             3 => PacketType::AlivePacket,
-            4 => PacketType::AliveAcknowledgePacket,
+            4 => PacketType::AliveAckPacket,
             5 => PacketType::ControlPacket,
-            6 => PacketType::ControlAcknowledgePacket,
+            6 => PacketType::ControlAckPacket,
             7 => PacketType::DataChannelPortPacket,
             8 => PacketType::FileBodyPacket,
             9 => PacketType::FileHeaderPacket,
-            10 => PacketType::FileHeaderAcknowledgePacket,
+            10 => PacketType::FileHeaderAckPacket,
             11 => PacketType::FileTransferResultPacket,
             12 => PacketType::FileTransferEndPacket,
             13 => PacketType::PerformancePacket,
-            14 => PacketType::PerformanceAcknowledgePacket,
-            15 => PacketType::ResultPacket,
-            16 => PacketType::ResultAcknowledgePacket,
+            14 => PacketType::PerformanceAckPacket,
+            15 => PacketType::TaskResultPacket,
+            16 => PacketType::TaskResultAckPacket,
             17 => PacketType::StillProcessPacket,
-            18 => PacketType::StillProcessAcknowledgePacket,
+            18 => PacketType::StillProcessAckPacket,
             19 => PacketType::TaskInfoPacket,
-            20 => PacketType::TaskInfoAcknowledgePacket,
+            20 => PacketType::TaskInfoAckPacket,
             _ => PacketType::BasePacket,
         }
     }

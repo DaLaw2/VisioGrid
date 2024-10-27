@@ -1,9 +1,9 @@
 [Config]
-internal_timestamp = 10
-management_address = "127.0.0.1"
-management_port = 9090
-polling_interval = 50
-control_channel_timeout = 15
-data_channel_timeout = 15
-file_transfer_timeout = 15
-confidence_threshold = 0.5
+internal_timestamp = 10 # milliseconds
+management_address = "192.168.4.2" # IP address
+management_port = 9090 # port
+refresh_interval = 5 # seconds
+polling_interval = 50 # milliseconds
+control_channel_timeout = 15 # seconds
+data_channel_timeout = 15 # seconds
+file_transfer_timeout = 15 # seconds

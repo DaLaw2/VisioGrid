@@ -1,12 +1,8 @@
 Feature:
-1. Improve user interface
 2. Upgrade Tcp connection to tls connection.
 3. Consider handing over the video encoding/decoding work to a dedicated Agent.
 4. Add support for docker and Kubernetes.
 Enhancements:
-1. Supports transmitting video clips to Agent to reduce communication costs
 2. Allow config modifications to be applied globally without affecting performance.
 Bug fixes:
 1. Failure to bind the port during system initialization will result in the program not being terminated normally.
-3. Windows Media Player does not recognize videos reassembled by Gstreamer.
-4. It was found that the inference script had a problem of not being able to find files.

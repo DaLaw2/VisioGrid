@@ -1,10 +1,10 @@
-use uuid::Uuid;
+use crate::connection::packet::Packet;
+use crate::connection::socket::socket_stream::WriteHalf;
+use crate::utils::logging::*;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use crate::utils::logging::*;
-use crate::connection::packet::Packet;
-use crate::connection::socket::socket_stream::WriteHalf;
+use uuid::Uuid;
 
 type SenderRX = mpsc::UnboundedReceiver<Box<dyn Packet + Send>>;
 
@@ -33,12 +33,12 @@ impl SendThread {
                     match packet {
                         Some(packet) => {
                             if self.socket_tx.send_packet(packet).await.is_err() {
-                                logging_notice!(self.agent_id, "Send Thread", "Agent side disconnected", "");
+                                logging_information!(self.agent_id, NetworkEntry::AgentDisconnect, "");
                                 break;
                             }
                         },
                         None => {
-                            logging_notice!(self.agent_id, "Send Thread", "Channel has been closed", "");
+                            logging_information!(self.agent_id, NetworkEntry::ChannelClosed, "");
                             break;
                         },
                     }

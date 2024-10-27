@@ -1,17 +1,22 @@
-use std::fs;
-use tokio::sync::RwLock;
+use crate::utils::logging::*;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use crate::utils::logging::*;
+use std::fs;
+use tokio::sync::RwLock as AsyncRwLock;
+use std::sync::RwLock as SyncRwLock;
 
 lazy_static! {
-    static ref CONFIG: RwLock<Config> = RwLock::new(Config::new());
+    static ref ASYNC_CONFIG: AsyncRwLock<Config> = AsyncRwLock::new(Config::new());
+    static ref SYNC_CONFIG: SyncRwLock<Config> = SyncRwLock::new(Config::new());
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "mode", rename_all = "lowercase")]
 pub enum SplitMode {
     Frame,
-    Segment,
+    Time {
+        segment_duration_secs: u64, //seconds
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,52 +39,46 @@ pub struct Config {
     pub control_channel_timeout: u64, //seconds
     pub data_channel_timeout: u64, //seconds
     pub file_transfer_timeout: u64, //seconds
-    pub font_path: String, //path
-    pub font_size: f32, //points
-    pub border_width: u32, //pixels
-    pub border_color: [u8; 3], //RGB
-    pub text_color: [u8; 3], //RGB
 }
 
 impl Config {
     pub fn new() -> Self {
-        logging_console!(information_entry!("Config", "Fetch configuration file"));
         let config = match fs::read_to_string("./management.toml") {
             Ok(toml_string) => {
                 match toml::from_str::<ConfigTable>(&toml_string) {
                     Ok(config_table) => {
                         let config = config_table.config;
                         if !Self::validate(&config) {
-                            logging_console!(emergency_entry!("Config", "Invalid configuration file"));
-                            panic!("Invalid configuration file");
+                            logging_console!(emergency_entry!(SystemEntry::InvalidConfig));
+                            panic!("{}", SystemEntry::InvalidConfig.to_string());
                         }
                         config
                     },
-                    Err(err) => {
-                        logging_console!(emergency_entry!("Config", "Unable to parse configuration file", format!("Err: {err}")));
-                        panic!("Unable to parse configuration file");
+                    Err(_) => {
+                        logging_console!(emergency_entry!(SystemEntry::InvalidConfig));
+                        panic!("{}", SystemEntry::InvalidConfig.to_string());
                     },
                 }
             },
-            Err(err) => {
-                logging_console!(emergency_entry!("Config", "Configuration file not found", format!("Err: {err}")));
-                panic!("Configuration file not found");
+            Err(_) => {
+                logging_console!(emergency_entry!(SystemEntry::ConfigNotFound));
+                panic!("{}", SystemEntry::ConfigNotFound.to_string());
             },
         };
-        logging_console!(information_entry!("Config", "Configuration loaded successfully"));
         config
     }
 
     pub async fn now() -> Config {
-        CONFIG.read().await.clone()
+        ASYNC_CONFIG.read().await.clone()
     }
 
     pub fn now_blocking() -> Config {
-        CONFIG.blocking_read().clone()
+        SYNC_CONFIG.read().unwrap().clone()
     }
 
     pub async fn update(config: Config) {
-        *CONFIG.write().await = config
+        *SYNC_CONFIG.write().unwrap() = config.clone();
+        *ASYNC_CONFIG.write().await = config;
     }
 
     pub fn validate(config: &Config) -> bool {
@@ -92,8 +91,6 @@ impl Config {
             && Config::validate_second(config.control_channel_timeout)
             && Config::validate_second(config.data_channel_timeout)
             && Config::validate_second(config.file_transfer_timeout)
-            && Config::validate_font_size(config.font_size)
-            && Config::validate_border_width(config.border_width)
     }
 
     fn validate_mini_second(second: u64) -> bool {
@@ -110,13 +107,5 @@ impl Config {
             _ => (0_u16, 0_u16),
         };
         end > start
-    }
-
-    fn validate_border_width(width: u32) -> bool {
-        width > 0_u32
-    }
-
-    fn validate_font_size(size: f32) -> bool {
-        size > 0_f32
     }
 }

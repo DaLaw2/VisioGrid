@@ -1,9 +1,9 @@
+use serde::Serialize;
+use crate::management::utils::inference_argument::InferenceArgument;
+use crate::management::utils::inference_task::InferenceTask;
 use uuid::Uuid;
-use crate::management::utils::image_task::ImageTask;
-use crate::management::utils::model_type::ModelType;
-use crate::management::result_repository::ResultRepository;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Debug, Copy, Clone)]
 pub enum TaskStatus {
     Waiting,
     PreProcessing,
@@ -13,47 +13,33 @@ pub enum TaskStatus {
     Fail,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Task {
     pub uuid: Uuid,
     pub status: TaskStatus,
     pub failed: usize,
     pub success: usize,
     pub unprocessed: usize,
+    pub model_file_name: String,
+    pub media_file_name: String,
+    pub inference_argument: InferenceArgument,
+    pub result: Vec<InferenceTask>,
     pub error: Result<(), String>,
-    pub model_filename: String,
-    pub media_filename: String,
-    pub model_type: ModelType,
-    pub result: Vec<ImageTask>,
 }
 
 impl Task {
-    pub async fn new(uuid: Uuid, model_filename: String, media_filename: String, model_type: ModelType) -> Self {
+    pub async fn new(uuid: Uuid, model_file_name: String, media_file_name: String, inference_argument: InferenceArgument) -> Self {
         Self {
             uuid,
             status: TaskStatus::Waiting,
             failed: 0_usize,
             success: 0_usize,
             unprocessed: 0_usize,
-            error: Ok(()),
-            model_filename,
-            media_filename,
-            model_type,
+            model_file_name,
+            media_file_name,
+            inference_argument,
             result: Vec::new(),
+            error: Ok(()),
         }
-    }
-
-    pub fn change_status(&mut self, status: TaskStatus) {
-        self.status = status;
-    }
-
-    pub async fn panic(mut self, error_message: String) {
-        self.status = TaskStatus::Fail;
-        self.error = Err(error_message);
-        ResultRepository::task_failed(self).await;
-    }
-
-    pub async fn update_unprocessed(&mut self, unprocessed: usize) {
-        self.unprocessed = unprocessed;
     }
 }

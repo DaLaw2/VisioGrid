@@ -1,10 +1,10 @@
-use tokio::time::sleep;
-use std::time::Duration;
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use crate::utils::logging::*;
-use crate::utils::config::Config;
 use crate::connection::socket::socket_stream::SocketStream;
+use crate::utils::config::Config;
+use crate::utils::logging::*;
+use std::net::SocketAddr;
+use std::time::Duration;
+use tokio::net::TcpListener;
+use tokio::time::sleep;
 
 pub struct AgentSocket {
     listener: TcpListener,
@@ -18,7 +18,7 @@ impl AgentSocket {
             match TcpListener::bind(format!("0.0.0.0:{port}")).await {
                 Ok(listener) => break listener,
                 Err(err) => {
-                    logging_critical!("Agent Socket", "Failed to bind port", format!("Err: {err}"));
+                    logging_critical!(NetworkEntry::BindPortError(err));
                     sleep(Duration::from_secs(config.bind_retry_duration)).await;
                 },
             }

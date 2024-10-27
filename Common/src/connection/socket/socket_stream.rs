@@ -1,9 +1,9 @@
+use crate::connection::packet::base_packet::BasePacket;
+use crate::connection::packet::Packet;
 use std::io;
-use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use crate::connection::packet::Packet;
-use crate::connection::packet::base_packet::BasePacket;
+use tokio::net::TcpStream;
 
 pub struct SocketStream {
     read_half: ReadHalf,

@@ -1,4 +1,4 @@
-pub mod image_task;
+pub mod inference_task;
 pub mod task;
 pub mod video_info;
 

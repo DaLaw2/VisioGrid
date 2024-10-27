@@ -6,11 +6,11 @@ pub mod data_channel_receiver;
 pub mod data_channel_sender;
 pub mod send_thread;
 
-use crate::connection::socket::socket_stream::SocketStream;
-use crate::connection::channel::data_channel_sender::DataChannelSender;
-use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
-use crate::connection::channel::control_channel_sender::ControlChannelSender;
 use crate::connection::channel::control_channel_receiver::ControlChannelReceiver;
+use crate::connection::channel::control_channel_sender::ControlChannelSender;
+use crate::connection::channel::data_channel_receiver::DataChannelReceiver;
+use crate::connection::channel::data_channel_sender::DataChannelSender;
+use crate::connection::socket::socket_stream::SocketStream;
 
 pub struct ControlChannel;
 
