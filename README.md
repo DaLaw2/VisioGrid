@@ -24,50 +24,85 @@ VisioGrid is a heterogeneous distributed computing platform developed in Rust, f
 
 ## Installation and Running
 
+### System Requirements
+- **Nvidia GPU**: This program can only run on machines equipped with Nvidia GPUs.
+
 ### Compile from Source Code
+
+#### Management Node
 1. **Clone the Repository**
     ```bash
     git clone https://github.com/DaLaw2/VisioGrid
     cd VisioGrid
     ```
-2. **Compile the Project**
-- Compile the Management Node:
-  ```bash
-  bash Build/ManagementDepend.sh
-  cargo build --release --package Management
-  ```
-- Compile the Agent Node:
-  ```bash
-  bash Build/AgentDepend.sh
-  cargo build --release --package Agent
-  ```
-3. **Run the Nodes**
-- Run the Management Node:
-  ```bash
-  cargo run --package Management --release
-  ```
-- Run the Agent Node:
-  ```bash
-  cargo run --package Agent --release
-  ```
+2. **Install Required Packages**
+    ```bash
+    bash Build/ManagementDepend.sh
+    ```
+3. **Compile the Project**
+    ```bash
+    cargo build --release --package Management
+    ```
+4. **Edit Configuration File**
+    ```bash
+    vim management.toml
+    ```
+5. **Run the Node**
+    ```bash
+    cargo run --package Management --release
+    ```
+
+#### Agent Node
+
+1. **Clone the Repository**
+    ```bash
+    git clone https://github.com/DaLaw2/VisioGrid
+    cd VisioGrid
+    ```
+2. **Install Required Packages**
+    ```bash
+    bash Build/AgentDepend.sh
+    ```
+3. **Activate Virtual Environment and Install Dependencies**
+    ```bash
+    python3 -m venv AgentVenv
+    source AgentVenv/bin/activate
+    pip3 install -r Build/requirements.txt
+    ```
+4. **Compile the Project**
+    ```bash
+    cargo build --release --package Management
+    ```
+5. **Edit Configuration File**
+    ```bash
+    vim agent.toml
+    ```
+6. **Run the Node**
+    ```bash
+    cargo run --package Agent --release
+    ```
 
 ### Using Docker
 VisioGrid provides Docker containers that include all necessary dependencies, eliminating the need for manual installation.
-1. **Build the Management Node Container**
+1. **Create Docker Network** 
     ```bash
-    docker build -t management-image Docker/Management
+    docker network create VisioGrid
     ```
-2. **Run the Management Node Container**
+2. **Build the Management Node Container**
     ```bash
-    docker run -d --name management management-image
+    docker build -t management -f Build/ManagementDockerfile
     ```
-3. **Build the Agent Container**
+3. **Run the Management Node Container**
     ```bash
-    docker build -t agent-image Docker/Agent
+    docker run -d --rm --gpus all --network VisioGrid -p 8080:8080 management
     ```
-4. **Run the Agent Container**
+4. **Build the Agent Container**
     ```bash
-    docker run -d --name agent agent-image
+    docker build -t agent -f Build/AgentDockerfile
+    ```
+5. **Run the Agent Container**
+    ```bash
+    docker run -d --rm --gpus all --network VisioGrid agent
     ```
 
 ## Usage

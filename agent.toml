@@ -1,6 +1,6 @@
 [Config]
 internal_timestamp = 10 # milliseconds
-management_address = "192.168.4.2" # IP address
+management_address = "127.0.0.1" # IP address
 management_port = 9090 # port
 refresh_interval = 5 # seconds
 polling_interval = 50 # milliseconds

@@ -1,0 +1,21 @@
+FROM nvidia/cuda:12.6.2-base-ubuntu24.04
+
+ENV TZ=Asia/Taipei
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN apt update && \
+    apt install -y git curl build-essential libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
+    gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 \
+    gstreamer1.0-pulseaudio
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN git clone https://github.com/DaLaw2/VisioGrid.git --depth 1
+RUN cd VisioGrid && cargo build --package Management --release
+
+COPY InitializeManagement.sh /InitializeManagement.sh
+
+CMD cd VisioGrid && bash /InitializeManagement.sh && cargo run --package Management --release

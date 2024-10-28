@@ -1,1 +1,7 @@
 ffmpeg-python==0.2.0
+torch
+torchvision
+torchaudio
+ffmpeg==1.4
+ultralytics
+lapx==0.5.11

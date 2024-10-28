@@ -24,50 +24,86 @@ VisioGrid 是一個使用 Rust 開發的異質性分布式計算平台，專注�
 
 ## 安裝與運行
 
+#### 系統要求
+- **Nvidia GPU**：本程序僅能在配備 Nvidia GPU 的機器上運行。
+
 ### 從源代碼編譯
+
+#### 管理節點
+1. **克隆倉庫**
+   ```bash
+    git clone https://github.com/DaLaw2/VisioGrid
+    cd VisioGrid
+   ```
+2. **安裝所需套件**
+   ```bash
+    bash Build/ManagementDepend.sh
+   ```
+3. **編譯專案**
+   ```bash
+    cargo build --release --package Management
+   ```
+4. **編輯配置文件**
+   ```bash
+   vim management.toml
+   ```
+
+5. **運行節點**
+    ```bash
+    cargo run --package Management --release
+    ```
+
+#### 代理節點
 1. **克隆倉庫**
     ```bash
     git clone https://github.com/DaLaw2/VisioGrid
     cd VisioGrid
     ```
-2. **編譯專案**
-- 編譯管理節點：
-  ```bash
-  bash Build/ManagementDepend.sh
-  cargo build --release --package Management
-  ```
-- 編譯代理節點：
-  ```bash
-  bash Build/AgentDepend.sh
-  cargo build --release --package Agent
-  ```
-3. **運行節點**
-- 運行管理節點：
-  ```bash
-  cargo run --package Management --release
-  ```
-- 運行代理節點：
-  ```bash
-  cargo run --package Agent --release
-  ```
+2. **安裝所需套件**
+   ```bash
+   bash Build/AgentDepend.sh
+   ```
+3. **啟動虛擬環境並安裝依賴**
+   ```bash
+   python3 -m venv AgentVenv
+   source AgentVenv/bin/activate
+   pip3 install -r Build/requirements.txt
+   ```
+4. **編譯專案**
+   ```bash
+   cargo build --release --package Management
+   ```
+5. **編輯配置文件**
+    ```bash
+   vim agent.toml
+   ```
+
+6. **運行節點**
+    ```bash
+    cargo run --package Agent --release
+    ```
 
 ### 使用 Docker
 VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝。
-1. **構建管理節點容器**
+1. **創建 Docker 網路**
     ```bash
-    docker build -t management-image Docker/Management
+    docker network create VisioGrid
     ```
-2. **運行管理節點容器**
+2. **構建管理節點容器**
     ```bash
-    docker run -d --name management management-image
+    docker build -t management -f Build/ManagementDockerfile
     ```
-3. **構建代理容器**
+3. **運行管理節點容器**
     ```bash
-    docker build -t agent-image Docker/Agent
+    docker run -d --rm --gpus all --network VisioGrid -p 8080:8080 management
     ```
-4. **運行代理容器**
+4. **構建代理容器**
     ```bash
-    docker run -d --name agent agent-image
+    docker build -t agent -f Build/AgentDockerfile
+    ```
+5. **運行代理容器**
+    ```bash
+    docker run -d --rm --gpus all --network VisioGrid agent
     ```
 
 ## 使用方法
