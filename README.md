@@ -94,7 +94,7 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
     ```
 3. **Run the Management Node Container**
     ```bash
-    docker run -d --rm --gpus all --network VisioGrid -p 8080:8080 management
+    docker run -it --rm --gpus all --network VisioGrid -p 8080:8080 management
     ```
 4. **Build the Agent Container**
     ```bash
@@ -102,7 +102,7 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
     ```
 5. **Run the Agent Container**
     ```bash
-    docker run -d --rm --gpus all --network VisioGrid agent
+    docker run -it --rm --gpus all --network VisioGrid agent
     ```
 
 ## Usage

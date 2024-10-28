@@ -95,7 +95,7 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
     ```
 3. **運行管理節點容器**
     ```bash
-    docker run -d --rm --gpus all --network VisioGrid -p 8080:8080 management
+    docker run -it --rm --gpus all --network VisioGrid -p 8080:8080 management
     ```
 4. **構建代理容器**
     ```bash
@@ -103,7 +103,7 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
     ```
 5. **運行代理容器**
     ```bash
-    docker run -d --rm --gpus all --network VisioGrid agent
+    docker run -it --rm --gpus all --network VisioGrid agent
     ```
 
 ## 使用方法
