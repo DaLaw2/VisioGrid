@@ -90,7 +90,8 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
     ```
 2. **Build the Management Node Container**
     ```bash
-    docker build -t management -f Build/ManagementDockerfile
+    cd Build
+    docker build -t management -f ManagementDockerfile
     ```
 3. **Run the Management Node Container**
     ```bash
@@ -98,7 +99,8 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
     ```
 4. **Build the Agent Container**
     ```bash
-    docker build -t agent -f Build/AgentDockerfile
+    cd Build
+    docker build -t agent -f AgentDockerfile
     ```
 5. **Run the Agent Container**
     ```bash

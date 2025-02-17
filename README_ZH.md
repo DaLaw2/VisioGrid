@@ -91,7 +91,8 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
     ```
 2. **構建管理節點容器**
     ```bash
-    docker build -t management -f Build/ManagementDockerfile
+    cd Build
+    docker build -t management -f ManagementDockerfile
     ```
 3. **運行管理節點容器**
     ```bash
@@ -99,7 +100,8 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
     ```
 4. **構建代理容器**
     ```bash
-    docker build -t agent -f Build/AgentDockerfile
+    cd Build
+    docker build -t agent -f AgentDockerfile
     ```
 5. **運行代理容器**
     ```bash
