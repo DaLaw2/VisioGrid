@@ -37,11 +37,11 @@ VisioGrid is a heterogeneous distributed computing platform developed in Rust, f
     ```
 2. **Install Required Packages**
     ```bash
-    bash Build/ManagementDepend.sh
+    bash build/ManagementDepend.sh
     ```
 3. **Compile the Project**
     ```bash
-    cargo build --release --package Management
+    cargo build --release --package management
     ```
 4. **Edit Configuration File**
     ```bash
@@ -49,7 +49,7 @@ VisioGrid is a heterogeneous distributed computing platform developed in Rust, f
     ```
 5. **Run the Node**
     ```bash
-    cargo run --package Management --release
+    cargo run --package management --release
     ```
 
 #### Agent Node
@@ -61,17 +61,17 @@ VisioGrid is a heterogeneous distributed computing platform developed in Rust, f
     ```
 2. **Install Required Packages**
     ```bash
-    bash Build/AgentDepend.sh
+    bash build/AgentDepend.sh
     ```
 3. **Activate Virtual Environment and Install Dependencies**
     ```bash
     python3 -m venv AgentVenv
     source AgentVenv/bin/activate
-    pip3 install -r Build/requirements.txt
+    pip3 install -r build/requirements.txt
     ```
 4. **Compile the Project**
     ```bash
-    cargo build --release --package Management
+    cargo build --release --package management
     ```
 5. **Edit Configuration File**
     ```bash
@@ -79,7 +79,7 @@ VisioGrid is a heterogeneous distributed computing platform developed in Rust, f
     ```
 6. **Run the Node**
     ```bash
-    cargo run --package Agent --release
+    cargo run --package agent --release
     ```
 
 ### Using Docker
@@ -90,7 +90,7 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
     ```
 2. **Build the Management Node Container**
     ```bash
-    cd Build
+    cd build
     docker build -t management -f ManagementDockerfile
     ```
 3. **Run the Management Node Container**
@@ -99,7 +99,7 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
     ```
 4. **Build the Agent Container**
     ```bash
-    cd Build
+    cd build
     docker build -t agent -f AgentDockerfile
     ```
 5. **Run the Agent Container**
@@ -111,18 +111,18 @@ VisioGrid provides Docker containers that include all necessary dependencies, el
 Access `http://localhost:8080` via a web browser to view the management interface. The management interface provides system monitoring and management functions, allowing users to view system status, add agent nodes, check task progress, etc.
 - The Home page provides an overview of the system, including system information, system load, and system logs.
 
-  ![Image Description](GitHub/Home.png)
+  ![Image Description](github/Home.png)
 - The Agents page displays all connected agent nodes. Clicking on an agent reveals more detailed information.
 
-  ![Image Description](GitHub/Agents-1.png)
-  ![Image Description](GitHub/Agents-2.png)
+  ![Image Description](github/Agents-1.png)
+  ![Image Description](github/Agents-2.png)
 - The Inference page allows you to create a new inference task. After selecting a model and image, you can submit it.
 
-  ![Image Description](GitHub/Inference.png)
+  ![Image Description](github/Inference.png)
 - The Tasks page lists all tasks that are in progress, successful, or failed. You can view the execution status of each subtask.
 
-  ![Image Description](GitHub/Task-1.png)
-  ![Image Description](GitHub/Task-2.png)
+  ![Image Description](github/Task-1.png)
+  ![Image Description](github/Task-2.png)
 - The Configuration page provides system configuration options, allowing users to modify system settings.
 
-  ![Image Description](GitHub/Config.png)
+  ![Image Description](github/Config.png)

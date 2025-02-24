@@ -3,94 +3,6 @@
 version = 4
 
 [[package]]
-name = "Agent"
-version = "1.1.0"
-dependencies = [
- "AgentLibrary",
- "tokio",
-]
-
-[[package]]
-name = "AgentLibrary"
-version = "1.1.0"
-dependencies = [
- "Common",
- "Macro",
- "async-ctrlc",
- "lazy_static",
- "serde",
- "serde_json",
- "tokio",
- "toml",
- "uuid",
-]
-
-[[package]]
-name = "Common"
-version = "1.1.0"
-dependencies = [
- "Macro",
- "chrono",
- "colored",
- "glib",
- "gstreamer",
- "lazy_static",
- "rust-embed",
- "serde",
- "serde_json",
- "sysinfo",
- "thiserror",
- "tokio",
- "toml",
- "uuid",
-]
-
-[[package]]
-name = "Macro"
-version = "1.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "Management"
-version = "1.1.0"
-dependencies = [
- "ManagementLibrary",
- "actix-web",
-]
-
-[[package]]
-name = "ManagementLibrary"
-version = "1.1.0"
-dependencies = [
- "Common",
- "Macro",
- "actix",
- "actix-cors",
- "actix-files",
- "actix-multipart",
- "actix-web",
- "actix-web-actors",
- "chrono",
- "futures",
- "gstreamer",
- "gstreamer-pbutils",
- "lazy_static",
- "mime_guess",
- "sanitize-filename",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "toml",
- "uuid",
- "zip",
-]
-
-[[package]]
 name = "actix"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -430,6 +342,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "agent"
+version = "1.1.0"
+dependencies = [
+ "async-ctrlc",
+ "common",
+ "lazy_static",
+ "macro",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "uuid",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -681,6 +608,26 @@ checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
 dependencies = [
  "lazy_static",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "common"
+version = "1.1.0"
+dependencies = [
+ "chrono",
+ "colored",
+ "glib",
+ "gstreamer",
+ "lazy_static",
+ "macro",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "thiserror",
+ "tokio",
+ "toml",
+ "uuid",
 ]
 
 [[package]]
@@ -1539,6 +1486,43 @@ checksum = "297e814c836ae64db86b36cf2a557ba54368d03f6afcd7d947c266692f71115e"
 dependencies = [
  "byteorder",
  "crc",
+]
+
+[[package]]
+name = "macro"
+version = "1.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "management"
+version = "1.1.0"
+dependencies = [
+ "actix",
+ "actix-cors",
+ "actix-files",
+ "actix-multipart",
+ "actix-web",
+ "actix-web-actors",
+ "chrono",
+ "common",
+ "futures",
+ "gstreamer",
+ "gstreamer-pbutils",
+ "lazy_static",
+ "macro",
+ "mime_guess",
+ "sanitize-filename",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "toml",
+ "uuid",
+ "zip",
 ]
 
 [[package]]

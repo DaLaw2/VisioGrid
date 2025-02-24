@@ -1,5 +1,5 @@
 [workspace]
-members = ["Management", "ManagementLibrary", "Agent", "AgentLibrary", "Common", "Macro"]
+members = ["management", "agent", "common", "macro"]
 resolver = "2"
 
 [profile.release]

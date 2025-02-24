@@ -37,11 +37,11 @@ VisioGrid 是一個使用 Rust 開發的異質性分布式計算平台，專注�
    ```
 2. **安裝所需套件**
    ```bash
-    bash Build/ManagementDepend.sh
+    bash build/ManagementDepend.sh
    ```
 3. **編譯專案**
    ```bash
-    cargo build --release --package Management
+    cargo build --release --package management
    ```
 4. **編輯配置文件**
    ```bash
@@ -50,7 +50,7 @@ VisioGrid 是一個使用 Rust 開發的異質性分布式計算平台，專注�
 
 5. **運行節點**
     ```bash
-    cargo run --package Management --release
+    cargo run --package management --release
     ```
 
 #### 代理節點
@@ -61,17 +61,17 @@ VisioGrid 是一個使用 Rust 開發的異質性分布式計算平台，專注�
     ```
 2. **安裝所需套件**
    ```bash
-   bash Build/AgentDepend.sh
+   bash build/AgentDepend.sh
    ```
 3. **啟動虛擬環境並安裝依賴**
    ```bash
    python3 -m venv AgentVenv
    source AgentVenv/bin/activate
-   pip3 install -r Build/requirements.txt
+   pip3 install -r build/requirements.txt
    ```
 4. **編譯專案**
    ```bash
-   cargo build --release --package Management
+   cargo build --release --package management
    ```
 5. **編輯配置文件**
     ```bash
@@ -80,7 +80,7 @@ VisioGrid 是一個使用 Rust 開發的異質性分布式計算平台，專注�
 
 6. **運行節點**
     ```bash
-    cargo run --package Agent --release
+    cargo run --package agent --release
     ```
 
 ### 使用 Docker
@@ -91,7 +91,7 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
     ```
 2. **構建管理節點容器**
     ```bash
-    cd Build
+    cd build
     docker build -t management -f ManagementDockerfile
     ```
 3. **運行管理節點容器**
@@ -100,7 +100,7 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
     ```
 4. **構建代理容器**
     ```bash
-    cd Build
+    cd build
     docker build -t agent -f AgentDockerfile
     ```
 5. **運行代理容器**
@@ -112,18 +112,18 @@ VisioGrid 提供包含所有必要依賴的 Docker 容器，無需手動安裝�
 通過瀏覽器訪問 `http://localhost:8080`，可以查看管理介面。管理介面提供了系統的監控和管理功能，用戶可以查看系統狀態、添加代理節點、查看任務進度等。
 - 首頁提供了系統的總體情況，包括了系統資訊、系統負載、系統日誌。
   
-  ![圖片描述](GitHub/Home.png)
+  ![圖片描述](github/Home.png)
 - 代理頁面顯示了所有連接的代理節點，點選代理可以看到更詳細的資訊。
 
-  ![圖片描述](GitHub/Agents-1.png)
-  ![圖片描述](GitHub/Agents-2.png)
+  ![圖片描述](github/Agents-1.png)
+  ![圖片描述](github/Agents-2.png)
 - 推理頁面可以創建一個新的推理任務，選擇模型和影像後即可提交。
   
-  ![圖片描述](GitHub/Inference.png)
+  ![圖片描述](github/Inference.png)
 - 任務頁面列出了所有正在處理、成功、失敗的任務，可以查看每一個子任務執行的情況。
   
-  ![圖片描述](GitHub/Task-1.png)
-  ![圖片描述](GitHub/Task-2.png)
+  ![圖片描述](github/Task-1.png)
+  ![圖片描述](github/Task-2.png)
 - 配置頁面提供了系統的配置選項，用戶可以修改系統的配置。
   
-  ![圖片描述](GitHub/Config.png)
+  ![圖片描述](github/Config.png)
