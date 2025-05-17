@@ -1,8 +1,0 @@
-Feature:
-2. Upgrade Tcp connection to tls connection.
-3. Consider handing over the video encoding/decoding work to a dedicated Agent.
-4. Add support for docker and Kubernetes.
-Enhancements:
-2. Allow config modifications to be applied globally without affecting performance.
-Bug fixes:
-1. Failure to bind the port during system initialization will result in the program not being terminated normally.
