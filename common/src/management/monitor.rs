@@ -64,7 +64,7 @@ impl Monitor {
         let cpu = sys.cpus().get(0).map(|cpu| cpu.brand())
             .expect("Fail to get system information.")
             .to_string();
-        let cores = sys.physical_core_count().expect("Fail to get system information.");
+        let cores = System::physical_core_count().expect("Fail to get system information.");
         let ram = sys.total_memory() as f64;
         let gpu = Self::get_gpu_name().expect("Fail to get system information.");
         let vram = Self::get_vram_total().expect("Fail to get system information.") as f64;

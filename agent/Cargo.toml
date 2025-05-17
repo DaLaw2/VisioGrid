@@ -6,12 +6,12 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-toml = "0.8.19"
+toml = "0.8.22"
 async-ctrlc = "1.2.0"
 lazy_static = "1.5.0"
-serde_json = "1.0.132"
+serde_json = "1.0.140"
 macro = { path = "../macro" }
 common = { path = "../common" }
-uuid = { version = "1.11.0", features = ["v4"] }
-tokio = { version = "1.41.0", features = ["full"] }
-serde = { version = "1.0.213", features = ["derive"] }
+uuid = { version = "1.16.0", features = ["v4"] }
+tokio = { version = "1.45.0", features = ["full"] }
+serde = { version = "1.0.219", features = ["derive"] }
